@@ -1,0 +1,16 @@
+{
+  "name": "bigstart-plugins",
+  "owner": {
+    "name": "BigStartByXuyb"
+  },
+  "metadata": {
+    "description": "BigStart team plugins for Claude Code and Codex."
+  },
+  "plugins": [
+    {
+      "name": "mastergo-wpf-transcoder",
+      "source": ".",
+      "description": "MasterGo design to MW WPF and MTSLG IOContorl conversion rules, component mappings, provenance checks, and coordinate validation."
+    }
+  ]
+}
