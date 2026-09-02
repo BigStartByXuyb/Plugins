@@ -1,0 +1,21 @@
+{
+  "name": "bigstart-plugins",
+  "interface": {
+    "displayName": "BigStart Plugins"
+  },
+  "plugins": [
+    {
+      "name": "mastergo-wpf-transcoder",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/BigStartByXuyb/Plugins.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
