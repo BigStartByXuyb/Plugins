@@ -1,0 +1,206 @@
+{
+  "_meta": {
+    "source": "{source_root}/docs/Windows_setting/MT3.0 界面设计器.xml（目标项目提供的权威文档）",
+    "note": [
+      "官方标签拼写为 IOContorl（无字母 e），全部控件统一用该标签，由 ControlType 属性区分。",
+      "通用属性对所有控件有效：ID / ControlType / IOEnable / IOVisible / Height / Width / Margin / Left / Top / Style。",
+      "LangName 几乎所有控件可用（多语言键，CN/EN 成对，须命中键白名单）。",
+      "geometryAttrs 由生成器按 DSL bbox 计算直传，禁止从映射输入覆盖；businessAttrs 从映射 JSON 逐节点透传，生成器不校验内容（键校验交给 mtslg-keys.json 白名单）。",
+      "容器类控件（nested=true）可包含子 IOContorl；子控件坐标相对父容器左上角。"
+    ]
+  },
+  "commonAttrs": ["ID", "ControlType", "IOEnable", "IOVisible", "Height", "Width", "Margin", "Left", "Top", "Style"],
+  "geometryAttrs": ["Left", "Top", "Width", "Height"],
+  "businessAttrs": [
+    "IOName", "IOCommand", "IOParam", "IOState", "IOStyle", "IOGroup",
+    "PageName", "ParameterName", "Value", "Header", "LangName",
+    "IsAutoRead", "IsAutoWrite", "IsAutoRefresh", "IsWriteIO", "IsSave",
+    "IsShowDialog", "DialogMessage", "IsShowStatus", "IsNeedRedMark",
+    "Icon", "IconHeight", "IconWidth", "IconColor", "IconText", "TopLeftContent",
+    "StatusBrush", "Foreground", "FontSize", "Orientation",
+    "ItemsSourceFile", "DisplayMemberPath", "SelectedValuePath", "Filter",
+    "DefaultValue", "MinValue", "MaxValue", "MinRange", "MaxRange",
+    "DecimalPlaces", "Keypad", "MaxLength", "DisableRow",
+    "DesignPanelID", "IOSetExposure", "IsImagePix", "IsExpendPanel",
+    "IsCrossingLineSolid", "IsCrossingLineHorizontal", "IsCrossingLineVertical",
+    "IsCrossingMove", "ScalingType", "IsRightMenu", "IsMoveZToFocus", "IsLiveImage",
+    "IsCenterRec", "CenterRecWidth", "CenterRecHeight",
+    "IsBaseLine", "IsHorizontal", "IsVertical", "IsBaseLineHeight",
+    "IsAutoFocus", "IsSwicthMode", "IsLightControl", "IsChangeMode", "YReverse",
+    "LeftCameraName", "RightCameraName", "LeftUpVisibility", "RightUpVisibility", "RightDownVisibility",
+    "IOAxisName", "AxisType", "AxisMin", "AxisMax", "ImageMin", "ImageMax",
+    "RotatePointX", "RotatePointY", "Index"
+  ],
+  "roleMap": {
+    "button": "Button",
+    "iconbutton": "IconButton",
+    "statusbutton": "StatusButton",
+    "buttongroup": "ButtonGroup",
+    "togglebutton": "Togglebutton",
+    "radiobutton": "RadioButton",
+    "checkbox": "CheckBox",
+    "textbox": "TextBox",
+    "numberbox": "NumberBox",
+    "intnumberbox": "IntNumberBox",
+    "combobox": "ComboBox",
+    "textblock": "TextBlock",
+    "groupbox": "GroupBox",
+    "tabcontrol": "TabControl",
+    "tabitem": "TabItem",
+    "progressbar": "ProgressBar",
+    "rangeprogressbar": "RangeProgressBar",
+    "datagrid": "DataGrid",
+    "image": "Image",
+    "camera": "Camera",
+    "autocutcamera": "AutoCutCamera",
+    "highanglecamera": "HighAngleCamera",
+    "lowanglecamera": "LowAngleCamera",
+    "emtcamera": "EMTCamera",
+    "powercontrol": "PowerControl",
+    "view": "View",
+    "border": "Border",
+    "container": "_nested"
+  },
+  "controlTypes": {
+    "View": {
+      "description": "纯容器/页签（Value=标题），可含 Index/Icon/LangName 作为页签属性",
+      "nested": true,
+      "attrs": ["Value", "Index", "Icon", "LangName"]
+    },
+    "GroupBox": {
+      "description": "分组框，Header 为标题，可嵌套子控件（子坐标相对其左上角）",
+      "nested": true,
+      "attrs": ["Header", "LangName"]
+    },
+    "Border": {
+      "description": "边框线，Value(int)=线宽，例 Value=\"1\" Margin=\"5\"",
+      "nested": true,
+      "attrs": ["Value"]
+    },
+    "ButtonGroup": {
+      "description": "单选按钮组容器，内部放多个 RadioButton 共用同一 IOName",
+      "nested": true,
+      "attrs": ["Value", "Orientation"]
+    },
+    "TextBlock": {
+      "description": "文本标签；Value=标签文本，IOName=从 IO 读标签名，IOState=状态文本驱动颜色，IsAutoRead 默认 false",
+      "nested": false,
+      "attrs": ["Value", "IOName", "IOState", "IsAutoRead", "IOGroup", "Foreground", "FontSize", "LangName"]
+    },
+    "Button": {
+      "description": "按钮；IOName 绑 IO 变量（Function/Event 消息），IOStyle=Write|Event（默认 Function），PageName=\"Jump:X\" 跳转",
+      "nested": false,
+      "attrs": ["Value", "IOName", "IOStyle", "IOParam", "IsShowDialog", "DialogMessage", "PageName", "ParameterName", "IOGroup", "IsSave", "LangName"]
+    },
+    "IconButton": {
+      "description": "图标按钮（继承 Button）；Icon=Geometry 键，TopLeftContent=F1..F12，IOState 状态色",
+      "nested": false,
+      "attrs": ["Icon", "IconHeight", "IconWidth", "TopLeftContent", "IsShowStatus", "IsNeedRedMark", "StatusBrush", "IOState", "IconColor", "IconText", "LangName"]
+    },
+    "StatusButton": {
+      "description": "状态按钮（继承 Button）；IOState 条件表达式更新左侧状态色",
+      "nested": false,
+      "attrs": ["IOState", "LangName"]
+    },
+    "Togglebutton": {
+      "description": "切换按钮；IOState 控制选中态",
+      "nested": false,
+      "attrs": ["Value", "IOName", "IOState", "IsAutoRefresh"]
+    },
+    "RadioButton": {
+      "description": "单选按钮（配 ButtonGroup）；IOGroup 与按钮同组，点击先写 IO 再执行逻辑",
+      "nested": false,
+      "attrs": ["Value", "IOName", "IOState", "IOGroup", "IsAutoRefresh"]
+    },
+    "ComboBox": {
+      "description": "下拉框；选项用子 TextBlock 表示；ItemsSourceFile 绑定数据文件",
+      "nested": true,
+      "attrs": ["Value", "IOName", "ItemsSourceFile", "DisplayMemberPath", "SelectedValuePath", "IsAutoRead", "IsAutoWrite", "Filter", "IOCommand", "LangName", "IsWriteIO"]
+    },
+    "CheckBox": {
+      "description": "勾选框；Value(bool) 是否选中，IOName 回显",
+      "nested": false,
+      "attrs": ["Value", "IOName", "DefaultValue", "IsWriteIO"]
+    },
+    "TextBox": {
+      "description": "文本输入框；Keypad(bool) 数字键盘",
+      "nested": false,
+      "attrs": ["DefaultValue", "Keypad", "IsWriteIO"]
+    },
+    "NumberBox": {
+      "description": "数字输入；DecimalPlaces 默认 3 位，MaxLength 默认 8",
+      "nested": false,
+      "attrs": ["IOName", "MinValue", "MaxValue", "DefaultValue", "DecimalPlaces", "Keypad", "MaxLength", "IsAutoRead", "IsWriteIO"]
+    },
+    "IntNumberBox": {
+      "description": "整数输入，同 NumberBox",
+      "nested": false,
+      "attrs": ["IOName", "MinValue", "MaxValue", "DefaultValue", "DecimalPlaces", "Keypad", "MaxLength", "IsAutoRead", "IsWriteIO"]
+    },
+    "DataGrid": {
+      "description": "数据表格；Value 为必填且最终配置必须非空，填写 PageData 文件夹下可解析的数据文件名；完全省略 Value 会在 IODataGrid.LoadDataSource 中触发空引用，空字符串仅可用于诊断中间态；列=子 TextBlock/ComboBox（Left=0 Top=0 Height=45）",
+      "nested": true,
+      "requiredAttrs": ["Value"],
+      "requiredNonEmptyAttrs": ["Value"],
+      "attrs": ["IOName", "IsAutoRefresh", "Value", "DisableRow", "IOCommand"]
+    },
+    "TabControl": {
+      "description": "页签容器；子节点 TabItem（Value=页签名，Height=35）",
+      "nested": true,
+      "attrs": ["IOName", "IOEnable", "IOCommand"]
+    },
+    "TabItem": {
+      "description": "TabControl 的页签项（仅作为 TabControl 子节点）",
+      "nested": false,
+      "attrs": ["Value", "Height", "LangName"]
+    },
+    "ProgressBar": {
+      "description": "进度条；MinValue/MaxValue/Value",
+      "nested": false,
+      "attrs": ["MinValue", "MaxValue", "Value", "IOName"]
+    },
+    "RangeProgressBar": {
+      "description": "区间进度条；额外 MinRange/MaxRange",
+      "nested": false,
+      "attrs": ["MinValue", "MaxValue", "Value", "IOName", "MinRange", "MaxRange"]
+    },
+    "PowerControl": {
+      "description": "实时功率曲线控件；IOName 读值回显",
+      "nested": false,
+      "attrs": ["IOName"]
+    },
+    "Camera": {
+      "description": "相机控件；DesignPanelID=相机编号，Value=相机名，默认宽 560 高 450",
+      "nested": false,
+      "attrs": ["DesignPanelID", "IOName", "Value", "IOSetExposure", "IsImagePix", "IsExpendPanel", "IsCrossingLineSolid", "IsCrossingLineHorizontal", "IsCrossingLineVertical", "IsCrossingMove", "ScalingType", "IsRightMenu", "IsMoveZToFocus", "IsLiveImage", "IsCenterRec", "CenterRecWidth", "CenterRecHeight", "IsBaseLine", "IsHorizontal", "IsVertical", "IsBaseLineHeight", "IsAutoFocus", "IsSwicthMode", "IsLightControl", "IsChangeMode", "YReverse"]
+    },
+    "AutoCutCamera": {
+      "description": "自动切割相机；LeftUp/RightUp/RightDownVisibility 控制子窗口显隐",
+      "nested": false,
+      "attrs": ["DesignPanelID", "Value", "IsLiveImage", "LeftUpVisibility", "RightUpVisibility", "RightDownVisibility"]
+    },
+    "HighAngleCamera": {
+      "description": "高角度相机",
+      "nested": false,
+      "attrs": ["DesignPanelID", "Value", "IsLiveImage"]
+    },
+    "LowAngleCamera": {
+      "description": "低角度相机",
+      "nested": false,
+      "attrs": ["DesignPanelID", "Value", "IsLiveImage"]
+    },
+    "EMTCamera": {
+      "description": "EMT 相机；LeftCameraName/RightCameraName 为左右下相机名",
+      "nested": false,
+      "attrs": ["DesignPanelID", "LeftCameraName", "RightCameraName", "IsLiveImage"]
+    },
+    "Image": {
+      "description": "图片；Value=图片绝对路径（如 Z:\\Gui\\Animation\\研磨.png）；带轴属性用于轴位图",
+      "nested": false,
+      "attrs": ["Value", "IOAxisName", "AxisType", "AxisMin", "AxisMax", "ImageMin", "ImageMax", "RotatePointX", "RotatePointY"]
+    }
+  },
+  "_nested": {
+    "description": "布局分组（无控件语义）：保持层级时用无 ControlType 的子 IOContorl 标签（与根节点同形）；框架是否支持需运行时验证，不支持则展平并把子坐标重基于最近有效父容器"
+  }
+}
