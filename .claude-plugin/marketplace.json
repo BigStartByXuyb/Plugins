@@ -1,4 +1,5 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "bigstart-plugins",
   "owner": {
     "name": "BigStartByXuyb"
@@ -9,7 +10,11 @@
   "plugins": [
     {
       "name": "mastergo-wpf-transcoder",
-      "source": ".",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/BigStartByXuyb/Plugins.git",
+        "ref": "main"
+      },
       "description": "MasterGo design to MW WPF and MTSLG IOContorl conversion rules, component mappings, provenance checks, and coordinate validation."
     }
   ]
