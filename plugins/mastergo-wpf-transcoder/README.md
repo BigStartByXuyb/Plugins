@@ -2,13 +2,14 @@
 
 Claude Code plugin for converting MasterGo designs into MW WPF/XAML and MTSLG IOContorl XML.
 
-## Included skill
+## Included skills
 
 - `skills/mastergo-to-wpf/` — conversion workflow, component mapping references, MTSLG provenance validation, and coordinate regression checks.
+- `skills/mastergo-iocontrol-document-format/` — strict format for writing and reviewing MasterGo → MTSLG IOContorl mapping documents.
 
 ## Claude Code installation
 
-Install the plugin from the repository root with Claude Code's local plugin or marketplace workflow. The plugin manifest is at `.claude-plugin/plugin.json`; Claude Code discovers the skill under `skills/`.
+Install the plugin from the repository root with Claude Code's local plugin or marketplace workflow. The plugin manifest is at `.claude-plugin/plugin.json`; Claude Code discovers both independent skills under `skills/`.
 
 ## Local verification
 
