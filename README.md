@@ -1,20 +1,8 @@
-# MasterGo WPF Transcoder
+# BigStart Plugins
 
-Claude Code plugin for converting MasterGo designs into MW WPF/XAML and MTSLG IOContorl XML.
+团队插件市场。各插件位于 `plugins/`，根目录 `.claude-plugin/marketplace.json` 是唯一的市场目录。
 
-## Included skill
+## Plugins
 
-- `skills/mastergo-to-wpf/` — conversion workflow, component mapping references, MTSLG provenance validation, and coordinate regression checks.
-
-## Claude Code installation
-
-Install the plugin from the repository root with Claude Code's local plugin or marketplace workflow. The plugin manifest is at `.claude-plugin/plugin.json`; Claude Code discovers the skill under `skills/`.
-
-## Local verification
-
-```powershell
-node skills/mastergo-to-wpf/scripts/check-iocontrol-coords.test.js
-node skills/mastergo-to-wpf/scripts/validate-iocontrol-provenance.test.js
-```
-
-The skill contains project-specific MW/MTSLG rules. Review the references and adapt project paths or runtime integrations before sharing it with another team.
+- `mastergo-wpf-transcoder` — MasterGo 设计到 MW WPF 与 MTSLG IOContorl 的转换流程。
+- `agent-plugin-publisher` — 按团队统一格式打包、校验和发布插件。

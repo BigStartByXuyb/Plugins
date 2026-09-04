@@ -10,12 +10,13 @@
   "plugins": [
     {
       "name": "mastergo-wpf-transcoder",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/BigStartByXuyb/Plugins.git",
-        "ref": "main"
-      },
+      "source": "./plugins/mastergo-wpf-transcoder",
       "description": "MasterGo design to MW WPF and MTSLG IOContorl conversion rules, component mappings, provenance checks, and coordinate validation."
+    },
+    {
+      "name": "agent-plugin-publisher",
+      "source": "./plugins/agent-plugin-publisher",
+      "description": "将用户明确指定的本地目录按团队统一格式打包为插件。"
     }
   ]
 }
