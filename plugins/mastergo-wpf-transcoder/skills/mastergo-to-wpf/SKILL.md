@@ -35,8 +35,8 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 按以下层级执行：
 
-1. **正式映射表**决定 `ControlType`、`Style`、节点数量、父子关系、槽位顺序和固定属性。
-2. **目标项目源码/真实页面/键索引**决定 `IOName`、`IOCommand`、`LangName`、已登记的 `Style`/`Icon` 和其他运行时字段。
+1. **正式映射表**决定 `ControlType`、`Style` 槽位/语义类别、节点数量、父子关系、槽位顺序和固定属性；不据此虚构具体资源键。
+2. **目标项目源码/真实页面/键索引**决定 `IOName`、`IOCommand`、`LangName`、实际已登记的 `Style`/`Icon` 资源键和其他运行时字段；缺少对应键时标记待确认。
 3. **MasterGo DSL**为映射槽位提供真实文本、实例属性、图标来源、尺寸和逐级坐标。
 4. 图层名称、组件名称和视觉外观不得触发额外推断；没有映射的组件不得静默改成 `Button`、`Border`、无类型容器或其他近似控件。
 
