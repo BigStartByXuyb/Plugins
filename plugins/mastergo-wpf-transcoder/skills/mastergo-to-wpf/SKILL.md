@@ -12,7 +12,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 必须同时满足：
 
 1. 有 MasterGo 设计来源：链接、`fileId + layerId`、设计稿截图或结构化节点；
-2. 用户明确要求转换/生成 WPF、XAML、C# UserControl、WinUI 或 IOContorl XML。
+2. 用户明确要求转换/生成 WPF、XAML、C# UserControl 或 IOContorl XML。
 
 仅出现以下内容时不要触发：单独修改已有 XML、单独排查 `Ctrl+R`、普通 WPF 调试、单独讨论 MTSLG/IOContorl API、单独维护组件库或代码索引。
 
