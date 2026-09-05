@@ -96,25 +96,26 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 ### 坐标转换硬门禁（实例与全部子组件）
 
-- 每个 MasterGo 实例、子实例、Frame、Group 和文本/控件节点都必须绑定唯一的来源 `layerId`（或 DSL `ref`），并单独记录 `sourceParent`、`pageAbsX/pageAbsY`、`relativeX/relativeY`、`Width/Height` 和最终 `Left/Top`；没有来源绑定的节点不得进入最终 XML。
-- 页面根级和嵌套节点都必须先解析为各自的 MasterGo 页面绝对 bbox。嵌套父子链只用于核对来源和裁剪边界，不得把子节点相对坐标直接作为最终 XML/WPF 坐标；最终只执行一次已确认的页面公共偏移归一化。
+- 每个 MasterGo 实例、子实例、Frame、Group 和文本/控件节点都必须绑定唯一的来源 `layerId`（或 DSL `ref`），并单独记录 `sourceParent`、`pageAbsX/pageAbsY`、`relativeX/relativeY`、`Width/Height` 和最终发射的 `Left/Top`；没有来源绑定的节点不得进入最终 XML。
+- 页面根级和嵌套节点都必须先解析为各自的 MasterGo 页面绝对 bbox。`pageAbsX/pageAbsY` 是不可变的来源事实；`relativeX/relativeY` 仅用于验证真实父子链，不能在未确认最终输出父子关系前直接复制为 XML/WPF 坐标。
 - 即使多个实例拥有相同 `componentId`、相同结构、相同文本或相同变体，也必须分别读取并计算各自实例及其全部子节点坐标；固定模板只决定结构和语义槽位，不决定实例位置。
 - 禁止根据文字语义、截图观感、相邻排列、组件模板、其他实例或“应该在这里”的布局习惯推断任何 `Left/Top`。设计稿数据与视觉观感冲突时，暂停并报告冲突。
 - 生成前必须逐项核对“XML 节点 ↔ 唯一 MasterGo layerId/ref ↔ 父节点链 ↔ 页面绝对坐标”；语义名称或 `ControlType + 坐标` 只能用于诊断，不能作为最终绑定。
 
 ### 绝对坐标输出规则
 
-- 每个最终输出的 IOContorl/WPF 控件都必须按照自身 MasterGo bbox 的 `pageAbsX/pageAbsY/Width/Height` 定位；`Left/Top` 不能由父容器尺寸、相邻控件、字体或视觉间距推算。
-- 最终输出统一使用内容区绝对坐标：`Left = pageAbsX - contentOriginX`，`Top = pageAbsY - contentOriginY`。公共顶部栏、设计稿示例标题等偏移只在根级内容坐标归一化时扣除一次。
-- 嵌套结构只用于表达真实父子关系和 `overflow` 裁剪边界；子控件的最终位置仍必须由自身页面绝对 bbox 计算，禁止把同一偏移重复加减。
-- 输出前必须保留“输出节点 ↔ 唯一 layerId/ref ↔ 自身 bbox ↔ 最终 Left/Top”清单；任一控件缺少自身 bbox 时不得交付。
+- 每个最终输出的 IOContorl/WPF 控件都必须由自身 MasterGo bbox 定位；`Left/Top` 不能由父容器尺寸、相邻控件、字体或视觉间距推算。
+- 根级节点，或正式映射确认可展平的节点，按内容区绝对坐标发射：`Left = pageAbsX - contentOriginX`、`Top = pageAbsY - contentOriginY`，公共外壳偏移只扣一次。
+- MTSLG 中正式映射要求保留父容器的子节点，按该已保留父容器发射相对坐标；根级扣除内容区偏移后，子节点不重复扣除。具体公式、裁剪边界与 XML 示例只读取 `references/adapters/mtslg-iocontrol/mtslg-mode.md`。
+- WPF 的最终坐标/布局属性必须由目标页面的真实布局容器决定；不得把 MTSLG 的 XML 坐标规则照搬到 WPF。
+- 输出前必须保留“输出节点 ↔ 唯一 layerId/ref ↔ 自身 pageAbs bbox ↔ 输出父节点 ↔ 最终 Left/Top”清单；任一控件缺少自身 bbox 或输出父节点依据时不得交付。
 
 ### 来源清单与不可交付门禁
 
-- 生成 IOContorl XML 前必须建立逐节点 mapping manifest；manifest 必须同时包含从原始 DSL 机械提取的 sourceNodes。每条 sourceNodes 记录至少包含 ref、parentRef、pageAbsX/pageAbsY、relativeX/relativeY、width/height 和真实 text（文本节点）；每条输出节点记录至少包含 xmlId、唯一 sourceRef、sourceParent、sourceText（文本节点）、expectedLeft/expectedTop/expectedWidth/expectedHeight。
+- 生成 IOContorl XML 前必须建立逐节点 mapping manifest；manifest 必须同时包含从原始 DSL 机械提取的 sourceNodes。每条 sourceNodes 记录至少包含 ref、parentRef、pageAbsX/pageAbsY、relativeX/relativeY、width/height 和真实 text（文本节点）；每条输出节点记录至少包含 xmlId、唯一 sourceRef、sourceParent、sourceText（文本节点）、输出父节点依据、expectedLeft/expectedTop/expectedWidth/expectedHeight。当前校验器仅支持输出父节点与真实 `sourceParent` 一致；映射若需改变输出父节点，必须先扩展校验器，不得静默发射。
 - 文本节点的 Value 必须机械复制 sourceText；valueSource 必须为 dsl.text。禁止用 XML ID、组件属性名、字段名、坐标方向、视觉位置、模板槽位或业务语义生成 Value。RelativePositionXLabel 不得生成 Value="X"。
-- 坐标必须机械计算：`expectedLeft = pageAbsX - contentOriginX`，`expectedTop = pageAbsY - contentOriginY`；`Width/Height` 必须来自同一 sourceRef 的 bbox。禁止用 ID、相邻节点、截图观感、固定模板或“应该在这里”补坐标。
-- 坐标空间必须明确：`sourceNodes` 永远保存 MasterGo 原始页面绝对坐标；所有输出节点统一使用内容区绝对坐标，公共栏/示例标题偏移只减一次；不得对嵌套节点再减父级坐标或把父级相对坐标当作最终坐标。校验器必须按此公式独立重算。
+- 坐标必须机械计算：MTSLG 根级/展平节点以 `pageAbs - contentOrigin` 发射；保留父容器的子节点以 `pageAbs - parent.pageAbs` 发射，并且内容区偏移只在根级扣一次；`Width/Height` 必须来自同一 sourceRef 的 bbox。禁止用 ID、相邻节点、截图观感、固定模板或“应该在这里”补坐标。
+- 坐标空间必须明确：`sourceNodes` 永远保存 MasterGo 原始页面绝对坐标；输出节点的 `expectedLeft/expectedTop` 记录实际发射坐标，而不是替代来源事实。校验器必须用 `sourceNodes`、真实父子链和根级内容区偏移独立重算。
 - 生成器必须在写文件前执行 scripts/validate-iocontrol-provenance.js；校验器不得把 nodes 中的 expected 值当作 DSL 事实，必须用 sourceNodes 独立重算。任何 sourceNodes 缺失、UNTRACKED、Value != sourceText、缺少来源字段、父节点缺失或几何不匹配都必须以非零状态失败。验证失败时禁止输出、覆盖或交付 XML。
 - 禁止仅凭 XML 可解析、控件数量正确或肉眼看起来接近就宣称完成；必须保留 manifest 和校验输出作为交付证据。无法建立来源链时，停止并标记待确认。
 
