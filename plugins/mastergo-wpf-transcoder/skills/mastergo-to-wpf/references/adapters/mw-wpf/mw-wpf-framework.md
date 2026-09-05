@@ -1,6 +1,6 @@
 ---
-name: mw-wpf-framework
-description: 用户编写 MW 自研 WPF 框架（SD/SDC/MaxwellControl 控件）页面的 API 使用规范：87 个框架控件、三大协议（s:Action/PageName/IOEnable）、资源键体系与禁止写法对照。必须使用场景：在 MW 框架项目新增或修改任何页面/按钮/输入控件/弹窗/图表/导航；用户提及 IconButton、IOEnable、PageName、s:Action、MainButtonStyle、MaxwellControl、SD/SDC、自研框架、工控 HMI、ManualView；用户要求「别手写 Button」「用框架写法/控件/样式」；把现有原生 WPF 改写为框架写法；引用框架资源键或自查页面写法。即使用户只提一个页面需求（如"加一个退出按钮"），也要用本技能。
+name: mw-wpf-framework-reference
+description: MW 自研 WPF 框架参考资料：87 个框架控件、三大协议（s:Action/PageName/IOEnable）、资源键体系与禁止写法对照。由 mastergo-to-wpf 按需读取，不作为独立 Skill 触发。
 ---
 
 # MW 自研 WPF 框架 API 使用规范
@@ -94,4 +94,4 @@ description: 用户编写 MW 自研 WPF 框架（SD/SDC/MaxwellControl 控件）
 | `framework-manual/05-best-practices/*.md` | 自查/评审 | resource-usage / style-selection / common-mistakes（拼写陷阱表）/ pending-confirmations（TD 总表） |
 | `framework-manual/templates/*.md` | 新增/修订条目时 | 控件条目模板 / 场景条目模板 |
 
-SKILL.md 只保留规则与选型速查（第 2/4/5 节），一切细节按需读手册对应文件，不维护第二份副本。
+本参考文件只保留规则与选型速查（第 2/4/5 节），一切细节按需读手册对应文件，不维护第二份副本。

@@ -50,4 +50,4 @@
 | 5 | 02-controls/charts（5）+ attached-props（17）+ native（16 补缺） | ✅ |
 | 6 | 04-scenarios（README+7 场景文件）+ 05-best-practices 3 篇 | ✅ |
 | 7 | 全手册验证回填 | ⬜ |
-| 8 | mw-wpf-framework skill 提炼 | ⬜ |
+| 8 | mw-wpf-framework 参考规范提炼 | ⬜ |

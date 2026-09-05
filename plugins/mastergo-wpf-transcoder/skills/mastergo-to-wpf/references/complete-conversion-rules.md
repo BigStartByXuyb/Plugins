@@ -372,7 +372,7 @@ MasterGo 的结构化 DSL 是几何和语义的唯一事实来源；截图只能
 
 ### MW WPF 框架手册适配（发现即接入）
 
-总 skill 自带的 `references/adapters/mw-wpf/` 是 MW WPF/XAML 的组件库与场景 adapter。旧模式命中 MW 框架时，必须先完整读取 `references/adapters/mw-wpf/SKILL.md`，再按其中的 `framework-manual/` 路由到所需条目；实际项目的 `framework.config.json`/源码仍是属性和资源键的最终证据。
+总 skill 自带的 `references/adapters/mw-wpf/` 是 MW WPF/XAML 的组件库与场景 adapter。旧模式命中 MW 框架时，必须先完整读取 `references/adapters/mw-wpf/mw-wpf-framework.md`，再按其中的 `framework-manual/` 路由到所需条目；实际项目的 `framework.config.json`/源码仍是属性和资源键的最终证据。
 
 - **旧模式（WPF/XAML）**：必须先读 `02-controls/README.md` 建立可用控件/样式目录；再按设计语义读取 `04-scenarios/` 的对应场景（按钮、输入、下拉、数据展示、导航等）和具体控件条目。优先生成其确认的框架控件、样式、资源键及协议，禁止手写等效 Button/Grid/Path/位图结构。
 - **新模式（MTSLG IOContorl）**：可使用该手册的场景名称将设计节点归类为通用语义（如 `action-button`、`numeric-input`、`selection`、`status-display`）。不得复制 WPF 标签、附加属性或事件协议；但当目标架构确认 XML 封装与 SDC 共用资源字典时，可将 SDC 的已验证 Style/Geometry 键写入 `Style`/`Icon`。最终仍只能依据目标 IOContorl 的组件目录与属性白名单，把语义映射为该框架实际支持的 `ControlType`。
