@@ -204,7 +204,7 @@ MasterGo 的结构化 DSL 是几何和语义的唯一事实来源；截图只能
 | 字体与字号 | `Fonts.xaml`、`Sizes.xaml` | FontFamily、FontWeight、字号、控件尺寸 token |
 | 图标 | `Icons.xaml`、`Geometries.xaml` 或 `IconGeometry.xaml` | SVG、Geometry、DrawingImage、图标 Viewbox |
 | 控件样式 | `Style/`、`Styles.xaml` | Button/IconButton 模板、状态触发器、布局样式 |
-| 页面 | `Views/*.xaml` | 页面 Grid、语义控件和资源引用，不存放公共 token |
+| 页面 | `Pages/*.xaml` | 页面 Grid、语义控件和资源引用，不存放公共 token |
 
 页面只能引用这些资源键，例如 `Background="{StaticResource StageBg}"`、`FontSize="{StaticResource TitleFontSize}"`、`Source="{StaticResource AlarmIcon}"`；禁止在页面中重复硬编码同一组颜色、字体、图标几何或公共渐变。若目标源码已有不同文件名，保持其真实命名和目录职责，不强行改名。交付前检查资源字典合并顺序、键唯一性和页面引用链。
 

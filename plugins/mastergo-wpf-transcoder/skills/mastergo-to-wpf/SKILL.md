@@ -52,6 +52,11 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 生成真实 `IOContorl` XML：`ControlType`、固定组件层级和槽位首先使用正式映射表；目标项目只用于确认 XML 属性白名单、Style/Icon/LangName、IOName/IOCommand 和运行时键。没有目标项目时不得把已命中的组件降级为普通 Button、无类型容器或静态占位结构。不要把 WPF 私有协议直接写入 XML。顶部/底部公共栏节点必须记录为“框架负责、页面不生成”。
 
+## 页面输出目录
+
+- 旧模式 MW WPF/XAML 生成的中间页面默认写入目标项目根目录下的 `Pages/`，与 `Resources/` 同级；页面文件使用 `Pages/*.xaml`，资源字典仍使用 `Resources/`。
+- MTSLG IOContorl 页面不套用 WPF 中间页面目录规则，继续按目标项目 `framework.config.json` 的 `pages_root` 输出；当前运行时参考路径为 `Config/Common/Pages`（Windows 路径为 `Config\\Common\\Pages`）。
+
 ## 组件和映射原则
 
 - 使用一份组件语义映射，并按组件登记 `targets.mw-wpf` 与 `targets.mtslg-iocontrol`；正式映射存在时严格按映射表，不得凭外观、Group 名称或截图猜控件。
