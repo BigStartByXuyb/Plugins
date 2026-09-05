@@ -23,7 +23,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - **结构映射稿**：用户明确要求输出独立的 WPF/XAML/IOContorl 文件，但未提供目标项目时，按正式映射表生成结构、节点、槽位、来源和坐标；运行时绑定与资源键写入待确认清单，不得用猜测值补齐。
 - **项目运行时交付**：用户要求替换/部署/加载页面，或要求报告可运行、Ctrl+R、视觉一致时，才执行以下目标项目门禁：
   1. 读取并确认 `mw-framework-index` 输出的项目路径绑定和框架 Profile。
-  2. 读取目标项目的 `framework.config.json`，按配置选择 `mw-wpf` 或 `mtslg-iocontrol`。
+  2. 读取目标项目的 `framework.config.json`，按配置选择 `mw-wpf` 或 `mtslg-iocontrol`；选择、分流和互斥边界必须遵守“适配器选择门禁”。
   3. 确认框架源码、索引、组件库、真实页面样例和输出目录。
   4. 按页面宿主确认公共外壳边界。IOContorl 顶部栏/底部栏默认不生成 XML；WPF 是否生成公共栏取决于宿主是否负责。
 
@@ -42,15 +42,31 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 结构映射稿与运行时交付的边界如下：目标项目缺失时仍必须完成已有映射覆盖的结构转换，但必须将未确认的绑定、资源键和运行时行为标记为待配置；不得把“静态 XML 可解析”描述为“页面已完成”。
 
-## 两个输出适配器
+## 适配器选择门禁（必须先完成）
 
-### `mw-wpf`
+在读取任一适配器专用参考、样例或脚本前，必须完成以下分流：
 
-直接使用项目真实的 MW 控件、Style、Resource、Geometry 和协议写法，例如 `s:IconButton`、`MainButtonStyle`、`PageName`、`s:Action`、`IOEnable`。禁止用普通 WPF 控件替代已有 MW 能力，所有资源键必须回到源码或真实页面验证。
+1. 有目标项目时，读取并校验其 `framework.config.json`；`mode` 必须明确为 `mw-wpf` 或 `mtslg-iocontrol`。
+2. 没有目标项目时，用户必须明确指定独立交付的适配器；不得因为“WPF”、图层名称、目录名、截图或控件外观猜测。
+3. 配置缺失、路径无效、模式不受支持或用户未指定适配器时，停止并询问；不得同时执行两条作业或生成混合产物。
+4. 在任务记录和交付物中写明 `Adapter: mw-wpf` 或 `Adapter: mtslg-iocontrol`。选定后只执行对应作业；另一作业的协议、资源、页面格式、样例和校验器不得混入。
 
-### `mtslg-iocontrol`
+## 作业 A：原生 MW WPF（`Adapter: mw-wpf`）
 
-生成真实 `IOContorl` XML：`ControlType`、固定组件层级和槽位首先使用正式映射表；目标项目只用于确认 XML 属性白名单、Style/Icon/LangName、IOName/IOCommand 和运行时键。没有目标项目时不得把已命中的组件降级为普通 Button、无类型容器或静态占位结构。不要把 WPF 私有协议直接写入 XML。顶部/底部公共栏节点必须记录为“框架负责、页面不生成”。
+1. 核对真实 MW 控件源码、现有 WPF 页面、Style/Resource 键、Geometry 资源和页面宿主。
+2. 先读 `references/adapters/mw-wpf/mw-wpf-framework.md`；再按命中的控件、资源或协议按需读 `references/adapters/mw-wpf/framework-manual/` 下对应的 controls、resources、protocols 或 scenarios 文档。不得预读 MTSLG 映射或 XML 文档。
+3. 生成目标项目约定的 XAML、C# UserControl/ViewModel 与资源；直接使用项目真实的 MW 控件和协议，例如 `s:IconButton`、`MainButtonStyle`、`PageName`、`s:Action`、`IOEnable`。
+4. 验证命名空间、资源键、绑定、编译和 WPF 页面加载。禁止以普通 WPF 控件替代已有 MW 能力；仅在本作业需要 Geometry 时按需使用 `scripts/gen-icons-xaml.js` 与 `scripts/scan-icon-coords.js`。
+
+本作业不得生成 MTSLG `IOContorl` XML、MTSLG `Layout.xml` 注册或调用 MTSLG provenance 校验器。
+
+## 作业 B：MTSLG IOContorl（`Adapter: mtslg-iocontrol`）
+
+1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。不得读取 MW WPF 控件协议作为 XML 事实源。
+2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；有 PATH/SVG 时使用 `scripts/gen-icons-xaml.js`，并保留图标来源。
+3. 在 XML 结构检查前运行 `scripts/validate-iocontrol-provenance.js`；需要独立坐标检查时以节点数组调用 `scripts/check-iocontrol-coords.js`，有 Geometry 时调用 `scripts/scan-icon-coords.js`，再执行宿主加载与视觉核对。顶部/底部公共栏必须记录为“框架负责、页面不生成”。
+
+本作业不得写入 WPF 私有协议，例如 `s:Action`、WPF `PageName` 或 WPF ResourceDictionary/绑定语法；没有正式映射时不得降级为普通 Button、无类型容器或静态占位结构。
 
 ## 页面输出目录
 
@@ -65,20 +81,11 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - 未确认的运行时字段只能写入 mapping manifest 或 XML 注释，禁止把“待人工绑定”作为可见 `Value`、伪造 `IOName` 或伪造 `IOCommand`。
 - 设计稿中顶部栏、底部栏和其他公共外壳按宿主边界剥离；保留节点统一换算到内容区坐标，并记录被剥离节点。
 
-### 独立输入框组件集（当前规则）
+### 组件内部内容与来源
 
-- `输入框` 是独立组件集，不再默认归入“左标题+右信息”嵌套结构。
-- `输入框-整数-40/36/32` → `IntNumberBox`；`输入框-小数-40/36/32` → `NumberBox`；`输入框-文字-40/36/32` → `TextBox`。
-- 标题、单位和说明文字等文本节点固定生成 `TextBlock`。
-- `40/36/32` 只决定该实例的 `Height`，不改变 `ControlType`；当前项目默认使用高度 40。
+- 所有适配器都必须读取组件实例的完整 DSL 父子链；组件内部的 TEXT、PATH/SVG、FRAME 只能按已选适配器的正式映射解释，不能因视觉外观提升为独立业务控件。
+- 输入框、选择框的 MTSLG 控件类型、40/36/32 变体、内部 padding、TEXT/PATH 归属和 XML 输出模板只在作业 B 读取 `references/adapters/mtslg-iocontrol/feishu-component-library-mapping.md`；总 Skill 不重复维护这些映射事实。
 
-### 输入框与下拉框真实父子结构
-
-- 完整输入框的真实链为：`COMPONENT_SET 输入框` → `COMPONENT 变体` → `INSTANCE 变体` → `FRAME 外框/容器` → `FRAME 内层输入区域` → `TEXT 固定文本框`。映射到 MTSLG 时，输入框本体生成一个控件节点；内层 Frame 只表达真实外框、填充、边框和裁剪，不得凭视觉再增加一层父控件。
-- 整数和小数输入框的外框实例高度分别为 40/36/32，文本自身 bbox 高度为 18；文本相对纵向位置随变体 padding 变化（40/36/32 对应 11/9/7），不能将文本高度或字号写成外框高度。
-- 文字输入框的真实链为 `COMPONENT_SET` → `COMPONENT 变体` → `INSTANCE 变体` → `FRAME 输入框` → `TEXT`，仍然只生成一个 `TextBox` 本体，不能把内部固定文本误判为独立页面控件。
-- 下拉框的真实链为 `COMPONENT_SET 选择框` → `COMPONENT 变体` → `INSTANCE 变体` → `INSTANCE 选择框` → `TEXT + PATH 下拉箭头`。`TEXT` 和箭头属于下拉框内部结构；最终生成一个 `ComboBox`，箭头不得拆成独立 IOContorl。PATH 必须保留唯一 sourceRef/svgKey。
-- 下拉框 40/36/32 的外框高度为 40/36/32，内部 padding 和子节点相对位置分别按 DSL 的 11/9/7、箭头纵向位置 15/13/11 读取；不得用 `FontSize=18` 推导任何 `Height`。
 
 ### 文本来源与 Value 绑定硬门禁
 
@@ -111,18 +118,6 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - 生成器必须在写文件前执行 scripts/validate-iocontrol-provenance.js；校验器不得把 nodes 中的 expected 值当作 DSL 事实，必须用 sourceNodes 独立重算。任何 sourceNodes 缺失、UNTRACKED、Value != sourceText、缺少来源字段、父节点缺失或几何不匹配都必须以非零状态失败。验证失败时禁止输出、覆盖或交付 XML。
 - 禁止仅凭 XML 可解析、控件数量正确或肉眼看起来接近就宣称完成；必须保留 manifest 和校验输出作为交付证据。无法建立来源链时，停止并标记待确认。
 
-### 组件尺寸、TextBlock 高度与示例标题过滤
-
-- WPF 输出中的 `TextBlock`/文本显示控件，`Height` 优先取 MasterGo 真实文本节点或组件子节点的 `W/H`（bbox），不能用 `FontSize`、行高或组件元数据中的 `size` 代替；`FontSize` 只控制字形，不决定控件边界。
-- MTSLG IOContorl 输出采用项目组件约定覆盖上述默认规则：由组件实例映射出的 TextBlock 标签、数值和单位，`Height` 取所属组件实例的实际高度；当前项目默认高度为 40，输入框的 36/32 变体使用对应高度。不能用 FontSize 替代 Height。
-- `Height` 与 `FontSize` 是两个独立字段：前者是 IOContorl 布局边界，后者必须从 DSL 的字体样式 `styles.font_*/value/size` 读取；组件行高统一为 40px 不能成为省略字号的理由。生成前必须检查所有文本节点和文本承载控件是否已填 `FontSize`。
-- MTSLG 组件的外层 W/H 仍用于页面布局；所有输出节点的 `Left/Top` 必须按自身页面绝对 bbox 计算，父子链只用于确认结构和裁剪边界，不能把相对坐标当作最终绝对坐标，也不能因为高度统一而改变坐标。
-- 只有独立的、非组件实例映射的 MTSLG 文本节点，才按其自身 bbox 取高度；没有真实 bbox 时才允许使用框架默认高度，并在映射记录中标记 `heightFallback=true`。
-- 生成 XML/XAML 前，识别页面根节点最上方、仅用于画布说明/组件展示/工件示教的标题（例如 `工件边缘示教（2.2.1.E）`）。这类设计稿标题默认标记为 `design-artifact-title`，不生成到业务页面。
-- 标题位于业务内容容器内部、且该容器/运行时页面明确需要它时才保留。不能因为“最上方”就删除真实业务标题；必须记录保留或剥离的节点 ID 与原因。
-- 本项目页面顶部公共栏 126px 和根级设计稿标题 66px 均为固定公共外壳，标题始终按 `design-artifact-title` 剥离；因此根级保留控件的 `Top/Y` 统一按 MasterGo 原始坐标减 192px。该 192px 是当前项目固定约定，不需要为标题保留场景设置分支。嵌套控件仍按真实父子链使用相对坐标，不能重复减偏移。
-- 当 MasterGo 根组件的 `rootContainer.overflow` 为 `hidden` 时，MTSLG XML 必须保留外层布局容器及其 `Width/Height` 裁剪边界，内部子控件使用相对父容器坐标。只有无裁剪需求时才允许展开为同级节点；若展开，必须显式保留等价裁剪边界。
-
 ## 交付和验证
 
 默认交付完整页面，不是截图、占位控件或近似原型。生成后必须按目标模式验证：
@@ -132,13 +127,11 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - IOContorl：检查 XML 结构、`ControlType`、属性白名单、父子坐标，执行 Ctrl+R 或等价加载验证；
 - 两种模式都要做设计稿与运行结果的视觉核对。
 
-## 按需参考
+## 公共参考（仅在对应条件满足时读取）
 
-- 框架发现、路径绑定和索引：`mw-framework-index`；
-- 项目首次适配：`references/project-adapter-initialization.md`；
-- WPF 控件、Style 和协议：`references/adapters/mw-wpf/`；
-- IOContorl 规则：`references/adapters/mtslg-iocontrol/`，其中本地 `feishu-component-library-mapping.md` 是唯一工作副本和完整组件集映射规范；运行时不依赖线上飞书文档；
-- 组件库映射：`references/mastergo-component-mapping-rules.md` 及目标项目 `docs/`；
-- 完整历史转换规则和未拆分的细节：`references/complete-conversion-rules.md`。
+- 框架发现、路径绑定和索引：`mw-framework-index`；仅项目运行时交付使用。
+- 项目首次适配：`references/project-adapter-initialization.md`；仅在有效 `framework.config.json`、组件目录或资源目录尚未确认时使用。它不选择适配器。
+- 跨适配器组件语义：`references/mastergo-component-mapping-rules.md`；仅用于两条作业共用的设计来源、组件身份与来源链规则。
+- 完整历史转换规则：`references/complete-conversion-rules.md`；仅在本 Skill 未覆盖的历史兼容细节确有必要时使用。
 
-只有当前任务需要时才读取对应参考，不要默认加载全部参考资料。
+不得默认加载全部 references；适配器专用参考和脚本只按各自作业链读取与执行。
