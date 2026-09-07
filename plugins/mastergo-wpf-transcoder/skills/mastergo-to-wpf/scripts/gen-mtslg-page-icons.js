@@ -8,13 +8,14 @@
  * page-icon-map.json:
  * {
  *   "icons": [
- *     { "sourceId": "exact extractSvg entry id", "name": "ExitGeometry", "sourceRef": "MasterGo DSL ref" }
+ *     { "sourceId": "exact extractSvg entry id", "name": "ExitGeometry", "comment": "退出", "sourceRef": "MasterGo DSL ref" }
  *   ]
  * }
  *
- * sourceId, name and sourceRef are all required. `name` is the approved English
- * resource name. Duplicate names receive deterministic numeric suffixes (2, 3,
- * ...). This tool never derives a name from a layer ID, location, or geometry.
+ * sourceId, name, comment and sourceRef are all required. `name` is the approved
+ * English resource name; `comment` is the Chinese display name written to XAML.
+ * Duplicate names receive deterministic numeric suffixes (2, 3, ...). This tool
+ * never derives a name from a layer ID, location, or geometry.
  */
 const fs = require('fs');
 
@@ -86,8 +87,8 @@ const output = [
 ];
 
 for (const icon of iconMap.icons) {
-  if (!icon || typeof icon.sourceId !== 'string' || typeof icon.name !== 'string' || typeof icon.sourceRef !== 'string' || !icon.sourceId || !icon.name || !icon.sourceRef) {
-    throw new Error('Every icon requires non-empty sourceId, name, and sourceRef');
+  if (!icon || typeof icon.sourceId !== 'string' || typeof icon.name !== 'string' || typeof icon.comment !== 'string' || typeof icon.sourceRef !== 'string' || !icon.sourceId || !icon.name || !icon.comment || !icon.sourceRef) {
+    throw new Error('Every icon requires non-empty sourceId, name, comment, and sourceRef');
   }
   const key = resolveKey(icon.name);
   const svg = svgById.get(icon.sourceId);
@@ -97,11 +98,11 @@ for (const icon of iconMap.icons) {
   if (paths.some(path => path.matrix)) {
     throw new Error(`Standard Geometry output cannot preserve SVG matrix transforms: ${icon.sourceId}`);
   }
-  output.push(`  <!-- ${escapeXml(icon.name)} | sourceId=${escapeXml(icon.sourceId)} sourceRef=${escapeXml(icon.sourceRef)} key=${escapeXml(key)} -->`);
+  output.push(`  <!-- ${escapeXml(icon.comment)} -->`);
   const fillAttribute = fillRule === 'EvenOdd' ? ' FillRule="EvenOdd"' : '';
   output.push(`  <Geometry o:Freeze="True"${fillAttribute} x:Key="${escapeXml(key)}">`);
   for (const path of paths) output.push(`    ${path.d}`);
-  output.push('  </Geometry>');
+  output.push('  </Geometry>', '');
 }
 
 output.push('</ResourceDictionary>', '');

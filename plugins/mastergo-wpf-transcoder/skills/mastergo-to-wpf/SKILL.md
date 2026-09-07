@@ -70,7 +70,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 ## 页面 Icon 文件（两个适配器共用）
 
-每个页面必须单独维护一个 Icon 文件。当前页从 MasterGo PATH/SVG 自动生成自己的 Geometry 资源；图标映射输入逐项提供已确认的英文资源名和 DSL 来源，禁止从图层 ID、坐标或几何外观拼接资源名。资源名必须是英文标识符；同一页面内重复名称按出现顺序追加数字后缀（`Name2`、`Name3`）。不得生成 `MGIcon_<layer-id>` 形式的资源名。`mw-wpf` 的页面以 `StaticResource` 引用该页 Geometry；`mtslg-iocontrol` 的 Layout 仅引用该页 Icon 文件中已生成的键。页面 Icon 文件的真实相对路径和加载方式必须由目标项目确认。
+每个页面必须单独维护一个 Icon 文件。当前页从 MasterGo PATH/SVG 自动生成自己的 Geometry 资源；图标映射输入逐项提供已确认的英文资源名、中文注释名和 DSL 来源，禁止从图层 ID、坐标或几何外观拼接资源名。资源名必须是英文标识符；同一页面内重复名称按出现顺序追加数字后缀（`Name2`、`Name3`）。XAML 注释只写该图标的中文名称，`sourceId/sourceRef/key` 等溯源信息写入 mapping/manifest，不写入 Icon 文件。不得生成 `MGIcon_<layer-id>` 形式的资源名。`mw-wpf` 的页面以 `StaticResource` 引用该页 Geometry；`mtslg-iocontrol` 的 Layout 仅引用该页 Icon 文件中已生成的键。页面 Icon 文件的真实相对路径和加载方式必须由目标项目确认。
 
 ## 页面输出目录
 

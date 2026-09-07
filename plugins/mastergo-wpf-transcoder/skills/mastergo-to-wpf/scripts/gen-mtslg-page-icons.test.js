@@ -16,8 +16,8 @@ fs.writeFileSync(svgFile, JSON.stringify({ svgs: [
   { id: 'page/icon-b', svg: '<svg><path d="M1,1 L2,2"/></svg>' }
 ] }), 'utf8');
 fs.writeFileSync(mapFile, JSON.stringify({ icons: [
-  { sourceId: 'page/icon-a', name: 'LoadGeometry', sourceRef: 'dsl/a' },
-  { sourceId: 'page/icon-b', name: 'LoadGeometry', sourceRef: 'dsl/b' }
+  { sourceId: 'page/icon-a', name: 'LoadGeometry', comment: '上料', sourceRef: 'dsl/a' },
+  { sourceId: 'page/icon-b', name: 'LoadGeometry', comment: '上料重复', sourceRef: 'dsl/b' }
 ] }), 'utf8');
 
 let result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
@@ -26,10 +26,12 @@ const xaml = fs.readFileSync(outFile, 'utf8');
 assert.match(xaml, /<Geometry o:Freeze="True" x:Key="LoadGeometry">/);
 assert.match(xaml, /<Geometry o:Freeze="True" x:Key="LoadGeometry2">/);
 assert.doesNotMatch(xaml, /GeometryGroup|PathGeometry/);
+assert.match(xaml, /<!-- 上料 -->/);
+assert.doesNotMatch(xaml, /sourceId=|sourceRef=|key=LoadGeometry/);
 assert.doesNotMatch(xaml, /MGIcon_/);
 
 fs.writeFileSync(mapFile, JSON.stringify({ icons: [
-  { sourceId: 'page/icon-a', name: 'MGIcon_123', sourceRef: 'dsl/a' }
+  { sourceId: 'page/icon-a', name: 'MGIcon_123', comment: '测试', sourceRef: 'dsl/a' }
 ] }), 'utf8');
 result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
 assert.notStrictEqual(result.status, 0);
