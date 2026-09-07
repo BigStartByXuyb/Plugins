@@ -64,7 +64,6 @@
 - **面板模板**：`StepFrameHorizontalItemsPanelTemplate`（WrapPanel，活动中）；`StepFrameVerticalItemsPanelTemplate`（UniformGrid Columns=1，已定义无活动样式引用——疑似预留）。
 - **画刷家族**：`{source_root}/SDC/Brushes/StepFrameBrushes.xaml` 共 9 键（StepFrame_DefaultBackBrush/DefaultTextBrush/HoverBackBrush/HoverBorderBrush/HoverTextBrush/SelectBackBrush/SelectBorderBrush/SelectIconBrush/SelectTextBrush），命名段见 `../../01-resources/brushes.md`。
 - **文本键**（TD-004 域）：ControlPreStep / ControlNextStep / ControlBack（滚动版）；Back（非滚动版「返回」）——两模板键不一致。
-- 文件内另有**整段注释掉的旧版**（圆形步骤点 + IndexConverter 数字角标 + PART_Index/PART_PathComplete + PathComplete 几何），非活动代码，不作为事实依据。
 
 ## 5. 框架写法示例
 

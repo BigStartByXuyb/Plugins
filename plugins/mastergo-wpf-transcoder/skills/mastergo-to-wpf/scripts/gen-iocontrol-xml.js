@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * gen-iocontrol-xml.js —— IOContorl 页面 XML 发射器（mastergo-to-wpf skill 新模式）
+ * gen-iocontrol-xml.js —— IOContorl 页面 XML 发射器
  *
  * 两种模式：
  *   --fresh               从映射 JSON 全新渲染页面 XML

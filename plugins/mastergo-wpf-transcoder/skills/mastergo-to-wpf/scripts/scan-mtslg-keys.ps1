@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  扫描 MTSLG Config 生成 IOContorl 键白名单 JSON（mastergo-to-wpf skill 新模式专用）。
+  扫描 MTSLG Config 生成 IOContorl 键白名单 JSON。
 
   背景：MTSLG 框架闭源，Style/Icon(Geometry)/IOCommand 等键在 Config 文本中无定义源头（定义在
   编译进 DLL 的资源里）。现有页面 XML 与 Layout.xml 的"使用先例"是键是否存在的唯一证据。

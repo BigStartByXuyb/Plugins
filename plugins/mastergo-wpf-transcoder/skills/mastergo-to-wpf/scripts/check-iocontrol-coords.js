@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * check-iocontrol-coords.js —— IOContorl 页面坐标核对器（mastergo-to-wpf skill 新模式）
+ * check-iocontrol-coords.js —— IOContorl 页面坐标核对器
  *
  * 核对生成的页面 XML 的几何（Left/Top/Width/Height）与设计稿节点 bbox 是否逐项一致。
- * 这是新模式的"必做检查"，地位等同旧模式的 scan-icon-coords.js。
+ * MTSLG 页面生成后必须执行此检查。
  *
  * 节点输入 JSON（由 LLM 从 MasterGo section DSL 机械抄录 page-absolute bbox）：
  *   [

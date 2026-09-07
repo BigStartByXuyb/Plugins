@@ -20,8 +20,8 @@ Recommended project-local files:
 
 1. Locate the project root from the current workspace and user-provided target path.
 2. Read `framework.config.json` if it exists. Resolve relative paths from the directory containing that file.
-3. If the file is missing, or required paths are invalid, scan the project for likely source, index, resource, page, and layout directories.
-4. Show the candidate paths and detected mode to the user. Ask for confirmation or corrections before writing configuration.
+3. If the file is missing, or required paths are invalid, scan the project for likely source, index, resource, page, and layout directories. This scan discovers paths only; it must not infer an adapter mode from project names, source types, or directory names.
+4. The adapter has already been selected by the Skill's adapter-selection gate. Show the candidate paths to the user and ask for confirmation or corrections before writing configuration; do not ask the user to reconfirm the mode merely because the configuration file was absent.
 5. Write the confirmed configuration only to the target project.
 6. Scan the configured sources and existing pages to create or update project-local indexes.
 7. Record the source paths, scan time, and a source fingerprint in the index metadata.
@@ -44,7 +44,7 @@ The exact field names may be extended by an adapter, but paths must be project-r
 
 ```json
 {
-  "mode": "iocontrol",
+  "mode": "mtslg-iocontrol",
   "source_root": "./Framework",
   "index_root": "./docs/ai-index",
   "pages_root": "./Config/Common/Pages",

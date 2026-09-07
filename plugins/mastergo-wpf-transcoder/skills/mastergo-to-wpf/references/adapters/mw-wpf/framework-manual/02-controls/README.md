@@ -16,7 +16,7 @@
 
 | 控件 | 样式文件 | 样式键（代表） | 条目 |
 |---|---|---|---|
-| IconButton | IconButton.xaml | IconButtonBaseStyle / MainButtonStyle / RightButtonStyle / BottomButtonStyle / GrayIconButtonStyle / UpDownRightButtonStyle / RightUpDownButtonStyle（兼容旧键） / NormalRightButtonStyle / BottomButtonSmallStyle / ButtonIconStyle | [icon-button](navigation/icon-button.md) |
+| IconButton | IconButton.xaml | IconButtonBaseStyle / MainButtonStyle / RightButtonStyle / BottomButtonStyle / GrayIconButtonStyle / UpDownRightButtonStyle / NormalRightButtonStyle / BottomButtonSmallStyle / ButtonIconStyle | [icon-button](navigation/icon-button.md) |
 | StatusButton | StatusButton.xaml | StatusButtonBaseStyle（+隐式默认） | [status-button](navigation/status-button.md) |
 | ButtonGroup | ButtonGroup.xaml | ButtonGroupBaseStyle（+隐式默认）；项族 ButtonGroupItem* 在 Button.xaml | [button-group](navigation/button-group.md) |
 | IconControl | IconControl.xaml | 隐式默认样式（无 x:Key） | [icon-control](navigation/icon-control.md) |

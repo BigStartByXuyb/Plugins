@@ -153,7 +153,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 
 ### 固定模板：父节点=右侧栏-上下结构
 
-固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton，Style 固定为 UpDownRightButtonStyle，节点数量、父子关系和槽位顺序固定。MW 框架历史 Style 键 RightUpDownButtonStyle 保留为兼容别名；已有页面无需立即修改，新生成的 WPF/XAML 和 MTSLG IOContorl XML 一律使用 UpDownRightButtonStyle。
+固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton，Style 固定为 UpDownRightButtonStyle，节点数量、父子关系和槽位顺序固定。
 
 ```xml
 <IOContorl ID="{id}" IOName="{io_name}" IOCommand="{io_command}" ControlType="IconButton" Style="UpDownRightButtonStyle" Icon="{icon}" IconHeight="{icon_height}" IconWidth="{icon_width}" TopLeftContent="{top_left_content}" IOEnable="{io_enable}" IOState="{io_state}" LangName="{lang_name}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />

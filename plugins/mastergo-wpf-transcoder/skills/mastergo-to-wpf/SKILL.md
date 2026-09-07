@@ -23,7 +23,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - **结构映射稿**：用户明确要求输出独立的 WPF/XAML/IOContorl 文件，但未提供目标项目时，按正式映射表生成结构、节点、槽位、来源和坐标；运行时绑定与资源键写入待确认清单，不得用猜测值补齐。
 - **项目运行时交付**：用户要求替换/部署/加载页面，或要求报告可运行、Ctrl+R、视觉一致时，才执行以下目标项目门禁：
   1. 读取并确认 `mw-framework-index` 输出的项目路径绑定和框架 Profile。
-  2. 读取目标项目的 `framework.config.json`，按配置选择 `mw-wpf` 或 `mtslg-iocontrol`；选择、分流和互斥边界必须遵守“适配器选择门禁”。
+   2. 按“适配器选择门禁”确定 `mw-wpf` 或 `mtslg-iocontrol`；目标项目存在有效 `framework.config.json` 时以其 `mode` 为依据，缺失时默认 `mtslg-iocontrol`。
   3. 确认框架源码、索引、组件库、真实页面样例和输出目录。
    4. 按页面宿主确认公共外壳边界。IOContorl 顶部栏/底部栏默认不写入页面 XML；设计稿包含页面壳层且目标项目需要页面注册或菜单时，是否创建/修改 Layout.xml 必须按 `feishu-layout-mapping.md` 和目标项目实际 Layout 结构确认。WPF 是否生成公共栏取决于宿主是否负责。
 
@@ -46,31 +46,35 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 在读取任一适配器专用参考、样例或脚本前，必须完成以下分流：
 
-1. 有目标项目时，读取并校验其 `framework.config.json`；`mode` 必须明确为 `mw-wpf` 或 `mtslg-iocontrol`。
-2. 没有目标项目时，用户必须明确指定独立交付的适配器；不得因为“WPF”、图层名称、目录名、截图或控件外观猜测。
-3. 配置缺失、路径无效、模式不受支持或用户未指定适配器时，停止并询问；不得同时执行两条作业或生成混合产物。
+1. 用户明确指定 `mw-wpf` 或 `mtslg-iocontrol` 时，按其指定选择；若与目标项目有效 `framework.config.json` 的 `mode` 冲突，停止并要求确认，不得生成混合产物。
+2. 用户未指定时，目标项目存在有效 `framework.config.json` 则使用其 `mode`；没有有效配置时，默认选择 `mtslg-iocontrol`。不得根据“WPF”、图层名称、目录名、截图或控件外观改写该默认值。
+3. `mode` 不受支持、配置路径无效且用户又明确要求依赖该配置时，停止并询问；不得同时执行两条作业或生成混合产物。
 4. 在任务记录和交付物中写明 `Adapter: mw-wpf` 或 `Adapter: mtslg-iocontrol`。选定后只执行对应作业；另一作业的协议、资源、页面格式、样例和校验器不得混入。
 
-## 作业 A：原生 MW WPF（`Adapter: mw-wpf`）
+## 作业 A：MW 框架 WPF（`Adapter: mw-wpf`）
 
 1. 核对真实 MW 控件源码、现有 WPF 页面、Style/Resource 键、Geometry 资源和页面宿主。
 2. 先读 `references/adapters/mw-wpf/mw-wpf-framework.md`；再按命中的控件、资源或协议按需读 `references/adapters/mw-wpf/framework-manual/` 下对应的 controls、resources、protocols 或 scenarios 文档。不得预读 MTSLG 映射或 XML 文档。
 3. 生成目标项目约定的 XAML、C# UserControl/ViewModel 与资源；直接使用项目真实的 MW 控件和协议，例如 `s:IconButton`、`MainButtonStyle`、`PageName`、`s:Action`、`IOEnable`。
-4. 验证命名空间、资源键、绑定、编译和 WPF 页面加载。禁止以普通 WPF 控件替代已有 MW 能力；仅在本作业需要 Geometry 时按需使用 `scripts/gen-icons-xaml.js` 与 `scripts/scan-icon-coords.js`。
+4. 验证命名空间、资源键、绑定、编译和 WPF 页面加载。禁止以普通 WPF 控件替代已有 MW 能力；有 PATH/SVG 时使用 `scripts/gen-mtslg-page-icons.js` 自动生成当前页面的 Icon 文件，页面只引用自己的 Geometry 键。
 
 本作业不得生成 MTSLG `IOContorl` XML、MTSLG `Layout.xml` 注册或调用 MTSLG provenance 校验器。
 
 ## 作业 B：MTSLG IOContorl（`Adapter: mtslg-iocontrol`）
 
 1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。设计稿包含顶部栏、底部栏或快捷键，或本次需要创建/修改 Layout 注册时，必须再读 `feishu-layout-mapping.md`；未触发页面壳层或 Layout 注册时不读取该文件。不得读取 MW WPF 控件协议作为 XML 事实源。
-2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；有 PATH/SVG 时使用 `scripts/gen-icons-xaml.js`，并保留图标来源。
+2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；有 PATH/SVG 时使用 `scripts/gen-mtslg-page-icons.js` 自动生成当前页面的 Icon 文件。图标映射输入必须逐项提供当前页面的资源键和 DSL 来源；Layout 只引用该页面 Icon 文件中已生成的键。
 3. 在 XML 结构检查前运行 `scripts/validate-iocontrol-provenance.js`；需要独立坐标检查时以节点数组调用 `scripts/check-iocontrol-coords.js`，有 Geometry 时调用 `scripts/scan-icon-coords.js`，再执行宿主加载与视觉核对。顶部/底部公共栏必须记录为“框架负责、页面不生成”。
 
 本作业不得写入 WPF 私有协议，例如 `s:Action`、WPF `PageName` 或 WPF ResourceDictionary/绑定语法；没有正式映射时不得降级为普通 Button、无类型容器或静态占位结构。
 
+## 页面 Icon 文件（两个适配器共用）
+
+每个页面必须单独维护一个 Icon 文件。当前页从 MasterGo PATH/SVG 自动生成自己的 Geometry 资源；图标映射输入逐项提供资源键和 DSL 来源，禁止从名称、坐标或外观推断。`mw-wpf` 的页面以 `StaticResource` 引用该页 Geometry；`mtslg-iocontrol` 的 Layout 仅引用该页 Icon 文件中已生成的键。页面 Icon 文件的真实相对路径和加载方式必须由目标项目确认。
+
 ## 页面输出目录
 
-- 旧模式 MW WPF/XAML 生成的中间页面默认写入目标项目根目录下的 `Pages/`，与 `Resources/` 同级；页面文件使用 `Pages/*.xaml`，资源字典仍使用 `Resources/`。
+- MW 框架 WPF/XAML 生成的中间页面默认写入目标项目根目录下的 `Pages/`，与 `Resources/` 同级；页面文件使用 `Pages/*.xaml`，资源字典仍使用 `Resources/`。
 - MTSLG IOContorl 页面不套用 WPF 中间页面目录规则，继续按目标项目 `framework.config.json` 的 `pages_root` 输出；当前运行时参考路径为 `Config/Common/Pages`（Windows 路径为 `Config\\Common\\Pages`）。
 
 ## 组件和映射原则
@@ -133,6 +137,5 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - 框架发现、路径绑定和索引：`mw-framework-index`；仅项目运行时交付使用。
 - 项目首次适配：`references/project-adapter-initialization.md`；仅在有效 `framework.config.json`、组件目录或资源目录尚未确认时使用。它不选择适配器。
 - 跨适配器组件语义：`references/mastergo-component-mapping-rules.md`；仅用于两条作业共用的设计来源、组件身份与来源链规则。
-- 完整历史转换规则：`references/complete-conversion-rules.md`；仅在本 Skill 未覆盖的历史兼容细节确有必要时使用。
 
 不得默认加载全部 references；适配器专用参考和脚本只按各自作业链读取与执行。

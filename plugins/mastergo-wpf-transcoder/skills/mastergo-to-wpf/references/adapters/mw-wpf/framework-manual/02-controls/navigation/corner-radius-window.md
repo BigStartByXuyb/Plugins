@@ -44,7 +44,6 @@ TargetType = `controls:CornerRadiusWindow`（MaxwellControl.Controls，私有程
 | WindowBaseButton（IconButton 版） | 无 | 13×13 图标 Path（Stroke=Foreground）；Hover `PrimaryControlToolBrush` / Pressed `PrimaryBrush`+前景 `PrimaryDefaultBrush`；**键名与 CommonWindow.xaml 的 Button 版重复定义，合并顺序决定生效版本（关联 TD-008）** | 最小化/最大化按钮 |
 | WindowClosedCornerRadiusButton | 无 | IconButton；右上圆角 `0 5 0 0`；`WindowsCloseGeometry` 15×15；Hover `WarningToolBrush`+Fill `PrimaryDefaultBrush` / Pressed `WarningBrush`+同 Fill | 关闭按钮 |
 | ShadowBorder | 无 | Border.Effect = DropShadowEffect（固定参数） | 窗口阴影边框 |
-| （注释保留的旧版）CornerRadiusWindowStyle / WindowBaseButton / WindowClosedCornerRadiusButton | — | Button 型模板、白底、Padding 10、`CornerRadius="0 5 0 0"` 关闭钮——已整体注释，非生效资源 | 历史版本留存（勿按旧版实现写页面） |
 
 ## 5. 框架写法示例
 
