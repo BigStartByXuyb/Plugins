@@ -75,7 +75,14 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 ## 页面输出目录
 
 - MW 框架 WPF/XAML 生成的中间页面默认写入目标项目根目录下的 `Pages/`，与 `Resources/` 同级；页面文件使用 `Pages/*.xaml`，资源字典仍使用 `Resources/`。
-- MTSLG IOContorl 页面不套用 WPF 中间页面目录规则，继续按目标项目 `framework.config.json` 的 `pages_root` 输出；当前运行时参考路径为 `Config/Common/Pages`（Windows 路径为 `Config\\Common\\Pages`）。
+- MTSLG IOContorl 页面必须写入目标项目的实际运行目录，不能默认写入 `Generated/`。输出路径按以下优先级解析：
+  1. 有效的 `framework.config.json.pages_root`；
+  2. 目标项目 `.csproj` 中已声明的 `Content Include` 页面目录、`Page Include` 图标目录和 `Content Include` 的 `Layout.xml` 路径；
+  3. 项目源码、宿主配置和已确认的运行目录共同给出的唯一路径；
+  4. 仅在无法唯一确定运行目录，或用户明确要求静态产物时，才使用 `Generated/`。
+- 对没有 `framework.config.json` 的新项目，`.csproj` 的路径声明是运行路径证据，不得因为缺少 `framework.config.json` 或既有 `Layout.xml` 就把整套页面降级到 `Generated/`。例如项目声明 `Common\\Pages\\*.xml`、`Resources\\Icons\\*.xaml` 和 `Resources\\Files\\Layout.xml` 时，正式产物必须分别写入这三个目录。
+- `Generated/` 只保存 mapping/provenance、MCP manifest、图标提取清单、验证脚本和验证结果等溯源/审计文件，不作为 MTSLG 运行时默认加载目录。
+- 正式页面或图标文件已经存在时，生成器必须先备份；只有用户明确要求“重新生成/覆盖”时才替换，禁止静默覆盖。新建的 `Layout.xml` 也必须写入项目声明的正式路径。
 
 ## 组件和映射原则
 

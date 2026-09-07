@@ -20,8 +20,8 @@ Recommended project-local files:
 
 1. Locate the project root from the current workspace and user-provided target path.
 2. Read `framework.config.json` if it exists. Resolve relative paths from the directory containing that file.
-3. If the file is missing, or required paths are invalid, scan the project for likely source, index, resource, page, and layout directories. This scan discovers paths only; it must not infer an adapter mode from project names, source types, or directory names.
-4. The adapter has already been selected by the Skill's adapter-selection gate. Show the candidate paths to the user and ask for confirmation or corrections before writing configuration; do not ask the user to reconfirm the mode merely because the configuration file was absent.
+3. If the file is missing, or required paths are invalid, scan the project for likely source, index, resource, page, and layout directories. Read the target `.csproj` (or equivalent project file) as authoritative path evidence: `Content Include` page entries determine the page directory, `Page Include` icon entries determine the page-icon directory, and a declared `Layout.xml` entry determines the Layout path even when the file does not yet exist. This scan discovers paths only; it must not infer an adapter mode from project names, source types, or directory names.
+4. The adapter has already been selected by the Skill's adapter-selection gate. Show the candidate paths to the user and ask for confirmation or corrections before writing configuration; do not ask the user to reconfirm the mode merely because the configuration file was absent. Do not use `Generated/` as the default candidate when the project file gives a unique runtime path.
 5. Write the confirmed configuration only to the target project.
 6. Scan the configured sources and existing pages to create or update project-local indexes.
 7. Record the source paths, scan time, and a source fingerprint in the index metadata.
@@ -55,6 +55,8 @@ The exact field names may be extended by an adapter, but paths must be project-r
 ```
 
 `mode`, `source_root`, and `index_root` are the core routing fields. `pages_root`, `resource_roots`, `layout_file`, and `key_catalog` are adapter-specific and must be validated against the target project before use. A declared `layout_file` may be created from the selected adapter's formal template when the target project is new and the user requests new-page generation; absence of an existing file is not evidence to borrow one from another project.
+
+When `framework.config.json` is absent, the confirmed project-file paths may be recorded in a newly created project-local configuration. Keep generated provenance under `Generated/` (or another explicitly named audit directory) while writing runtime page, icon, and Layout files to the project-file paths.
 
 If the project uses reusable style libraries, add the selected library ID and version to the project configuration or a project-local lock file. Do not copy all available libraries into the project catalog and do not overwrite an existing profile version.
 
