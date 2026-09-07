@@ -53,6 +53,8 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 ## 作业 A：MW 框架 WPF（`Adapter: mw-wpf`）
 
+新增独立 MW WPF 页面时，先按本作业读取项目适配与 MW WPF 参考文档，形成页面清单，再使用 scripts/gen-mw-wpf-page.js 生成固定的 View、View.xaml.cs、ViewModel 和 csproj 注册。清单可显式提供 `viewPath`、`codeBehindPath`、`viewModelPath`；未提供时按 `.csproj` 同区域 View/ViewModel 声明、项目目录证据、最后的 `Pages/` 兜底顺序解析，绝不为同一页面生成两套目录。若 MaxWell SSD 页面需要一个负责加载 MTSLG 页面 XML 的 WPF 宿主壳，必须改用作业 B 的 bundle 入口；作业 A 单独生成的 WPF 页面不得猜写 IOContorl 控件。页面控件、文本、坐标、Style、协议绑定、页面 XML 和 Icon 仍必须分别依据项目事实源、MasterGo DSL 与对应生成器完成。
+
 1. 核对真实 MW 控件源码、现有 WPF 页面、Style/Resource 键、Geometry 资源和页面宿主。
 2. 先读 `references/adapters/mw-wpf/mw-wpf-framework.md`；再按命中的控件、资源或协议按需读 `references/adapters/mw-wpf/framework-manual/` 下对应的 controls、resources、protocols 或 scenarios 文档。不得预读 MTSLG 映射或 XML 文档。
 3. 生成目标项目约定的 XAML、C# UserControl/ViewModel 与资源；直接使用项目真实的 MW 控件和协议，例如 `s:IconButton`、`MainButtonStyle`、`PageName`、`s:Action`、`IOEnable`。
@@ -61,6 +63,8 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 本作业不得生成 MTSLG `IOContorl` XML、MTSLG `Layout.xml` 注册或调用 MTSLG provenance 校验器。
 
 ## 作业 B：MTSLG IOContorl（`Adapter: mtslg-iocontrol`）
+
+MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `scripts/gen-mastergo-page-bundle.js` 作为总入口；适配器仍记录为 `mtslg-iocontrol`。bundle 生成的 WPF 文件仅是加载 MTSLG 页面 XML 的宿主壳，不是第二套 WPF 页面适配器，也不得在其中猜写 WPF 业务控件或把 WPF 私有协议写入 IOContorl XML。
 
 1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。设计稿包含顶部栏、底部栏或快捷键，或本次需要创建/修改 Layout 注册时，必须再读 `feishu-layout-mapping.md`；未触发页面壳层或 Layout 注册时不读取该文件。不得读取 MW WPF 控件协议作为 XML 事实源。
 2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；有 PATH/SVG 时使用 `scripts/gen-mtslg-page-icons.js` 自动生成当前页面的 Icon 文件。图标映射输入必须逐项提供当前页面的资源键和 DSL 来源；Layout 只引用该页面 Icon 文件中已生成的键。
@@ -74,7 +78,9 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 ## 页面输出目录
 
-- MW 框架 WPF/XAML 生成的中间页面默认写入目标项目根目录下的 `Pages/`，与 `Resources/` 同级；页面文件使用 `Pages/*.xaml`，资源字典仍使用 `Resources/`。
+> **全局固定常量：`contentOriginY = 192px`。** 所有 MasterGo 业务页面都必须按 `normalizedY = pageAbsY - 192` 计算；192 不是页面参数、不是可选配置，也不能由单个项目、页面或控件改写。只在页面根级扣除一次，嵌套控件不得重复扣除。
+
+- MW WPF 页面优先写入目标项目 .csproj 已声明的 View/ViewModel 路径，例如 `UI/<区域>/View` 和 `UI/<区域>/ViewModel`；只有项目没有路径证据时，才使用目标项目根目录下的 `Pages/` 作为通用兜底。不得为同一页面同时生成两套 View。
 - MTSLG IOContorl 页面必须写入目标项目的实际运行目录，不能默认写入 `Generated/`。输出路径按以下优先级解析：
   1. 有效的 `framework.config.json.pages_root`；
   2. 目标项目 `.csproj` 中已声明的 `Content Include` 页面目录、`Page Include` 图标目录和 `Content Include` 的 `Layout.xml` 路径；
@@ -83,6 +89,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - 对没有 `framework.config.json` 的新项目，`.csproj` 的路径声明是运行路径证据，不得因为缺少 `framework.config.json` 或既有 `Layout.xml` 就把整套页面降级到 `Generated/`。例如项目声明 `Common\\Pages\\*.xml`、`Resources\\Icons\\*.xaml` 和 `Resources\\Files\\Layout.xml` 时，正式产物必须分别写入这三个目录。
 - `Generated/` 只保存 mapping/provenance、MCP manifest、图标提取清单、验证脚本和验证结果等溯源/审计文件，不作为 MTSLG 运行时默认加载目录。
 - 正式页面或图标文件已经存在时，生成器必须先备份；只有用户明确要求“重新生成/覆盖”时才替换，禁止静默覆盖。新建的 `Layout.xml` 也必须写入项目声明的正式路径。
+- 所有输出模式的 MasterGo 业务页面根级 Y 坐标都固定向上归一化 192px，且只扣除一次；顶部栏、底部栏和 Layout Header 不参与该偏移。对 MTSLG，这个归一化值进入 IOContorl 的根级 `Top`；对 MW WPF，它只是页面内容坐标的输入基准，最终 `Canvas/Grid` 等布局属性仍必须由目标 WPF 容器和项目事实确定，不能把 IOContorl XML 的 `Top` 属性直接当成 WPF 布局实现。
 
 ## 组件和映射原则
 
@@ -116,7 +123,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 ### 绝对坐标输出规则
 
 - 每个最终输出的 IOContorl/WPF 控件都必须由自身 MasterGo bbox 定位；`Left/Top` 不能由父容器尺寸、相邻控件、字体或视觉间距推算。
-- 根级节点，或正式映射确认可展平的节点，按内容区绝对坐标发射：`Left = pageAbsX - contentOriginX`、`Top = pageAbsY - contentOriginY`，公共外壳偏移只扣一次。
+- 根级节点，或正式映射确认可展平的节点，先按统一页面坐标归一化：`normalizedX = pageAbsX - contentOriginX`、`normalizedY = pageAbsY - 192`，公共外壳偏移只扣一次。MTSLG 将归一化结果发射为 IOContorl 坐标；MW WPF 只能把它作为页面内容坐标输入，再按真实 WPF 容器完成布局。
 - MTSLG 中正式映射要求保留父容器的子节点，按该已保留父容器发射相对坐标；根级扣除内容区偏移后，子节点不重复扣除。具体公式、裁剪边界与 XML 示例只读取 `references/adapters/mtslg-iocontrol/mtslg-mode.md`。
 - WPF 的最终坐标/布局属性必须由目标页面的真实布局容器决定；不得把 MTSLG 的 XML 坐标规则照搬到 WPF。
 - 输出前必须保留“输出节点 ↔ 唯一 layerId/ref ↔ 自身 pageAbs bbox ↔ 输出父节点 ↔ 最终 Left/Top”清单；任一控件缺少自身 bbox 或输出父节点依据时不得交付。
@@ -125,7 +132,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 - 生成 IOContorl XML 前必须建立逐节点 mapping manifest；manifest 必须同时包含从原始 DSL 机械提取的 sourceNodes。每条 sourceNodes 记录至少包含 ref、parentRef、pageAbsX/pageAbsY、relativeX/relativeY、width/height 和真实 text（文本节点）；每条输出节点记录至少包含 xmlId、唯一 sourceRef、sourceParent、sourceText（文本节点）、输出父节点依据、expectedLeft/expectedTop/expectedWidth/expectedHeight。当前校验器仅支持输出父节点与真实 `sourceParent` 一致；映射若需改变输出父节点，必须先扩展校验器，不得静默发射。
 - 文本节点的 Value 必须机械复制 sourceText；valueSource 必须为 dsl.text。禁止用 XML ID、组件属性名、字段名、坐标方向、视觉位置、模板槽位或业务语义生成 Value。RelativePositionXLabel 不得生成 Value="X"。
-- 坐标必须机械计算：MTSLG 根级/展平节点以 `pageAbs - contentOrigin` 发射；保留父容器的子节点以 `pageAbs - parent.pageAbs` 发射，并且内容区偏移只在根级扣一次；`Width/Height` 必须来自同一 sourceRef 的 bbox。禁止用 ID、相邻节点、截图观感、固定模板或“应该在这里”补坐标。
+- 坐标必须机械计算：MTSLG 根级/展平节点以 `pageAbsX - contentOriginX`、`pageAbsY - 192` 发射；保留父容器的子节点以 `pageAbs - parent.pageAbs` 发射，并且内容区偏移只在根级扣一次；`Width/Height` 必须来自同一 sourceRef 的 bbox。禁止用 ID、相邻节点、截图观感、固定模板或“应该在这里”补坐标。MW WPF 复用同一份已归一化页面来源，但最终布局仍须由目标 WPF 容器确定。
 - 坐标空间必须明确：`sourceNodes` 永远保存 MasterGo 原始页面绝对坐标；输出节点的 `expectedLeft/expectedTop` 记录实际发射坐标，而不是替代来源事实。校验器必须用 `sourceNodes`、真实父子链和根级内容区偏移独立重算。
 - 生成器必须在写文件前执行 scripts/validate-iocontrol-provenance.js；校验器不得把 nodes 中的 expected 值当作 DSL 事实，必须用 sourceNodes 独立重算。任何 sourceNodes 缺失、UNTRACKED、Value != sourceText、缺少来源字段、父节点缺失或几何不匹配都必须以非零状态失败。验证失败时禁止输出、覆盖或交付 XML。
 - 禁止仅凭 XML 可解析、控件数量正确或肉眼看起来接近就宣称完成；必须保留 manifest 和校验输出作为交付证据。无法建立来源链的已映射节点必须停止并标记待确认；未映射组件则保留其来源记录，不得伪造 XML 节点。

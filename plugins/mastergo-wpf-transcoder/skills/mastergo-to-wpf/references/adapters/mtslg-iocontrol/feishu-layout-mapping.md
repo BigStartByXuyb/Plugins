@@ -30,7 +30,7 @@
 </Page>
 ```
 
-Index 取当前页面底部栏中该实例的实际排列顺序；不写入 Left、Top、Width、Height。PageName、IOEnable、UserRightId 只能取目标项目已确认的 Layout 配置；项目未提供时不生成对应属性。
+新建页面时，Index 取当前页面底部栏中该实例的实际排列顺序；不写入 Left、Top、Width、Height。增量修改已有 Layout 时，已有页面和已有 MenuItem 的 Index 原样保留，不用设计稿顺序覆盖。PageName、IOEnable、UserRightId 只能取目标项目已确认的 Layout 配置；项目未提供时不生成对应属性。
 
 ### 属性 1：首页-长方形
 
@@ -192,7 +192,7 @@ MasterGo 顶部栏组件用于识别宿主插槽和核对显示内容；运行�
 
 ## 键盘提示
 
-MasterGo 底部组件中的 F1、F2、F3、F6、F7、F8、F10 等提示，映射到 MenuItem.TopLeftContent。Index 通常与功能键位置对应，但必须以目标 Layout.xml 的现有配置为准，不能仅凭 F 标签推断。
+MasterGo 底部组件中的 F1、F2、F3、F6、F7、F8、F10 等提示，映射到 MenuItem.TopLeftContent。新建页面的 Index 取当前页面底栏真实排列顺序；已有 Layout 中既有 MenuItem 的 Index 保留原值，不能仅凭 F 标签覆盖。
 
 ## 页面实例字段来源
 
@@ -206,7 +206,7 @@ Layout 映射只定义字段来源和生成条件，不登记任何具体页面�
 <MenuItem Name="{text}" LangName="{lang_name}" Icon="{icon}" TopLeftContent="{key}" Index="{index}"/>
 ```
 
-Name 取当前组件实例的真实文本槽位；LangName 仅从当前页面的语言文件读取；Icon 仅从当前页面的 Icon 文件读取；TopLeftContent 取当前实例的 F 键提示槽位；Index 取当前页面底部栏中该实例的实际排列顺序。
+Name 取当前组件实例的真实文本槽位；LangName 仅从当前页面的语言文件读取；Icon 仅从当前页面的 Icon 文件读取；TopLeftContent 取当前实例的 F 键提示槽位；新建页面的 Index 取当前页面底部栏中该实例的实际排列顺序，已有 MenuItem 的 Index 保留 Layout.xml 原值。
 
 当前实例没有对应来源时，删除整个属性。PageName、IOEnable、UserRightId 仍只从目标项目已确认的 Layout 配置读取。
 

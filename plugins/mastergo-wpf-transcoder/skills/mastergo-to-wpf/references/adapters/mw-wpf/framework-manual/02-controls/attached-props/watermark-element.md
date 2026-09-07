@@ -35,7 +35,7 @@
 
 ## 4. 样式族表
 
-无（本条目为附加属性；消费样式族见 [text-box](../keypad-input/text-box.md)、[io-text-box](../io/io-text-box.md)、[multi-combo-box](../grid-tree/multi-combo-box.md) 条目）。
+无（本条目为附加属性；消费样式族见 [text-box](../native/text-box.md)、[io-text-box](../io/io-text-box.md)、[multi-combo-box](../grid-tree/multi-combo-box.md) 条目）。
 
 ## 5. 框架写法示例
 

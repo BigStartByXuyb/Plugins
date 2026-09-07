@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+"use strict";
+
+// 根据已经确认的页面注册字段创建或增量更新 Layout.xml。
+// 本脚本不推断 Target、LangName、Index、权限或 IO 字段。
+
+const fs = require("fs");
+const path = require("path");
+
+const ATTR_FIELDS = [
+  ["Name", "name"], ["LangName", "langName"], ["Icon", "icon"],
+  ["TopLeftContent", "topLeftContent"], ["Index", "index"],
+  ["PageName", "pageName"], ["IOEnable", "ioEnable"], ["UserRightId", "userRightId"]
+];
+
+function fail(message) { throw new Error(message); }
+
+function parseArgs(argv) {
+  let manifestPath = null;
+  let overwrite = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === "--manifest") manifestPath = argv[++i];
+    else if (argv[i] === "--overwrite") overwrite = true;
+    else {
+      console.error("用法: node gen-mtslg-layout.js --manifest <layout.json> [--overwrite]");
+      process.exit(2);
+    }
+  }
+  if (!manifestPath) {
+    console.error("用法: node gen-mtslg-layout.js --manifest <layout.json> [--overwrite]");
+    process.exit(2);
+  }
+  return { manifestPath, overwrite };
+}
+
+function xmlAttr(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function attrEntries(item) {
+  return ATTR_FIELDS.filter(function (pair) {
+    return item[pair[1]] !== undefined && item[pair[1]] !== null && item[pair[1]] !== "";
+  }).map(function (pair) {
+    return [pair[0], item[pair[1]]];
+  });
+}
+
+function renderMenuItem(item) {
+  const attrs = attrEntries(item).map(function (entry) {
+    return entry[0] + "=\"" + xmlAttr(entry[1]) + "\"";
+  }).join(" ");
+  return "      <MenuItem " + attrs + " />";
+}
+
+function renderPage(manifest) {
+  const target = manifest.pageTarget;
+  if (typeof target !== "string" || !target.trim()) fail("pageTarget 必须由项目或用户明确提供");
+  if (!Array.isArray(manifest.menuItems)) fail("menuItems 必须是数组");
+  const lines = [
+    "  <Page Target=\"" + xmlAttr(target) + "\"" +
+      (manifest.pageLangName ? " LangName=\"" + xmlAttr(manifest.pageLangName) + "\"" : "") + ">",
+    "    <Menu>"
+  ];
+  manifest.menuItems.forEach(function (item, index) {
+    if (!item || typeof item !== "object") fail("menuItems[" + index + "] 无效");
+    if (item.index === undefined || item.index === null || !Number.isInteger(Number(item.index))) {
+      fail("menuItems[" + index + "].index 必须是当前页面已确认的整数顺序");
+    }
+    lines.push(renderMenuItem(item));
+  });
+  lines.push("    </Menu>");
+  lines.push("  </Page>");
+  return lines.join("\n");
+}
+
+function backupFile(filePath) {
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+  let backup = filePath + ".bak-" + stamp;
+  let index = 2;
+  while (fs.existsSync(backup)) backup = filePath + ".bak-" + stamp + "-" + index++;
+  fs.copyFileSync(filePath, backup);
+  return backup;
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const manifest = JSON.parse(fs.readFileSync(path.resolve(args.manifestPath), "utf8"));
+  if (typeof manifest.layoutPath !== "string" || !manifest.layoutPath.trim()) {
+    fail("layoutPath 必须提供");
+  }
+  const layoutPath = path.resolve(manifest.layoutPath);
+  const page = renderPage(manifest);
+  let output;
+  let backup = null;
+
+  if (!fs.existsSync(layoutPath)) {
+    output = [
+      "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+      "<Layout>",
+      "  <Header>",
+      "  </Header>",
+      page,
+      "</Layout>",
+      ""
+    ].join("\n");
+  } else {
+    const existing = fs.readFileSync(layoutPath, "utf8");
+    const targetPattern = new RegExp("<Page\\s+[^>]*Target=[\"']" +
+      xmlAttr(manifest.pageTarget).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&") + "[\"']", "i");
+    if (targetPattern.test(existing)) {
+      fail("Layout.xml 已存在相同 Target，禁止重复注册: " + manifest.pageTarget);
+    }
+    const close = existing.lastIndexOf("</Layout>");
+    if (close < 0) fail("已有 Layout.xml 缺少 </Layout>");
+    const before = existing.slice(0, close).replace(/\s*$/, "");
+    const between = existing.slice(before.length, close);
+    output = before + between + "\n" + page + "\n" + existing.slice(close);
+    backup = backupFile(layoutPath);
+  }
+
+  if (fs.existsSync(layoutPath) && !args.overwrite && backup) {
+    // 增量注册本身是显式页面生成动作；仍保留备份，不静默覆盖原文件。
+  }
+  fs.mkdirSync(path.dirname(layoutPath), { recursive: true });
+  fs.writeFileSync(layoutPath, output, "utf8");
+  console.log(JSON.stringify({
+    layoutPath,
+    pageTarget: manifest.pageTarget,
+    menuItemCount: manifest.menuItems.length,
+    created: !backup,
+    backup
+  }, null, 2));
+}
+
+try { main(); } catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+}

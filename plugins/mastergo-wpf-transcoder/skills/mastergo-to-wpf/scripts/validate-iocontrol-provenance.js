@@ -49,7 +49,11 @@ function validate(xmlPath, manifestPath) {
   const sourceMap = new Map(manifest.sourceNodes.map(n => [n.ref, n]));
   const originY = Number(manifest.contentOriginY !== undefined
     ? manifest.contentOriginY
-    : (manifest.contentOrigin && manifest.contentOrigin.y) || 0);
+    : (manifest.contentOrigin && manifest.contentOrigin.y) || 192);
+  if (originY !== 192) {
+    errors.push('contentOriginY 必须固定为 192');
+    return { ok: false, errors };
+  }
   const rootRef = manifest.rootRef || (manifest.source && manifest.source.layerId) ||
     (manifest.sourceNodes.find(n => !n.parentRef) || {}).ref;
   const tags = Array.from(xml.matchAll(/<IOContorl\b[^<>]*>/g)).map(m => attrsFromTag(m[0]));

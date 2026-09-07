@@ -36,7 +36,7 @@
 
 ## 4. 样式族表
 
-无（本条目为附加属性；消费样式 ButtonIconStyle / ButtonImageStyle 属 Button 家族，见 [button](../native/button.md) 条目）。
+无（本条目为附加属性；消费样式 ButtonIconStyle / ButtonImageStyle 属 Button 家族，具体样式证据以 `Button.xaml` 为准；相关按钮条目见 [io-button](../io/io-button.md)）。
 
 ## 5. 框架写法示例
 

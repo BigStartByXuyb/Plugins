@@ -50,6 +50,8 @@ MasterGo 变体：输入框-文字-40、输入框-文字-36、输入框-文字-3
 
 # 坐标与容器边界规则
 
+> **全局固定常量：`contentOriginY = 192px`。** 本适配器所有业务页面根级 `Top/Y` 必须按 `pageAbsY - 192` 输出；不得把 192 改成页面级配置，也不得对嵌套控件重复扣除。
+
 ## 页面根级坐标归一
 
 - 本项目页面顶部公共栏固定为 126px，根级设计稿标题固定为 66px，标题始终按 design-artifact-title 剥离。
@@ -58,7 +60,7 @@ MasterGo 变体：输入框-文字-40、输入框-文字-36、输入框-文字-3
 
 ## 组件父子相对坐标
 
-所有 MasterGo 节点先使用自身页面绝对 bbox。最终输出统一使用内容区绝对坐标：Left = pageAbsX - contentOriginX，Top = pageAbsY - contentOriginY。父子链只用于确认真实结构、裁剪边界和来源，不把子节点相对坐标直接当作最终坐标。
+所有 MasterGo 节点先使用自身页面绝对 bbox。最终输出统一使用内容区绝对坐标：Left = pageAbsX - contentOriginX，Top = pageAbsY - 192。父子链只用于确认真实结构、裁剪边界和来源，不把子节点相对坐标直接当作最终坐标。
 
 根组件实例的 Left/Top 先按页面公共偏移归一化；每个子控件仍须使用自身页面绝对 bbox 计算最终 Left/Top。不得对嵌套控件重复扣除父节点坐标或页面偏移。不同 section、不同组件实例必须分别读取和计算，固定模板只决定结构、ControlType 和槽位顺序，不决定实例坐标。
 
@@ -390,7 +392,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 - 独立的标题、单位、说明文字和其他文本节点，统一映射为 `ControlType="TextBlock"`；如果文字是输入框、选择框等控件内部内容，则保留为所属控件内容，不额外拆分。
 - FontSize 只表示字体字号，Height 只表示控件布局边界；两者必须分别读取。MTSLG TextBlock 的 Height 固定为 40，禁止把字号、行高或文本 bbox 高度直接赋给 Height。
 - 每个输出控件的 Left、Top、Width 必须来自自身 MasterGo bbox；MTSLG TextBlock 的 Height 固定为 40，输入框和选择框外框的 Height 按已命中的 40/36/32 变体处理；固定模板、相邻控件或父容器不能代替真实尺寸。
-- 最终坐标统一按内容区绝对坐标计算：`Left = pageAbsX - contentOriginX`，`Top = pageAbsY - contentOriginY`。公共外壳偏移只扣除一次；父子关系只用于确认真实结构和裁剪边界。
+- 最终坐标统一按内容区绝对坐标计算：`Left = pageAbsX - contentOriginX`，`Top = pageAbsY - 192`。公共外壳偏移只扣除一次；父子关系只用于确认真实结构和裁剪边界。
 - 组件映射文档只登记组件集、变体、ControlType 和固定结构；具体节点来源、尺寸、字体和坐标由 AI 转码规则逐节点核对。
 
 # 页面生成总规则

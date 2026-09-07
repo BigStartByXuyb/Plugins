@@ -38,7 +38,7 @@
 
 ## 4. 样式族表
 
-无（本条目为附加属性；消费样式族见 [button](../native/button.md)、[big-numeric-keypad](../keypad-input/big-numeric-keypad.md) 条目）。
+无（本条目为附加属性；消费样式族见 [io-button](../io/io-button.md)、[big-numeric-keypad](../keypad-input/big-numeric-keypad.md) 条目；普通 Button 的具体样式证据仍以 `Button.xaml` 为准）。
 
 ## 5. 框架写法示例
 

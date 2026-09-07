@@ -1,0 +1,364 @@
+#!/usr/bin/env node
+"use strict";
+
+// 生成一个独立 MW WPF 页面：View、code-behind、ViewModel，并注册到旧式 csproj。
+// 页面 XML 与 Icon Geometry 仍由各自生成器负责，本脚本只生成 WPF 宿主壳。
+
+const fs = require("fs");
+const path = require("path");
+
+function fail(message) { throw new Error(message); }
+
+function usage() {
+  console.error("用法: node gen-mw-wpf-page.js --manifest <page.json> [--overwrite]");
+  process.exit(2);
+}
+
+function parseArgs(argv) {
+  let manifestPath = null;
+  let overwrite = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === "--manifest") manifestPath = argv[++i];
+    else if (argv[i] === "--overwrite") overwrite = true;
+    else usage();
+  }
+  if (!manifestPath) usage();
+  return { manifestPath, overwrite };
+}
+
+function isIdentifier(value) {
+  return typeof value === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
+}
+
+function safeRelativePath(value, field) {
+  if (typeof value !== "string" || !value.trim()) fail(field + " 不能为空");
+  const normalized = value.replace(/\\/g, "/");
+  if (path.posix.isAbsolute(normalized) || normalized.split("/").includes("..")) {
+    fail(field + " 必须是项目根目录下的相对路径: " + value);
+  }
+  return normalized.replace(/^\.\//, "");
+}
+
+function projectPath(projectRoot, relativePath, field) {
+  const rel = safeRelativePath(relativePath, field);
+  const result = path.resolve(projectRoot, ...rel.split("/"));
+  const root = path.resolve(projectRoot) + path.sep;
+  if (result !== path.resolve(projectRoot) && !result.startsWith(root)) {
+    fail(field + " 超出项目根目录: " + relativePath);
+  }
+  return result;
+}
+
+function projectInclude(relativePath) {
+  return safeRelativePath(relativePath, "项目文件路径").replace(/\//g, "\\");
+}
+
+function xmlAttr(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function namespaceSegment(value) {
+  const segment = String(value).replace(/[^A-Za-z0-9_]/g, "_");
+  if (!isIdentifier(segment)) fail("area 不能转换为有效 C# 命名空间段: " + value);
+  return segment;
+}
+
+function readRootNamespace(csprojText) {
+  const match = csprojText.match(/<RootNamespace>\s*([^<]+?)\s*<\/RootNamespace>/i);
+  return match ? match[1].trim() : null;
+}
+
+function csprojIncludes(csprojText) {
+  const includes = [];
+  const re = /<(?:Page|Compile|Content)\s+Include=["']([^"']+)["']/gi;
+  let match;
+  while ((match = re.exec(csprojText)) !== null) {
+    includes.push(match[1].replace(/\\/g, "/"));
+  }
+  return includes;
+}
+
+function existingDirectory(projectRoot, relativePath) {
+  return fs.existsSync(path.join(projectRoot, ...relativePath.split("/")));
+}
+
+function inferHostPaths(manifest, projectRoot, csprojText, viewName, viewModelName) {
+  const includes = csprojIncludes(csprojText);
+  const explicitView = manifest.viewPath;
+  const explicitCodeBehind = manifest.codeBehindPath;
+  const explicitViewModel = manifest.viewModelPath;
+  if ((explicitView && !explicitCodeBehind) || (!explicitView && explicitCodeBehind)) {
+    fail("viewPath 与 codeBehindPath 必须同时提供");
+  }
+  if (explicitView || explicitCodeBehind || explicitViewModel) {
+    return {
+      viewRelative: safeRelativePath(explicitView || "UI/" + manifest.area + "/View/" + viewName + ".xaml", "viewPath"),
+      codeBehindRelative: safeRelativePath(explicitCodeBehind || (explicitView + ".cs"), "codeBehindPath"),
+      viewModelRelative: safeRelativePath(explicitViewModel || "UI/" + manifest.area + "/ViewModel/" + viewModelName + ".cs", "viewModelPath")
+    };
+  }
+
+  const areaPrefix = "UI/" + manifest.area.replace(/\\/g, "/") + "/View/";
+  const viewMatch = includes.find(function (item) {
+    return item.toLowerCase().startsWith(areaPrefix.toLowerCase()) && /\/View\/[^/]+\.xaml$/i.test(item);
+  });
+  const uiViewEvidence = includes.some(function (item) {
+    return /^UI\/.+\/View\/[^/]+\.xaml$/i.test(item);
+  });
+  const pagesMatch = includes.find(function (item) {
+    return /^Pages\/[^/]+\.xaml$/i.test(item) || /\/Pages\/[^/]+\.xaml$/i.test(item);
+  });
+  let viewDir;
+  let viewModelDir;
+  if (viewMatch) {
+    viewDir = viewMatch.slice(0, viewMatch.lastIndexOf("/"));
+    const vmMatch = includes.find(function (item) {
+      return /\/ViewModel\/[^/]+\.cs$/i.test(item) && item.toLowerCase().includes(viewDir.slice(0, viewDir.lastIndexOf("/view")).toLowerCase());
+    });
+    viewModelDir = vmMatch ? vmMatch.slice(0, vmMatch.lastIndexOf("/")) : viewDir.replace(/\/View$/i, "/ViewModel");
+  } else if (pagesMatch) {
+    viewDir = pagesMatch.slice(0, pagesMatch.lastIndexOf("/"));
+    viewModelDir = viewDir;
+  } else if (uiViewEvidence || existingDirectory(projectRoot, "UI/" + manifest.area + "/View")) {
+    viewDir = "UI/" + manifest.area + "/View";
+    viewModelDir = existingDirectory(projectRoot, "UI/" + manifest.area + "/ViewModel")
+      ? "UI/" + manifest.area + "/ViewModel" : viewDir.replace(/\/View$/i, "/ViewModel");
+  } else {
+    // 无项目路径证据时才使用通用 Pages 兜底，避免给同一页面生成第二套 UI/Pages。
+    viewDir = "Pages";
+    viewModelDir = "Pages";
+  }
+  return {
+    viewRelative: viewDir + "/" + viewName + ".xaml",
+    codeBehindRelative: viewDir + "/" + viewName + ".xaml.cs",
+    viewModelRelative: viewModelDir + "/" + viewModelName + ".cs"
+  };
+}
+
+function findCsproj(projectRoot, requested) {
+  if (requested) return projectPath(projectRoot, requested, "csproj");
+  const candidates = fs.readdirSync(projectRoot).filter(function (name) {
+    return name.toLowerCase().endsWith(".csproj");
+  });
+  if (candidates.length !== 1) {
+    fail("无法唯一确定 csproj，请在 manifest 中指定 csproj（发现 " + candidates.length + " 个）");
+  }
+  return path.join(projectRoot, candidates[0]);
+}
+
+function loadManifest(manifestPath) {
+  const manifestFile = path.resolve(manifestPath);
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  const projectRoot = path.resolve(manifest.projectRoot || path.dirname(manifestFile));
+  if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) {
+    fail("projectRoot 不存在或不是目录: " + projectRoot);
+  }
+  const csprojPath = findCsproj(projectRoot, manifest.csproj);
+  const csprojText = fs.readFileSync(csprojPath, "utf8");
+  const rootNamespace = manifest.rootNamespace || readRootNamespace(csprojText);
+  if (!rootNamespace) fail("manifest 或 csproj 必须提供 RootNamespace");
+  if (!/^[A-Za-z_][A-Za-z0-9_.]*$/.test(rootNamespace)) {
+    fail("RootNamespace 无效: " + rootNamespace);
+  }
+
+  const pageName = manifest.pageName;
+  if (!isIdentifier(pageName)) fail("pageName 必须是有效 C# 标识符: " + pageName);
+  const viewName = manifest.viewName || pageName + "View";
+  const viewModelName = manifest.viewModelName || pageName + "ViewModel";
+  const xmlPageName = manifest.xmlPageName || pageName + "Page";
+  [["viewName", viewName], ["viewModelName", viewModelName], ["xmlPageName", xmlPageName]]
+    .forEach(function (item) {
+      if (!isIdentifier(item[1])) fail(item[0] + " 必须是有效 C# 标识符: " + item[1]);
+    });
+
+  const area = safeRelativePath(manifest.area, "area");
+  if (area.split("/").some(function (part) { return !part || part === "."; })) {
+    fail("area 无效: " + manifest.area);
+  }
+  const namespaceArea = area.split("/").map(namespaceSegment).join(".");
+  const includeIcon = Boolean(manifest.includeIcon || manifest.iconPath);
+  const iconPath = includeIcon
+    ? safeRelativePath(manifest.iconPath || "Resources/Icons/" + pageName + "Icon.xaml", "iconPath")
+    : null;
+  const pageXmlPath = safeRelativePath(
+    manifest.pageXmlPath || "Common/Pages/" + xmlPageName + ".xml", "pageXmlPath");
+  const hostPaths = inferHostPaths(manifest, projectRoot, csprojText, viewName, viewModelName);
+  const viewRelative = hostPaths.viewRelative;
+  const codeBehindRelative = hostPaths.codeBehindRelative;
+  const viewModelRelative = hostPaths.viewModelRelative;
+  const files = [
+    { kind: "Page", relative: viewRelative },
+    { kind: "Compile", relative: codeBehindRelative },
+    { kind: "Compile", relative: viewModelRelative }
+  ];
+  if (iconPath) files.push({ kind: "Page", relative: iconPath });
+  files.push({ kind: "Content", relative: pageXmlPath });
+  return {
+    projectRoot, csprojPath, csprojText, rootNamespace, area, namespaceArea,
+    pageName, viewName, viewModelName, xmlPageName, iconPath, pageXmlPath,
+    viewRelative, codeBehindRelative, viewModelRelative,
+    designWidth: manifest.designWidth || 1280, designHeight: manifest.designHeight || 1024,
+    files
+  };
+}
+
+function renderView(config) {
+  const className = config.rootNamespace + "." + config.namespaceArea + ".View." + config.viewName;
+  const lines = [
+    "<UserControl x:Class=\"" + className + "\"",
+    "    xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\"",
+    "    xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\"",
+    "    xmlns:s=\"http://www.maxwell-gp.com/\"",
+    "    xmlns:uidesign=\"clr-namespace:MaxWell.UIDesign;assembly=MaxWell.UIDesign\"",
+    "    xmlns:d=\"http://schemas.microsoft.com/expression/blend/2008\"",
+    "    xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"",
+    "    d:DesignHeight=\"" + xmlAttr(config.designHeight) + "\" d:DesignWidth=\"" +
+      xmlAttr(config.designWidth) + "\" mc:Ignorable=\"d\">"
+  ];
+  if (config.iconPath) {
+    lines.push("  <UserControl.Resources>");
+    lines.push("    <ResourceDictionary Source=\"/" + config.rootNamespace + ";component/" +
+      config.iconPath + "\" />");
+    lines.push("  </UserControl.Resources>");
+  }
+  lines.push("  <Grid>");
+  lines.push("    <uidesign:PageDesign x:Name=\"pageDesign\" XmlPagePath=\"" +
+    xmlAttr(config.xmlPageName) + "\" Loaded=\"{s:Action PageDesign_Loaded}\" />");
+  lines.push("  </Grid>");
+  lines.push("</UserControl>");
+  return lines.join("\n") + "\n";
+}
+
+function renderCodeBehind(config) {
+  const ns = config.rootNamespace + "." + config.namespaceArea + ".View";
+  return [
+    "using System.Windows.Controls;", "",
+    "namespace " + ns, "{",
+    "    public partial class " + config.viewName + " : UserControl", "    {",
+    "        public " + config.viewName + "()", "        {",
+    "            InitializeComponent();", "        }", "    }", "}", ""
+  ].join("\n");
+}
+
+function renderViewModel(config) {
+  const ns = config.rootNamespace + "." + config.namespaceArea + ".ViewModel";
+  return [
+    "using MaxWell.UIDesign;",
+    "using MaxwellFramework.Core.Interfaces;",
+    "using MaxwellFramework.Core.Layout;",
+    "using System.Windows;", "",
+    "namespace " + ns, "{",
+    "    public class " + config.viewModelName + " : IOScreen, IPage", "    {",
+    "        public PageDesign pageDesign { get; set; }", "",
+    "        public " + config.viewModelName + "()", "        {",
+    "            Name = \"" + config.pageName + "\";", "        }", "",
+    "        public void PageDesign_Loaded(object sender, RoutedEventArgs e)", "        {",
+    "            pageDesign = sender as PageDesign;", "        }", "    }", "}", ""
+  ].join("\n");
+}
+
+function itemBlock(kind, include) {
+  const escaped = xmlAttr(include);
+  if (kind === "Page") {
+    return [
+      "    <Page Include=\"" + escaped + "\">",
+      "      <Generator>MSBuild:Compile</Generator>",
+      "      <SubType>Designer</SubType>",
+      "    </Page>"
+    ].join("\n");
+  }
+  return "    <" + kind + " Include=\"" + escaped + "\" />";
+}
+
+function regexEscape(value) {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
+function ensureItemInclude(text, kind, include) {
+  const escaped = regexEscape(xmlAttr(include));
+  if (new RegExp("<" + kind + "\\s+Include=[\"']" + escaped + "[\"']", "i").test(text)) {
+    return text;
+  }
+  const groupRegex = /<ItemGroup>[\s\S]*?<\/ItemGroup>/gi;
+  let match;
+  while ((match = groupRegex.exec(text)) !== null) {
+    if (!new RegExp("<" + kind + "\\s+Include=", "i").test(match[0])) continue;
+    const block = match[0];
+    const newlineAtEnd = block.lastIndexOf("\n");
+    const insertion = block.slice(0, newlineAtEnd) + "\n" + itemBlock(kind, include) +
+      block.slice(newlineAtEnd);
+    return text.slice(0, match.index) + insertion + text.slice(match.index + block.length);
+  }
+  const projectClose = text.lastIndexOf("</Project>");
+  if (projectClose < 0) fail("csproj 缺少 </Project>");
+  const prefix = text.slice(0, projectClose).replace(/\s*$/, "");
+  const suffix = text.slice(prefix.length, projectClose);
+  const block = "\n  <ItemGroup>\n" + itemBlock(kind, include) + "\n  </ItemGroup>\n";
+  return prefix + suffix + block + text.slice(projectClose);
+}
+
+function backupFile(filePath) {
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+  let backup = filePath + ".bak-" + stamp;
+  let index = 2;
+  while (fs.existsSync(backup)) backup = filePath + ".bak-" + stamp + "-" + index++;
+  fs.copyFileSync(filePath, backup);
+  return backup;
+}
+
+function writeGenerated(filePath, content, overwrite, backups) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  if (fs.existsSync(filePath)) {
+    if (!overwrite) fail("目标文件已存在，未覆盖: " + filePath);
+    backups.push(backupFile(filePath));
+  }
+  fs.writeFileSync(filePath, content, "utf8");
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const config = loadManifest(args.manifestPath);
+  const contents = new Map([
+    [config.files[0].relative, renderView(config)],
+    [config.files[1].relative, renderCodeBehind(config)],
+    [config.files[2].relative, renderViewModel(config)]
+  ]);
+  const outputPaths = [...contents.keys()].map(function (relative) {
+    return projectPath(config.projectRoot, relative, "输出文件");
+  });
+  const existing = outputPaths.filter(fs.existsSync);
+  if (existing.length && !args.overwrite) {
+    fail("目标文件已存在，未覆盖: " + existing.join(", "));
+  }
+  const backups = [];
+  [...contents.entries()].forEach(function (entry) {
+    writeGenerated(projectPath(config.projectRoot, entry[0], "输出文件"),
+      entry[1], args.overwrite, backups);
+  });
+
+  let csproj = config.csprojText;
+  const registered = config.files.map(function (file) {
+    return { kind: file.kind, include: projectInclude(file.relative) };
+  });
+  registered.forEach(function (item) {
+    csproj = ensureItemInclude(csproj, item.kind, item.include);
+  });
+  if (csproj !== config.csprojText) {
+    if (args.overwrite) backups.push(backupFile(config.csprojPath));
+    const crlf = config.csprojText.includes("\r\n");
+    fs.writeFileSync(config.csprojPath, crlf ? csproj.replace(/\r?\n/g, "\r\n") : csproj, "utf8");
+  }
+  console.log(JSON.stringify({
+    projectRoot: config.projectRoot,
+    generated: [...contents.keys()],
+    registered,
+    backups,
+    overwrite: args.overwrite
+  }, null, 2));
+}
+
+try { main(); } catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+}

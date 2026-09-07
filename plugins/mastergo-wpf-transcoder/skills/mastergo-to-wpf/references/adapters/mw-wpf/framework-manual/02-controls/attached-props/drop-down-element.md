@@ -34,7 +34,7 @@
 
 ## 4. 样式族表
 
-无（本条目为附加属性；消费样式族见 [combo-box](../grid-tree/combo-box.md)、[multi-combo-box](../grid-tree/multi-combo-box.md)、[io-combo-box](../io/io-combo-box.md) 条目）。
+无（本条目为附加属性；消费样式族见 [multi-combo-box](../grid-tree/multi-combo-box.md)、[io-combo-box](../io/io-combo-box.md) 条目；通用 ComboBox 的具体样式证据仍以 `ComboBox.xaml` 为准）。
 
 ## 5. 框架写法示例
 

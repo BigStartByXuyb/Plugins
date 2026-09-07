@@ -9,7 +9,7 @@
  *   [
  *     { "id": "dsl-node-id（与 XML 的 ID 属性一致；XML 无 ID 的节点用 ref）",
  *       "x": 10, "y": 35, "w": 160, "h": 150,          // 控件自身 page-absolute bbox，double
- *       "contentOriginX": 0, "contentOriginY": 0 },       // 内容区原点，只扣除一次
+ *       "contentOriginX": 0, "contentOriginY": 192 },     // 固定内容区偏移，只扣除一次
  *     ...
  *   ]
  * 对照规则：XML.Left ≈ x - contentOriginX，XML.Top ≈ y - contentOriginY，XML.Width ≈ w，XML.Height ≈ h
@@ -93,7 +93,14 @@ for (const xn of xmlNodes) {
   usedNode.add(src);
 
   const xl = num(xn.Left), xt = num(xn.Top), xw = num(xn.Width), xh = num(xn.Height);
-  const sl = num(src.x - (src.contentOriginX || 0)), st = num(src.y - (src.contentOriginY || 0)), sw = num(src.w), sh = num(src.h);
+  const originX = src.contentOriginX === undefined ? 0 : Number(src.contentOriginX);
+  const originY = src.contentOriginY === undefined ? 192 : Number(src.contentOriginY);
+  if (originY !== 192) {
+    mismatch++;
+    results.push('MISMATCH id="' + (src.id || src.ref || '?') + '" contentOriginY=' + originY + '，固定值必须为 192');
+    continue;
+  }
+  const sl = num(src.x - originX), st = num(src.y - originY), sw = num(src.w), sh = num(src.h);
   const problems = [];
   if (!close(xl, sl, tolerance)) problems.push(`Left xml=${xl} dsl=${sl}`);
   if (!close(xt, st, tolerance)) problems.push(`Top xml=${xt} dsl=${st}`);

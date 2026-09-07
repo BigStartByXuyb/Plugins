@@ -12,7 +12,7 @@
 - 多语言目录：每种语言的资源文件、键命名规则与重载/重启要求。
 - 资源键来源：Style、Icon、LangName、IOName 与 IOCommand 的可核验来源。
 - 页面文件骨架：见第 2 节；组件固定模板、节点结构与字段来源以同目录的飞书组件库映射规范为唯一来源。
-- 内容区坐标：`contentOriginX`、`contentOriginY`、设计稿标题处理与目标画布尺寸。
+- 内容区坐标：`contentOriginX`、固定 `contentOriginY=192`、设计稿标题处理与目标画布尺寸。
 - Target 映射：新建页面首次必须以运行时加载验证页面 Target 与文件的实际关联。
 
 ## 1.1 MasterGo 组件库映射入口
@@ -54,8 +54,10 @@
 
 ## 3. 坐标规则（核心）
 
+> **固定规则：`contentOriginY = 192px`。** 业务页面根级坐标一律使用 `PageY = MasterGoY - 192`；192 不是待推断、待配置或按页面变化的参数。
+
 - **先识别公共栏，再归一**：从宿主页面、Layout 配置和运行截图建立 `ContentRect`。顶部/底部公共栏默认由宿主负责、页面不生成；左右区域必须按目标框架职责逐侧判断，不能把左右节点一律当公共栏或一律当页面内容。
-- **页面坐标不是完整窗口坐标**：根级保留业务节点统一计算 `PageX = MasterGoX − contentOriginX`、`PageY = MasterGoY − contentOriginY`。`contentOriginX/Y` 由第 1 节项目适配记录给出；公共栏和 `design-artifact-title` 的偏移只能在根级归一化时扣除一次，嵌套控件不重复扣除。不得按单个控件手调偏移。
+- **页面坐标不是完整窗口坐标**：根级保留业务节点统一计算 `PageX = MasterGoX − contentOriginX`、`PageY = MasterGoY − 192`。业务页面固定使用 `contentOriginY=192`，公共栏和 `design-artifact-title` 的偏移只能在根级归一化时扣除一次，嵌套控件不重复扣除。不得按单个控件手调偏移。
 - **公共栏节点不重复生成**：顶部/底部公共背景、标题栏、状态栏、底部快捷键区和宿主已有控件必须在映射表标记“框架负责、页面不生成”；页面标题只有在 MasterGo 业务区确有独立标题节点且宿主不提供时才生成。
 - **组件文本高度与字号分开处理**：由组件实例映射出的 `TextBlock`（标签、数值、单位）`Height` 必须取对应外层组件实例的实际高度；不得使用内部文字 bbox 或 `FontSize` 替代组件高度。`FontSize` 从该实例 MasterGo DSL 的字体属性读取并写入。只有独立、非组件映射文本才按自身 bbox 取高度；无 bbox 时使用目标项目已确认默认值，并记录 `heightFallback=true`。
 - **文本来源与 `Value` 硬门禁**：每个 `TextBlock` 的 `Value` 必须回溯到唯一 MasterGo `layerId`/DSL `ref` 及其真实文本节点；不得依据 XML `ID`、控件名称、坐标方向、页面语义或相邻实例推断文本。生成前必须逐项核对“XML 节点 → layerId/ref → 父节点链 → 原始文本 → Value”；不一致即停止生成并标记待确认。
@@ -188,6 +190,9 @@
 
 | 脚本 | 用途 | 模式 |
 |---|---|---|
+| `gen-mastergo-page-bundle.js` | 一次编排页面 XML、页面 Icon、Layout、WPF 宿主壳和审计产物 | MTSLG 页面 + MaxWell WPF 宿主 |
+| `gen-mtslg-layout.js` | 创建或增量更新 Layout.xml，只发射已确认字段 | MTSLG |
+| `gen-mw-wpf-page.js` | 生成 View、View.xaml.cs、ViewModel 和 csproj 注册 | MaxWell WPF 宿主 |
 | `gen-iocontrol-xml.js` | IOContorl XML 发射器（--fresh / --merge） | 新 |
 | `check-iocontrol-coords.js` | 页面坐标逐控件核对（0 MISMATCH 硬门） | 新 |
 | `scan-mtslg-keys.ps1` | 键白名单生成（styles/icons/langNames 成对/pageTargets/ioCommands/ioNames） | 新 |

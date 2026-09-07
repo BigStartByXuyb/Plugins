@@ -30,4 +30,12 @@ if (result.ok) throw new Error('校验器必须拒绝错误 Value 和错误 Widt
 if (!result.errors.some(x => /Value/.test(x))) throw new Error('缺少 Value 错误');
 if (!result.errors.some(x => /Width/.test(x))) throw new Error('缺少 Width 错误');
 if (!result.errors.some(x => /expectedLeft/.test(x))) throw new Error('缺少 sourceNodes 坐标重算错误');
+const fixedManifestPath = path.join(dir, 'wrong-origin.json');
+const fixedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+fixedManifest.contentOriginY = 191;
+fs.writeFileSync(fixedManifestPath, JSON.stringify(fixedManifest));
+const fixedResult = validate(xmlPath, fixedManifestPath);
+if (fixedResult.ok || !fixedResult.errors.some(x => /固定为 192/.test(x))) {
+  throw new Error('校验器必须拒绝非 192 的 contentOriginY');
+}
 console.log('PASS provenance regression test');
