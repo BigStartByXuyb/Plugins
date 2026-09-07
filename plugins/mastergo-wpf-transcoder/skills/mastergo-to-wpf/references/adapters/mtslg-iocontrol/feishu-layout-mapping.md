@@ -1,0 +1,217 @@
+# MasterGo 页面壳层 → MTSLG Layout.xml 映射标准
+
+本文负责维护 MasterGo 顶部栏、底部栏和键盘提示到 MTSLG Layout.xml 的映射规则。
+
+## 适用范围
+
+- 顶部栏：映射到产品配置 Layout.xml 的全局 Header/HeaderItem。
+- 底部栏：映射到具体页面 Page/Menu/MenuItem。
+- 键盘提示：映射到 MenuItem.TopLeftContent，例如 F1、F2、F3。
+
+## 底部按钮组件集结构映射
+
+底部菜单只按团队组件库中独立组件集“底部栏”的公开属性“属性 1”及其真实子节点匹配。业务页面中的底栏实例仅用于读取本次实例的文本、图标、键盘提示和排列顺序；图层 ID、实例名称、设计坐标和显示文案均不作为匹配键。
+
+### 组件集：底部栏
+
+#### 匹配规则
+
+先沿实例的真实父子链定位到“底部栏”组件集，再读取该实例的公开属性“属性 1”。属性值必须精确等于本节列出的一个变体值；未命中时不得生成 MenuItem。
+
+#### 固定模板
+
+一个页面底部栏对应一个 Page 下的一个 Menu；每个命中变体实例对应一个 MenuItem。底部栏容器和右侧常驻分组本身不生成 MenuItem，其命中的子实例分别生成 MenuItem。
+
+```xml
+<Page Target="{target}" LangName="{page_lang_name}">
+  <Menu>
+    <!-- 每个命中变体实例生成一个 MenuItem -->
+  </Menu>
+</Page>
+```
+
+Index 取当前页面底部栏中该实例的实际排列顺序；不写入 Left、Top、Width、Height。PageName、IOEnable、UserRightId 只能取目标项目已确认的 Layout 配置；项目未提供时不生成对应属性。
+
+### 属性 1：首页-长方形
+
+#### 匹配规则
+
+属性“属性 1”精确等于“首页-长方形”。沿该实例的真实子链读取文本槽位、可选图标槽位和开关状态槽位。
+
+#### 固定模板
+
+```xml
+<MenuItem Name="{text}" Icon="{icon}" Index="{index}"/>
+```
+
+文本槽位写入 Name；已有确认的多语言键才写入 LangName。图标槽位存在且已在当前页面的 Icon 文件中确认时才写入 Icon。开关状态用于该实例的视觉状态核对，不生成未定义的 Layout 属性；本变体没有键盘提示槽位，不生成 TopLeftContent。
+
+### 属性 1：非首页-长方形
+
+#### 匹配规则
+
+属性“属性 1”精确等于“非首页-长方形”。沿真实子链读取文案、图标和 F 键提示三个槽位。
+
+#### 固定模板
+
+```xml
+<MenuItem Name="{text}" Icon="{icon}" TopLeftContent="{key}" Index="{index}"/>
+```
+
+文案写入 Name，图标写入 Icon，F 键提示写入 TopLeftContent；LangName 和运行时属性按已确认来源补充。
+
+### 属性 1：方-icon+文案
+
+#### 匹配规则
+
+属性“属性 1”精确等于“方-icon+文案”。沿真实子链读取图标槽位和文案槽位。
+
+#### 固定模板
+
+```xml
+<MenuItem Name="{text}" Icon="{icon}" Index="{index}"/>
+```
+
+文案写入 Name，图标写入 Icon；本变体没有键盘提示槽位，不生成 TopLeftContent。
+
+### 属性 1：方-icon
+
+#### 匹配规则
+
+属性“属性 1”精确等于“方-icon”。沿真实子链读取图标槽位。
+
+#### 固定模板
+
+```xml
+<MenuItem Icon="{icon}" Index="{index}"/>
+```
+
+该变体生成一个独立 MenuItem。它没有固定文案和键盘提示槽位，不生成 Name、LangName 或 TopLeftContent；图标必须由真实图标节点和当前页面的 Icon 文件共同确认。
+
+### 属性 1：非首页-F
+
+#### 匹配规则
+
+属性“属性 1”精确等于“非首页-F”。沿真实子链读取主文本槽位和 F 键提示槽位。
+
+#### 固定模板
+
+```xml
+<MenuItem Name="{text}" TopLeftContent="{key}" Index="{index}"/>
+```
+
+主文本写入 Name，F 键提示写入 TopLeftContent；本变体没有图标槽位，不生成 Icon。
+
+### 属性 1：非首页-文案
+
+#### 匹配规则
+
+属性“属性 1”精确等于“非首页-文案”。沿真实子链读取文案槽位。
+
+#### 固定模板
+
+```xml
+<MenuItem Name="{text}" Index="{index}"/>
+```
+
+文案写入 Name；本变体没有图标和键盘提示槽位，不生成 Icon 或 TopLeftContent。
+
+### 属性 1：非首页- F
+
+#### 匹配规则
+
+属性“属性 1”精确等于“非首页- F”，其中连字符后的空格属于属性值的一部分。沿真实子链读取文案槽位和 F 键提示槽位。
+
+#### 固定模板
+
+```xml
+<MenuItem Name="{text}" TopLeftContent="{key}" Index="{index}"/>
+```
+
+文案写入 Name，F 键提示写入 TopLeftContent；本变体没有图标槽位，不生成 Icon。所有变体的文本、图标和键盘提示都必须沿实例的真实父子链读取；图标值必须在当前页面的 Icon 文件中确认。
+
+## 顶部栏映射
+
+MasterGo 顶部栏组件用于识别宿主插槽和核对显示内容；运行时字段由 Layout.xml 的 HeaderItem 提供。
+
+```xml
+<Header Title="SamplesStudio">
+  <HeaderItem Id="ShowCIM" Target="CimView"/>
+  <HeaderItem Id="AlarmContentIO" Target="CTC.Alarm_Message"/>
+  <HeaderItem Id="AlarmStatusIO" Target="CTC.Alarm_Level"/>
+  <HeaderItem Id="RecipeNameIO" Target="CTC.Recipe_RecipeName"/>
+</Header>
+```
+
+顶部栏不使用中间区域的 126px、66px 或 192px 坐标归一化规则；HeaderItem 本身也不填写 Left、Top、Width、Height。MasterGo 坐标只作为视觉核对和来源证据。
+
+顶部栏的具体业务语义、Target 和数据源必须从目标项目现有 HeaderItem 或框架源码确认。没有确认时标记“待确认”，不得按文字或图标名称猜写。
+
+## 底部栏映射
+
+底部栏按所属页面写入该页面的 Menu/MenuItem。底部组件的设计尺寸仅用于核对组件变体，Layout.xml 不记录其设计坐标。
+
+```xml
+<Page Target="{target}" LangName="{page_lang_name}">
+  <Menu>
+    <MenuItem Name="{name}" LangName="{lang_name}" Icon="{icon}" TopLeftContent="{key}" Index="{index}" PageName="{page_name}" IOEnable="{enable}" UserRightId="{user_right_id}"/>
+  </Menu>
+</Page>
+```
+
+底部栏需要登记 Name、LangName、Icon、TopLeftContent、Index、PageName、IOEnable 和 UserRightId（项目实际提供时），并按目标 Layout.xml 的现有结构写入。其中 Icon 的值仅从当前页面的 Icon 文件中查找；当前页面未提供时不生成 Icon 属性。
+
+## Layout.xml 参数说明
+
+顶部栏和底部栏按目标 Layout.xml 的节点结构生成。参数值必须来自项目现有配置、映射文件或已确认的 MasterGo 来源；无法确认时标记为“待确认”。
+
+```xml
+<HeaderItem Id="{id}" Target="{target}"/>
+<MenuItem Name="{name}" LangName="{lang_name}" Icon="{icon}" TopLeftContent="{key}" Index="{index}" PageName="{page_name}" IOEnable="{enable}" UserRightId="{right_id}"/>
+```
+
+### HeaderItem 参数
+
+| 参数 | 含义 |
+|-|-|
+| Id | 顶部栏项目在 Layout.xml 中的标识。 |
+| Target | 顶部栏项目绑定的运行时目标或数据项。 |
+
+### MenuItem 参数
+
+| 参数 | 含义 |
+|-|-|
+| Name | 底部菜单显示名称或菜单项名称。 |
+| LangName | 菜单项对应的多语言资源键。 |
+| Icon | 菜单项使用的图标键，只从当前页面的 Icon 文件读取；本文不定义图标目录。 |
+| TopLeftContent | 菜单项左上角显示的键盘提示，例如 F1、F2。 |
+| Index | 菜单项在页面底部菜单中的顺序编号。 |
+| PageName | 菜单项关联的页面名称；项目未使用时不生成。 |
+| IOEnable | 菜单项是否启用，必须按项目 Layout.xml 或框架约定填写。 |
+| UserRightId | 菜单项所需的用户权限标识，项目未提供时不猜写。 |
+
+## 键盘提示
+
+MasterGo 底部组件中的 F1、F2、F3、F6、F7、F8、F10 等提示，映射到 MenuItem.TopLeftContent。Index 通常与功能键位置对应，但必须以目标 Layout.xml 的现有配置为准，不能仅凭 F 标签推断。
+
+## 页面实例字段来源
+
+Layout 映射只定义字段来源和生成条件，不登记任何具体页面的文案、多语言键、按键或顺序值。
+
+### MenuItem 页面实例模板
+
+#### 字段来源
+
+```xml
+<MenuItem Name="{text}" LangName="{lang_name}" Icon="{icon}" TopLeftContent="{key}" Index="{index}"/>
+```
+
+Name 取当前组件实例的真实文本槽位；LangName 仅从当前页面的语言文件读取；Icon 仅从当前页面的 Icon 文件读取；TopLeftContent 取当前实例的 F 键提示槽位；Index 取当前页面底部栏中该实例的实际排列顺序。
+
+当前实例没有对应来源时，删除整个属性。PageName、IOEnable、UserRightId 仍只从目标项目已确认的 Layout 配置读取。
+
+## 未确认项处理
+
+- MasterGo 中出现但目标 Layout.xml 找不到对应键的顶部/底部组件，状态设为“未映射/待开发确认”。
+- 不得为未确认项填写未经验证的目标类型或菜单字段。
+- 补齐运行时键后，再更新本规则文档和组件映射登记表。

@@ -19,7 +19,7 @@
 
 ## 1.1 MasterGo 组件库映射入口
 
-本手册负责 IOContorl 页面格式、运行时约束、坐标和验证流程；MasterGo 组件集如何匹配固定 IOContorl 模板，统一读取同目录的本地工作副本 [飞书组件库映射规范](./feishu-component-library-mapping.md)。后续规则更新直接修改此本地文件，不把线上飞书文档作为运行时依赖。
+本手册负责 IOContorl 页面格式、运行时约束、坐标和验证流程；MasterGo 组件集如何匹配固定 IOContorl 模板，统一读取同目录的本地工作副本 [飞书组件库映射规范](./feishu-component-library-mapping.md)。页面顶部栏、底部栏和键盘提示如何写入 Layout.xml，统一读取 [页面壳层 Layout 映射规范](./feishu-layout-mapping.md)。后续规则更新直接修改本地工作副本，不把线上飞书文档作为运行时依赖。
 
 - 先按飞书规范匹配父节点语义、公开变量属性和真实变量值；
 - 再按本手册核对 `ControlType`、允许属性、坐标、资源键和运行时先例；

@@ -25,7 +25,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
   1. 读取并确认 `mw-framework-index` 输出的项目路径绑定和框架 Profile。
   2. 读取目标项目的 `framework.config.json`，按配置选择 `mw-wpf` 或 `mtslg-iocontrol`；选择、分流和互斥边界必须遵守“适配器选择门禁”。
   3. 确认框架源码、索引、组件库、真实页面样例和输出目录。
-  4. 按页面宿主确认公共外壳边界。IOContorl 顶部栏/底部栏默认不生成 XML；WPF 是否生成公共栏取决于宿主是否负责。
+   4. 按页面宿主确认公共外壳边界。IOContorl 顶部栏/底部栏默认不写入页面 XML；设计稿包含页面壳层且目标项目需要页面注册或菜单时，是否创建/修改 Layout.xml 必须按 `feishu-layout-mapping.md` 和目标项目实际 Layout 结构确认。WPF 是否生成公共栏取决于宿主是否负责。
 
 无论哪种交付目标，组件只要命中正式映射，就必须按映射生成；只有完全没有匹配项时才暂停并询问新增、修改、近似替代或静态保留，未经确认不得用通用控件、无类型容器或视觉相似组件降级。
 
@@ -62,7 +62,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 ## 作业 B：MTSLG IOContorl（`Adapter: mtslg-iocontrol`）
 
-1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。不得读取 MW WPF 控件协议作为 XML 事实源。
+1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。设计稿包含顶部栏、底部栏或快捷键，或本次需要创建/修改 Layout 注册时，必须再读 `feishu-layout-mapping.md`；未触发页面壳层或 Layout 注册时不读取该文件。不得读取 MW WPF 控件协议作为 XML 事实源。
 2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；有 PATH/SVG 时使用 `scripts/gen-icons-xaml.js`，并保留图标来源。
 3. 在 XML 结构检查前运行 `scripts/validate-iocontrol-provenance.js`；需要独立坐标检查时以节点数组调用 `scripts/check-iocontrol-coords.js`，有 Geometry 时调用 `scripts/scan-icon-coords.js`，再执行宿主加载与视觉核对。顶部/底部公共栏必须记录为“框架负责、页面不生成”。
 
