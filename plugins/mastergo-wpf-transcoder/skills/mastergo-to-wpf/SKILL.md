@@ -25,9 +25,9 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
   1. 读取并确认 `mw-framework-index` 输出的项目路径绑定和框架 Profile。
    2. 按“适配器选择门禁”确定 `mw-wpf` 或 `mtslg-iocontrol`；目标项目存在有效 `framework.config.json` 时以其 `mode` 为依据，缺失时默认 `mtslg-iocontrol`。
   3. 确认框架源码、索引、组件库、真实页面样例和输出目录。
-   4. 按页面宿主确认公共外壳边界。IOContorl 顶部栏/底部栏默认不写入页面 XML；设计稿包含页面壳层且目标项目需要页面注册或菜单时，是否创建/修改 Layout.xml 必须按 `feishu-layout-mapping.md` 和目标项目实际 Layout 结构确认。WPF 是否生成公共栏取决于宿主是否负责。
+   4. 按页面宿主确认公共外壳边界。IOContorl 顶部栏/底部栏默认不写入页面 XML；设计稿包含页面壳层且目标项目需要页面注册或菜单时，已有 `Layout.xml` 按其真实结构增量注册；目标项目声明了 `layout_file` 但文件不存在时，按 `feishu-layout-mapping.md` 的正式模板新建该文件。不得因缺少既有 Layout 阻塞已确认页面生成，也不得从其他项目复制 Layout 结构或运行时字段。WPF 是否生成公共栏取决于宿主是否负责。
 
-无论哪种交付目标，组件只要命中正式映射，就必须按映射生成；只有完全没有匹配项时才暂停并询问新增、修改、近似替代或静态保留，未经确认不得用通用控件、无类型容器或视觉相似组件降级。
+无论哪种交付目标，组件只要命中正式映射，就必须按映射生成。未命中的组件不得降级为通用控件或近似控件；应将该组件的真实 DSL、坐标和 provenance 保留在待绑定清单中，并继续生成其他已命中映射的页面节点、Icon 文件和 Layout 注册。只有用户要求“完整可运行页面”且未映射组件阻止运行时交付时，才将其列为运行时未完成项。
 
 ## 映射表优先级与适配层级
 
@@ -66,7 +66,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；有 PATH/SVG 时使用 `scripts/gen-mtslg-page-icons.js` 自动生成当前页面的 Icon 文件。图标映射输入必须逐项提供当前页面的资源键和 DSL 来源；Layout 只引用该页面 Icon 文件中已生成的键。
 3. 在 XML 结构检查前运行 `scripts/validate-iocontrol-provenance.js`；需要独立坐标检查时以节点数组调用 `scripts/check-iocontrol-coords.js`，有 Geometry 时调用 `scripts/scan-icon-coords.js`，再执行宿主加载与视觉核对。顶部/底部公共栏必须记录为“框架负责、页面不生成”。
 
-本作业不得写入 WPF 私有协议，例如 `s:Action`、WPF `PageName` 或 WPF ResourceDictionary/绑定语法；没有正式映射时不得降级为普通 Button、无类型容器或静态占位结构。
+本作业不得写入 WPF 私有协议，例如 `s:Action`、WPF `PageName` 或 WPF ResourceDictionary/绑定语法；没有正式映射时不得降级为普通 Button、无类型容器或静态占位结构。未映射组件仅进入静态来源清单，不进入伪造的 IOContorl 节点。
 
 ## 页面 Icon 文件（两个适配器共用）
 
@@ -121,7 +121,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 - 坐标必须机械计算：MTSLG 根级/展平节点以 `pageAbs - contentOrigin` 发射；保留父容器的子节点以 `pageAbs - parent.pageAbs` 发射，并且内容区偏移只在根级扣一次；`Width/Height` 必须来自同一 sourceRef 的 bbox。禁止用 ID、相邻节点、截图观感、固定模板或“应该在这里”补坐标。
 - 坐标空间必须明确：`sourceNodes` 永远保存 MasterGo 原始页面绝对坐标；输出节点的 `expectedLeft/expectedTop` 记录实际发射坐标，而不是替代来源事实。校验器必须用 `sourceNodes`、真实父子链和根级内容区偏移独立重算。
 - 生成器必须在写文件前执行 scripts/validate-iocontrol-provenance.js；校验器不得把 nodes 中的 expected 值当作 DSL 事实，必须用 sourceNodes 独立重算。任何 sourceNodes 缺失、UNTRACKED、Value != sourceText、缺少来源字段、父节点缺失或几何不匹配都必须以非零状态失败。验证失败时禁止输出、覆盖或交付 XML。
-- 禁止仅凭 XML 可解析、控件数量正确或肉眼看起来接近就宣称完成；必须保留 manifest 和校验输出作为交付证据。无法建立来源链时，停止并标记待确认。
+- 禁止仅凭 XML 可解析、控件数量正确或肉眼看起来接近就宣称完成；必须保留 manifest 和校验输出作为交付证据。无法建立来源链的已映射节点必须停止并标记待确认；未映射组件则保留其来源记录，不得伪造 XML 节点。
 
 ## 交付和验证
 

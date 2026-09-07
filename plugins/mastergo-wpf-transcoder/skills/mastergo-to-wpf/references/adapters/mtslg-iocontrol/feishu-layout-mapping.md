@@ -163,7 +163,7 @@ MasterGo 顶部栏组件用于识别宿主插槽和核对显示内容；运行�
 
 ## Layout.xml 参数说明
 
-顶部栏和底部栏按目标 Layout.xml 的节点结构生成。参数值必须来自项目现有配置、映射文件或已确认的 MasterGo 来源；无法确认时标记为“待确认”。
+顶部栏和底部栏按目标 Layout.xml 的节点结构生成。目标 Layout.xml 存在时，沿用其真实节点结构；目标项目声明了 Layout 路径但文件不存在时，按本文正式模板新建文件。参数值必须来自项目现有配置、映射文件或已确认的 MasterGo 来源；无法确认时省略并标记为“待确认”。
 
 ```xml
 <HeaderItem Id="{id}" Target="{target}"/>
@@ -215,3 +215,22 @@ Name 取当前组件实例的真实文本槽位；LangName 仅从当前页面的
 - MasterGo 中出现但目标 Layout.xml 找不到对应键的顶部/底部组件，状态设为“未映射/待开发确认”。
 - 不得为未确认项填写未经验证的目标类型或菜单字段。
 - 补齐运行时键后，再更新本规则文档和组件映射登记表。
+
+## 新建 Layout.xml
+
+目标项目声明了 `layout_file` 但文件不存在，且用户要求生成新页面时，按以下正式壳层创建文件；页面实例只填入已确认的字段，未确认的运行时属性整行删除：
+
+```xml
+<Layout>
+  <Header>
+    <!-- 仅写入已确认的 HeaderItem -->
+  </Header>
+  <Page Target="{target}" LangName="{page_lang_name}">
+    <Menu>
+      <!-- 每个已命中的底部栏变体生成一个 MenuItem -->
+    </Menu>
+  </Page>
+</Layout>
+```
+
+新建文件不继承其他项目的 Header、Page、Menu、MenuItem、Target 或运行时字段；没有来源的属性删除并在交付清单中标记待确认。

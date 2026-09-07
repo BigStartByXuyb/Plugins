@@ -54,7 +54,7 @@ The exact field names may be extended by an adapter, but paths must be project-r
 }
 ```
 
-`mode`, `source_root`, and `index_root` are the core routing fields. `pages_root`, `resource_roots`, `layout_file`, and `key_catalog` are adapter-specific and must be validated against the target project before use.
+`mode`, `source_root`, and `index_root` are the core routing fields. `pages_root`, `resource_roots`, `layout_file`, and `key_catalog` are adapter-specific and must be validated against the target project before use. A declared `layout_file` may be created from the selected adapter's formal template when the target project is new and the user requests new-page generation; absence of an existing file is not evidence to borrow one from another project.
 
 If the project uses reusable style libraries, add the selected library ID and version to the project configuration or a project-local lock file. Do not copy all available libraries into the project catalog and do not overwrite an existing profile version.
 
