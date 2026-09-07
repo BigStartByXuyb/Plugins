@@ -8,12 +8,13 @@
  * page-icon-map.json:
  * {
  *   "icons": [
- *     { "sourceId": "exact extractSvg entry id", "key": "ConfirmedGeometryKey", "sourceRef": "MasterGo DSL ref" }
+ *     { "sourceId": "exact extractSvg entry id", "name": "ExitGeometry", "sourceRef": "MasterGo DSL ref" }
  *   ]
  * }
  *
- * sourceId, key and sourceRef are all required. This tool never derives a key
- * from a layer name, component name, location, or visual appearance.
+ * sourceId, name and sourceRef are all required. `name` is the approved English
+ * resource name. Duplicate names receive deterministic numeric suffixes (2, 3,
+ * ...). This tool never derives a name from a layer ID, location, or geometry.
  */
 const fs = require('fs');
 
@@ -64,22 +65,34 @@ for (const item of svgData.svgs) {
 }
 
 const keys = new Set();
+function resolveKey(name) {
+  if (/^MGIcon_/i.test(name)) {
+    throw new Error(`Icon name must not use the layer-id prefix MGIcon_: ${name}`);
+  }
+  if (!/^[A-Za-z][A-Za-z0-9]*$/.test(name)) {
+    throw new Error(`Icon name must be an English identifier: ${name}`);
+  }
+  let key = name;
+  let suffix = 2;
+  while (keys.has(key)) key = `${name}${suffix++}`;
+  keys.add(key);
+  return key;
+}
 const output = [
   '<?xml version="1.0" encoding="utf-8"?>',
   '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">'
 ];
 
 for (const icon of iconMap.icons) {
-  if (!icon || typeof icon.sourceId !== 'string' || typeof icon.key !== 'string' || typeof icon.sourceRef !== 'string' || !icon.sourceId || !icon.key || !icon.sourceRef) {
-    throw new Error('Every icon requires non-empty sourceId, key, and sourceRef');
+  if (!icon || typeof icon.sourceId !== 'string' || typeof icon.name !== 'string' || typeof icon.sourceRef !== 'string' || !icon.sourceId || !icon.name || !icon.sourceRef) {
+    throw new Error('Every icon requires non-empty sourceId, name, and sourceRef');
   }
-  if (keys.has(icon.key)) throw new Error(`Duplicate icon key: ${icon.key}`);
-  keys.add(icon.key);
+  const key = resolveKey(icon.name);
   const svg = svgById.get(icon.sourceId);
   if (!svg) throw new Error(`Icon sourceId is not an exact extractSvg entry id: ${icon.sourceId}`);
   const paths = parsePaths(svg, icon.sourceId);
-  output.push(`  <!-- sourceId=${escapeXml(icon.sourceId)} sourceRef=${escapeXml(icon.sourceRef)} -->`);
-  output.push(`  <GeometryGroup x:Key="${escapeXml(icon.key)}" FillRule="Nonzero">`);
+  output.push(`  <!-- sourceId=${escapeXml(icon.sourceId)} sourceRef=${escapeXml(icon.sourceRef)} name=${escapeXml(icon.name)} key=${escapeXml(key)} -->`);
+  output.push(`  <GeometryGroup x:Key="${escapeXml(key)}" FillRule="Nonzero">`);
   for (const path of paths) {
     output.push(`    <PathGeometry FillRule="${path.fillRule}" Figures="${escapeXml(path.d)}">`);
     if (path.matrix) output.push(`      <PathGeometry.Transform><MatrixTransform Matrix="${escapeXml(path.matrix)}"/></PathGeometry.Transform>`);

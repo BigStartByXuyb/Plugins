@@ -30,7 +30,7 @@
 - 新建 Layout 时，未从目标项目或 MasterGo 确认的 `PageName`、`IOEnable`、`UserRightId`、运行时 Target 关联等字段不得猜写；缺少这些字段不阻塞静态页面和 Layout 模板生成，但必须在交付清单中标记运行时待确认。
 - 不得从其他项目复制 Layout 结构、菜单字段、页面 Target 或运行时键。
 
-页面和图标的正式输出路径也必须先完成项目适配：有效配置优先，其次读取目标 `.csproj` 的页面、图标和 Layout 声明。`Generated/` 只用于 provenance、manifest 和验证产物；项目文件已经给出唯一路径时，不能把页面 XML、页面 Icon 或 Layout 写到 `Generated/` 代替运行目录。
+页面和图标的正式输出路径也必须先完成项目适配：有效配置优先，其次读取目标 `.csproj` 的页面、图标和 Layout 声明。`Generated/` 只用于 provenance、manifest 和验证产物；项目文件已经给出唯一路径时，不能把页面 XML、页面 Icon 或 Layout 写到 `Generated/` 代替运行目录。Icon 映射必须提供英文资源名；重复名由生成器按稳定数字后缀解析，禁止使用图层 ID 拼接 `MGIcon_*` 键。
 
 ## 2. 页面文件骨架
 
