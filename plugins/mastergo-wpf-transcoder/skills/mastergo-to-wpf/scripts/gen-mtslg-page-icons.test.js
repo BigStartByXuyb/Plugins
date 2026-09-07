@@ -23,8 +23,9 @@ fs.writeFileSync(mapFile, JSON.stringify({ icons: [
 let result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);
 const xaml = fs.readFileSync(outFile, 'utf8');
-assert.match(xaml, /x:Key="LoadGeometry"/);
-assert.match(xaml, /x:Key="LoadGeometry2"/);
+assert.match(xaml, /<Geometry o:Freeze="True" x:Key="LoadGeometry">/);
+assert.match(xaml, /<Geometry o:Freeze="True" x:Key="LoadGeometry2">/);
+assert.doesNotMatch(xaml, /GeometryGroup|PathGeometry/);
 assert.doesNotMatch(xaml, /MGIcon_/);
 
 fs.writeFileSync(mapFile, JSON.stringify({ icons: [

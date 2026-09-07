@@ -80,7 +80,9 @@ function resolveKey(name) {
 }
 const output = [
   '<?xml version="1.0" encoding="utf-8"?>',
-  '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">'
+  '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"',
+  '                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+  '                    xmlns:o="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options">'
 ];
 
 for (const icon of iconMap.icons) {
@@ -91,14 +93,15 @@ for (const icon of iconMap.icons) {
   const svg = svgById.get(icon.sourceId);
   if (!svg) throw new Error(`Icon sourceId is not an exact extractSvg entry id: ${icon.sourceId}`);
   const paths = parsePaths(svg, icon.sourceId);
-  output.push(`  <!-- sourceId=${escapeXml(icon.sourceId)} sourceRef=${escapeXml(icon.sourceRef)} name=${escapeXml(icon.name)} key=${escapeXml(key)} -->`);
-  output.push(`  <GeometryGroup x:Key="${escapeXml(key)}" FillRule="Nonzero">`);
-  for (const path of paths) {
-    output.push(`    <PathGeometry FillRule="${path.fillRule}" Figures="${escapeXml(path.d)}">`);
-    if (path.matrix) output.push(`      <PathGeometry.Transform><MatrixTransform Matrix="${escapeXml(path.matrix)}"/></PathGeometry.Transform>`);
-    output.push('    </PathGeometry>');
+  const fillRule = paths.some(path => path.fillRule === 'EvenOdd') ? 'EvenOdd' : 'Nonzero';
+  if (paths.some(path => path.matrix)) {
+    throw new Error(`Standard Geometry output cannot preserve SVG matrix transforms: ${icon.sourceId}`);
   }
-  output.push('  </GeometryGroup>');
+  output.push(`  <!-- ${escapeXml(icon.name)} | sourceId=${escapeXml(icon.sourceId)} sourceRef=${escapeXml(icon.sourceRef)} key=${escapeXml(key)} -->`);
+  const fillAttribute = fillRule === 'EvenOdd' ? ' FillRule="EvenOdd"' : '';
+  output.push(`  <Geometry o:Freeze="True"${fillAttribute} x:Key="${escapeXml(key)}">`);
+  for (const path of paths) output.push(`    ${path.d}`);
+  output.push('  </Geometry>');
 }
 
 output.push('</ResourceDictionary>', '');
