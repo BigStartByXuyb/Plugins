@@ -53,10 +53,52 @@ function renderMenuItem(item) {
   return "      <MenuItem " + attrs + " />";
 }
 
+function validateLayoutManifest(manifest) {
+  if (!Array.isArray(manifest.menuItems)) fail("menuItems 必须是数组");
+
+  const status = manifest.layoutStatus;
+  if (!["complete", "none", "pending"].includes(status)) {
+    fail("Layout 清单不完整：layoutStatus 必须是 complete、none 或 pending。不是拒绝生成页面，而是禁止用不完整清单生成空 Layout；请先补齐 Layout 映射后重试");
+  }
+
+  const evidence = manifest.layoutEvidence;
+  if (!evidence || !Number.isInteger(Number(evidence.matchedBottomBarItems)) ||
+      !Number.isInteger(Number(evidence.unresolvedBottomBarItems))) {
+    fail("Layout 清单不完整：layoutEvidence 必须包含 matchedBottomBarItems 和 unresolvedBottomBarItems。不是拒绝生成页面，而是禁止用不完整清单生成空 Layout");
+  }
+
+  const matched = Number(evidence.matchedBottomBarItems);
+  const unresolved = Number(evidence.unresolvedBottomBarItems);
+  if (matched < 0 || unresolved < 0) {
+    fail("layoutEvidence 中的组件数量不能为负数");
+  }
+
+  if (status === "pending") {
+    fail("Layout 映射仍为 pending，禁止生成 Layout.xml；请先处理未决底部栏组件");
+  }
+  if (status === "none") {
+    if (matched !== 0 || unresolved !== 0 || manifest.menuItems.length !== 0) {
+      fail("layoutStatus=none 时，Layout 证据和 menuItems 必须全部为空");
+    }
+    return;
+  }
+
+  if (matched === 0) {
+    fail("layoutStatus=complete 但没有任何已命中的底部栏组件；无菜单页面必须标记为 none");
+  }
+  if (unresolved !== 0) {
+    fail("Layout 仍存在未决底部栏组件，不能标记为 complete");
+  }
+  if (manifest.menuItems.length !== matched) {
+    fail("Layout 映射数量不一致：matchedBottomBarItems=" + matched +
+      "，menuItems=" + manifest.menuItems.length);
+  }
+}
+
 function renderPage(manifest) {
   const target = manifest.pageTarget;
   if (typeof target !== "string" || !target.trim()) fail("pageTarget 必须由项目或用户明确提供");
-  if (!Array.isArray(manifest.menuItems)) fail("menuItems 必须是数组");
+  validateLayoutManifest(manifest);
   const lines = [
     "  <Page Target=\"" + xmlAttr(target) + "\"" +
       (manifest.pageLangName ? " LangName=\"" + xmlAttr(manifest.pageLangName) + "\"" : "") + ">",

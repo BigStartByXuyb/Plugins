@@ -68,7 +68,9 @@ MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `
 
 1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。设计稿包含顶部栏、底部栏或快捷键，或本次需要创建/修改 Layout 注册时，必须再读 `feishu-layout-mapping.md`；未触发页面壳层或 Layout 注册时不读取该文件。不得读取 MW WPF 控件协议作为 XML 事实源。
 2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；有 PATH/SVG 时使用 `scripts/gen-mtslg-page-icons.js` 自动生成当前页面的 Icon 文件。图标映射输入必须逐项提供当前页面的资源键和 DSL 来源；Layout 只引用该页面 Icon 文件中已生成的键。
-3. 在 XML 结构检查前运行 `scripts/validate-iocontrol-provenance.js`；需要独立坐标检查时以节点数组调用 `scripts/check-iocontrol-coords.js`，有 Geometry 时调用 `scripts/scan-icon-coords.js`，再执行宿主加载与视觉核对。顶部/底部公共栏必须记录为“框架负责、页面不生成”。
+   - **Layout 必须先完成映射清单，再生成 XML。** 读取完全部 MasterGo DSL 后，按 `feishu-layout-mapping.md` 生成 Layout manifest；已命中的底部栏组件必须生成对应的 `menuItems`。目标项目未提供的运行时字段只省略对应属性，不能因此把整个 `Menu` 留空。`layoutStatus`、`layoutEvidence` 和数量一致性由 `gen-mtslg-layout.js` 强制校验；校验失败表示“清单不完整”，不是拒绝生成页面，补齐清单后重新运行即可。
+   - 顶部栏 `HeaderItem` 的运行时 `Id/Target` 仍须来自目标项目事实源；无法确认时单独标记待确认，不得用顶部文字或图标名称猜写。页面中间的 `主菜单button` 也不因存在 F 键就自动写入 Layout，只有正式 Layout 映射命中时才写入。
+3. 在 XML 结构检查前运行 `scripts/validate-iocontrol-provenance.js`；需要独立坐标检查时以节点数组调用 `scripts/check-iocontrol-coords.js`，有 Geometry 时调用 `scripts/scan-icon-coords.js`，再执行宿主加载与视觉核对。
 
 本作业不得写入 WPF 私有协议，例如 `s:Action`、WPF `PageName` 或 WPF ResourceDictionary/绑定语法；没有正式映射时不得降级为普通 Button、无类型容器或静态占位结构。未映射组件仅进入静态来源清单，不进入伪造的 IOContorl 节点。
 

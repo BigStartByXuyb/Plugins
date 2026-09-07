@@ -65,7 +65,9 @@ fs.writeFileSync(manifest, JSON.stringify({
   mappingPath: mapping,
   svgPath: svg,
   iconMapPath: iconMap,
-  menuItems: [{ name: "操作", icon: "ActionGeometry", topLeftContent: "F1", index: 1 }]
+  menuItems: [{ name: "操作", icon: "ActionGeometry", topLeftContent: "F1", index: 1 }],
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 }
 }, null, 2), "utf8");
 
 let result = spawnSync(process.execPath, [script, "--manifest", manifest], { encoding: "utf8" });
@@ -85,6 +87,30 @@ for (const relative of [
 assert.match(fs.readFileSync(path.join(project, "Resources/Icons/F2NewPageIcon.xaml"), "utf8"), /ActionGeometry/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Files/Layout.xml"), "utf8"), /Index="1"/);
 assert.match(fs.readFileSync(csproj, "utf8"), /F2NewPagePage\.xml|F2NewPageIcon\.xaml/);
+const bundleAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.bundle.manifest.json"), "utf8"));
+assert.deepStrictEqual(bundleAudit.layout, {
+  status: "complete",
+  evidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
+  menuItemCount: 1
+});
+
+const incompleteManifest = JSON.parse(fs.readFileSync(manifest, "utf8"));
+incompleteManifest.pageName = "NoLayoutState";
+incompleteManifest.pageTarget = "NoLayoutState";
+incompleteManifest.viewPath = "UI/F2-Teach/View/NoLayoutStateView.xaml";
+incompleteManifest.codeBehindPath = "UI/F2-Teach/View/NoLayoutStateView.xaml.cs";
+incompleteManifest.viewModelPath = "UI/F2-Teach/ViewModel/NoLayoutStateViewModel.cs";
+incompleteManifest.pageXmlPath = "Common/Pages/NoLayoutStatePage.xml";
+incompleteManifest.iconPath = "Resources/Icons/NoLayoutStateIcon.xaml";
+incompleteManifest.menuItems = [];
+delete incompleteManifest.layoutStatus;
+delete incompleteManifest.layoutEvidence;
+const incompleteManifestPath = path.join(root, "incomplete-layout-state.json");
+fs.writeFileSync(incompleteManifestPath, JSON.stringify(incompleteManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", incompleteManifestPath], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "缺少 Layout 状态时不得继续生成 bundle");
+assert.match(result.stderr + result.stdout, /layoutStatus|Layout/i);
+assert.ok(!fs.existsSync(path.join(project, "Common/Pages/NoLayoutStatePage.xml")));
 
 const brokenManifest = path.join(root, "broken-bundle.json");
 const brokenProject = path.join(root, "Broken.Pages");

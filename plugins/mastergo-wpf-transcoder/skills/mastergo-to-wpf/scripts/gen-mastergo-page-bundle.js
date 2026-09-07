@@ -311,6 +311,8 @@ function main() {
       layoutPath: tempLayout,
       pageTarget: manifest.pageTarget,
       pageLangName: manifest.pageLangName,
+      layoutStatus: manifest.layoutStatus,
+      layoutEvidence: manifest.layoutEvidence,
       menuItems: manifest.menuItems
     };
     fs.writeFileSync(layoutInput, JSON.stringify(layoutManifest, null, 2), "utf8");
@@ -368,7 +370,12 @@ function main() {
         projectRelative(projectRoot, bundleAudit)
       ],
       csprojChanged: changedCsproj,
-      pageTarget: manifest.pageTarget
+      pageTarget: manifest.pageTarget,
+      layout: {
+        status: manifest.layoutStatus,
+        evidence: manifest.layoutEvidence,
+        menuItemCount: manifest.menuItems.length
+      }
     }, null, 2) + "\n", "utf8");
     console.log(JSON.stringify({
       adapter: "mtslg-iocontrol",

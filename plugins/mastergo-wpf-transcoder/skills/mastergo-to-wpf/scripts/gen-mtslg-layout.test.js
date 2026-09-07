@@ -16,6 +16,8 @@ fs.writeFileSync(manifest, JSON.stringify({
   layoutPath: layout,
   pageTarget: "F2NewPage",
   pageLangName: "F2NewPageTitle",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 2, unresolvedBottomBarItems: 0 },
   menuItems: [
     { name: "第一项", icon: "FirstGeometry", topLeftContent: "F1", index: 1 },
     { icon: "SecondGeometry", topLeftContent: "F2", index: 2 }
@@ -29,6 +31,29 @@ assert.match(text, /<Page Target="F2NewPage" LangName="F2NewPageTitle">/);
 assert.match(text, /Name="第一项" Icon="FirstGeometry" TopLeftContent="F1" Index="1"/);
 assert.match(text, /Icon="SecondGeometry" TopLeftContent="F2" Index="2"/);
 assert.doesNotMatch(text, /PageName=|IOEnable=|UserRightId=/);
+
+const emptyCompleteManifest = path.join(root, "empty-complete.json");
+fs.writeFileSync(emptyCompleteManifest, JSON.stringify({
+  layoutPath: path.join(root, "EmptyLayout.xml"),
+  pageTarget: "EmptyPage",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
+  menuItems: []
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", emptyCompleteManifest], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "检测到 Layout 组件但 menuItems 为空时必须失败");
+assert.match(result.stderr + result.stdout, /menuItems|Layout/i);
+
+const emptyNoneManifest = path.join(root, "empty-none.json");
+fs.writeFileSync(emptyNoneManifest, JSON.stringify({
+  layoutPath: path.join(root, "NoneLayout.xml"),
+  pageTarget: "NoMenuPage",
+  layoutStatus: "none",
+  layoutEvidence: { matchedBottomBarItems: 0, unresolvedBottomBarItems: 0 },
+  menuItems: []
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", emptyNoneManifest], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
 
 fs.writeFileSync(layout, [
   "<Layout>",
