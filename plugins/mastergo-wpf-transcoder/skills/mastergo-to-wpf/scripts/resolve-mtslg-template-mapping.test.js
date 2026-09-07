@@ -1,0 +1,258 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("assert");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const {
+  loadTemplateMap,
+  resolveTemplateMapping
+} = require("./resolve-mtslg-template-mapping.js");
+
+const mapPath = path.join(__dirname, "..", "references", "adapters", "mtslg-iocontrol", "mtslg-iocontrol-map.json");
+const templateMap = loadTemplateMap(mapPath);
+
+function source(ref, text) {
+  return {
+    ref,
+    parentRef: "instance/1",
+    pageAbsX: 100,
+    pageAbsY: 292,
+    relativeX: 100,
+    relativeY: 100,
+    width: 60,
+    height: 60,
+    ...(text === undefined ? {} : { text })
+  };
+}
+
+function node(sourceRef, sourceText, controlType) {
+  const resolvedType = controlType || (sourceText === undefined ? "IconButton" : "TextBlock");
+  return {
+    ref: sourceRef,
+    sourceRef,
+    sourceParent: "instance/1",
+    absX: 100,
+    absY: 292,
+    w: 60,
+    h: 60,
+    controlType: resolvedType,
+    attrs: {
+      ControlType: resolvedType,
+      ...(resolvedType === "IconButton" ? { Style: "SmallButton" } : {}),
+      ...(sourceText === undefined ? {} : { Value: sourceText })
+    },
+    ...(sourceText === undefined ? {} : {
+      sourceText,
+      valueSource: "dsl.text",
+      valueSourceRef: sourceRef
+    })
+  };
+}
+
+function makeMapping(variant, slots) {
+  const sourceNodes = [
+    { ref: "root", parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 832 },
+    { ref: "instance/1", parentRef: "root", pageAbsX: 100, pageAbsY: 292, relativeX: 100, relativeY: 292, width: 384, height: 88 }
+  ];
+  const nodes = [];
+  for (const slot of slots) {
+    const text = slot.text;
+    sourceNodes.push(source(slot.sourceRef, text));
+    nodes.push(node(slot.sourceRef, text, slot.controlType));
+  }
+  return {
+    contentOriginY: 192,
+    sourceNodes,
+    nodes,
+    componentInstances: [{
+      instanceRef: "instance/1",
+      properties: { "属性 1": variant },
+      requiredSlots: slots.map(({ slot, sourceRef, valueSourceRef }) => ({ slot, sourceRef, valueSourceRef }))
+    }]
+  };
+}
+
+function makeRightSidebarMapping(buttonType, sourceRef, text, icon) {
+  const instanceRef = sourceRef;
+  const textRef = sourceRef + "/text";
+  const sourceNodes = [
+    { ref: "root", parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 832 },
+    { ref: sourceRef, parentRef: "root", pageAbsX: 1090, pageAbsY: 282, relativeX: 1090, relativeY: 282, width: 170, height: 80 },
+    { ref: textRef, parentRef: sourceRef, pageAbsX: 1162, pageAbsY: 310, relativeX: 72, relativeY: 28, width: 65, height: 24, text }
+  ];
+  return {
+    contentOriginY: 192,
+    sourceNodes,
+    nodes: [{
+      ref: sourceRef,
+      sourceRef,
+      sourceParent: "root",
+      absX: 1090,
+      absY: 282,
+      w: 170,
+      h: 80,
+      controlType: "IconButton",
+      attrs: {
+        ControlType: "IconButton",
+        Value: text,
+        ...(icon ? { Icon: icon } : {})
+      },
+      sourceText: text,
+      valueSourceRef: textRef,
+      valueSource: "dsl.text"
+    }],
+    componentInstances: [{
+      template: "rightSidebar",
+      instanceRef,
+      properties: { "按钮类型": buttonType },
+      requiredSlots: [{ slot: "button", sourceRef }]
+    }]
+  };
+}
+
+function slotsForWithTitle() {
+  return [
+    { slot: "button_plus_5", sourceRef: "button/plus5" },
+    { slot: "button_minus_5", sourceRef: "button/minus5" },
+    { slot: "button_plus_1", sourceRef: "button/plus1" },
+    { slot: "button_minus_1", sourceRef: "button/minus1" },
+    { slot: "title", sourceRef: "text/title", valueSourceRef: "text/title", text: "光源调整", controlType: "TextBlock" },
+    { slot: "value", sourceRef: "text/value", valueSourceRef: "text/value", text: "9.0%", controlType: "TextBlock" },
+    { slot: "direction", sourceRef: "text/direction", valueSourceRef: "text/direction", text: "Dir", controlType: "TextBlock" }
+  ];
+}
+
+assert.deepStrictEqual(
+  templateMap.componentTemplates.match,
+  { property: "属性 1" },
+  "模板匹配必须使用公开属性1"
+);
+assert.deepStrictEqual(
+  templateMap.inputTemplates.match,
+  { property: "属性 1" },
+  "输入框模板匹配必须使用公开属性1"
+);
+assert.ok(templateMap.rightSidebarTemplates, "缺少右侧栏通用模板");
+assert.strictEqual(templateMap.rightSidebarTemplates.variants.stop.style, "RightButtonStyle");
+const documentedTemplateFamilies = {
+  inputTemplates: [
+    "输入框-整数-40", "输入框-整数-36", "输入框-整数-32",
+    "输入框-小数-40", "输入框-小数-36", "输入框-小数-32",
+    "输入框-文字-40", "输入框-文字-36", "输入框-文字-32"
+  ],
+  selectionInfoTemplates: ["单选-选中/未选择", "多选-选中/未选中"],
+  selectionTemplates: ["单选-选中/未选择", "多选-选中/未选择"],
+  infoGroupTemplates: ["信息分组-模块化"],
+  mainMenuTemplates: ["主菜单"],
+  tableTemplates: ["Table"],
+  textTemplates: ["独立文本"]
+};
+for (const [family, variants] of Object.entries(documentedTemplateFamilies)) {
+  assert.ok(templateMap[family], "缺少正式模板族: " + family);
+  for (const variant of variants) {
+    assert.ok(templateMap[family].variants[variant], "缺少正式模板变体: " + family + "/" + variant);
+  }
+}
+for (const variant of [
+  "加减快捷操作-有标题",
+  "加减快捷键-无标题",
+  "加减快捷键操作-2有标题",
+  "轴操作",
+  "方向",
+  "图像移动-单侧",
+  "图像移动-双侧",
+  "缺口位置",
+  "拟合数据-双侧上下",
+  "拟合数据-前后",
+  "拟合数据-单侧上下",
+  "扫描"
+]) {
+  assert.ok(templateMap.componentTemplates.variants[variant], "缺少正式模板: " + variant);
+}
+
+const resolved = resolveTemplateMapping(
+  makeMapping("加减快捷操作-有标题", slotsForWithTitle()),
+  templateMap
+);
+assert.strictEqual(resolved.templateInstances.length, 1);
+assert.strictEqual(resolved.templateInstances[0].variant, "加减快捷操作-有标题");
+assert.deepStrictEqual(
+  resolved.templateInstances[0].requiredSlots.map(slot => slot.slot),
+  ["button_plus_5", "button_minus_5", "button_plus_1", "button_minus_1", "title", "value", "direction"]
+);
+
+const inputMapping = makeMapping("输入框-整数-28", [
+  { slot: "input", sourceRef: "input/28", controlType: "IntNumberBox" }
+]);
+inputMapping.componentInstances[0].template = "inputTemplates";
+assert.strictEqual(
+  resolveTemplateMapping(inputMapping, templateMap).templateInstances[0].variant,
+  "输入框-整数-28"
+);
+
+assert.throws(
+  () => resolveTemplateMapping(makeMapping("未知变体", slotsForWithTitle()), templateMap),
+  /未登记的 MTSLG 模板变体/
+);
+
+const missingSlot = makeMapping("加减快捷操作-有标题", slotsForWithTitle().slice(0, -1));
+assert.throws(
+  () => resolveTemplateMapping(missingSlot, templateMap),
+  /固定模板槽位数量不一致/
+);
+
+const badText = makeMapping("加减快捷操作-有标题", slotsForWithTitle());
+badText.nodes.find(item => item.sourceRef === "text/value").attrs.Value = "64";
+assert.throws(
+  () => resolveTemplateMapping(badText, templateMap),
+  /Value 不是 DSL 文本/
+);
+
+const unconfirmedFastAxis = makeMapping("轴操作-快慢", [
+  { slot: "up", sourceRef: "button/up" },
+  { slot: "left", sourceRef: "button/left" },
+  { slot: "right", sourceRef: "button/right" },
+  { slot: "down", sourceRef: "button/down" },
+  { slot: "scan", sourceRef: "text/scan", valueSourceRef: "text/scan", text: "SCAN", controlType: "TextBlock" }
+]);
+assert.throws(
+  () => resolveTemplateMapping(unconfirmedFastAxis, templateMap),
+  /尚未确认的 MTSLG 模板变体/
+);
+
+const resolvedRight = resolveTemplateMapping(
+  makeRightSidebarMapping("stop", "right/stop", "STOP"),
+  templateMap
+);
+assert.strictEqual(resolvedRight.templateInstances.length, 1);
+assert.strictEqual(resolvedRight.templateInstances[0].template, "rightSidebar");
+assert.strictEqual(resolvedRight.nodes[0].attrs.Style, "RightButtonStyle");
+
+const resolvedRightIcon = resolveTemplateMapping(
+  makeRightSidebarMapping("exit", "right/exit", "EXIT", "ExitGeometry"),
+  templateMap
+);
+assert.strictEqual(resolvedRightIcon.nodes[0].attrs.Style, "RightButtonStyle");
+assert.strictEqual(resolvedRightIcon.nodes[0].attrs.Icon, "ExitGeometry");
+
+const mainMenuMapping = makeRightSidebarMapping("enter", "main/menu", "传感器", "SensorGeometry");
+mainMenuMapping.componentInstances[0] = {
+  template: "mainMenuTemplates",
+  instanceRef: "main/menu",
+  variant: "主菜单",
+  requiredSlots: [{ slot: "button", sourceRef: "main/menu" }]
+};
+const resolvedMainMenu = resolveTemplateMapping(mainMenuMapping, templateMap);
+assert.strictEqual(resolvedMainMenu.templateInstances[0].variant, "主菜单");
+
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mtslg-template-resolver-"));
+const inputPath = path.join(tempDir, "input.json");
+const outputPath = path.join(tempDir, "output.json");
+fs.writeFileSync(inputPath, JSON.stringify(makeMapping("加减快捷操作-有标题", slotsForWithTitle())), "utf8");
+fs.writeFileSync(outputPath, JSON.stringify(resolved), "utf8");
+assert.ok(fs.existsSync(inputPath) && fs.existsSync(outputPath));
+fs.rmSync(tempDir, { recursive: true, force: true });
+
+console.log("PASS MTSLG template mapping resolver test");

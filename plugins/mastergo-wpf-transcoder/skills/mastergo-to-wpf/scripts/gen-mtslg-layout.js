@@ -151,14 +151,25 @@ function main() {
     const targetPattern = new RegExp("<Page\\s+[^>]*Target=[\"']" +
       xmlAttr(manifest.pageTarget).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&") + "[\"']", "i");
     if (targetPattern.test(existing)) {
-      fail("Layout.xml 已存在相同 Target，禁止重复注册: " + manifest.pageTarget);
+      if (!args.overwrite) {
+        fail("Layout.xml 已存在相同 Target，禁止重复注册: " + manifest.pageTarget);
+      }
+      const pagePattern = new RegExp("<Page\\s+[^>]*Target=[\"']" +
+        xmlAttr(manifest.pageTarget).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&") +
+        "[\"'](?:[\\s\\S]*?<\\/Page>|\\s*\\/>)", "i");
+      if (!pagePattern.test(existing)) {
+        fail("Layout.xml 中相同 Target 的 Page 节点结构无效: " + manifest.pageTarget);
+      }
+      output = existing.replace(pagePattern, page);
+      backup = backupFile(layoutPath);
+    } else {
+      const close = existing.lastIndexOf("</Layout>");
+      if (close < 0) fail("已有 Layout.xml 缺少 </Layout>");
+      const before = existing.slice(0, close).replace(/\s*$/, "");
+      const between = existing.slice(before.length, close);
+      output = before + between + "\n" + page + "\n" + existing.slice(close);
+      backup = backupFile(layoutPath);
     }
-    const close = existing.lastIndexOf("</Layout>");
-    if (close < 0) fail("已有 Layout.xml 缺少 </Layout>");
-    const before = existing.slice(0, close).replace(/\s*$/, "");
-    const between = existing.slice(before.length, close);
-    output = before + between + "\n" + page + "\n" + existing.slice(close);
-    backup = backupFile(layoutPath);
   }
 
   if (fs.existsSync(layoutPath) && !args.overwrite && backup) {

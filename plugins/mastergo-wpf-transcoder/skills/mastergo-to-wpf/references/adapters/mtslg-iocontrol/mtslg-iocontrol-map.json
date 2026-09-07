@@ -31,6 +31,242 @@
     "IOAxisName", "AxisType", "AxisMin", "AxisMax", "ImageMin", "ImageMax",
     "RotatePointX", "RotatePointY", "Index"
   ],
+  "componentTemplates": {
+    "match": { "property": "属性 1" },
+    "unconfirmedVariants": ["轴操作-快慢"],
+    "variants": {
+      "加减快捷键-无标题": {
+        "controlType": "IconButton", "style": "SmallButton", "iconPolicy": "none",
+        "slots": [
+          { "slot": "button_plus_5", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_minus_5", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_plus_1", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_minus_1", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "value", "controlType": "TextBlock", "valueSource": "dsl.text" },
+          { "slot": "direction", "controlType": "TextBlock", "valueSource": "dsl.text" }
+        ]
+      },
+      "加减快捷键操作-2有标题": {
+        "controlType": "IconButton", "style": "SmallButton", "iconPolicy": "none",
+        "slots": [
+          { "slot": "button_plus_5", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_minus_5", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_plus_1", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_minus_1", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "title", "controlType": "TextBlock", "valueSource": "dsl.text" },
+          { "slot": "value", "controlType": "TextBlock", "valueSource": "dsl.text" }
+        ]
+      },
+      "加减快捷操作-有标题": {
+        "controlType": "IconButton", "style": "SmallButton", "iconPolicy": "none",
+        "slots": [
+          { "slot": "button_plus_5", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_minus_5", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_plus_1", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "button_minus_1", "controlType": "IconButton", "style": "SmallButton", "valueSource": "dsl.text" },
+          { "slot": "title", "controlType": "TextBlock", "valueSource": "dsl.text" },
+          { "slot": "value", "controlType": "TextBlock", "valueSource": "dsl.text" },
+          { "slot": "direction", "controlType": "TextBlock", "valueSource": "dsl.text" }
+        ]
+      },
+      "轴操作": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "up", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "left", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "right", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "down", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "scan", "controlType": "TextBlock", "valueSource": "dsl.text" }
+        ]
+      },
+      "方向": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "pair-per-button",
+        "slots": [
+          { "slot": "up_pair", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" },
+          { "slot": "down_pair", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" },
+          { "slot": "vertical_pair", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" },
+          { "slot": "horizontal_pair", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" }
+        ]
+      },
+      "图像移动-单侧": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "up", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "left", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "right", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "down", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" }
+        ]
+      },
+      "图像移动-双侧": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "pair-per-button",
+        "slots": [
+          { "slot": "first", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" },
+          { "slot": "second", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" },
+          { "slot": "third", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" },
+          { "slot": "fourth", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" }
+        ]
+      },
+      "缺口位置": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "left", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "right", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" }
+        ]
+      },
+      "拟合数据-双侧上下": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "pair-per-button",
+        "slots": [
+          { "slot": "first", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" },
+          { "slot": "second", "controlType": "IconButton", "iconPolicy": "pair-per-button", "valueSource": "dsl.text" }
+        ]
+      },
+      "拟合数据-前后": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "front", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "back", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" }
+        ]
+      },
+      "拟合数据-单侧上下": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "up", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "down", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" }
+        ]
+      },
+      "扫描": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "scan_title", "controlType": "TextBlock", "valueSource": "dsl.text" },
+          { "slot": "left", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "right", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" }
+        ]
+      }
+    }
+  },
+  "rightSidebarTemplates": {
+    "match": { "property": "按钮类型" },
+    "parentVariants": {
+      "右侧栏-左右结构": { "style": "RightButtonStyle" },
+      "右侧栏-上下结构": { "style": "UpDownRightButtonStyle" }
+    },
+    "variants": {
+      "文案 大button": {
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "none",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "none" }
+        ]
+      },
+      "stop": {
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "none",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "none" }
+        ]
+      },
+      "enter": {
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "single-path",
+        "iconRequired": true,
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path", "iconRequired": true }
+        ]
+      },
+      "exit": {
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "single-path",
+        "iconRequired": true,
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path", "iconRequired": true }
+        ]
+      },
+      "startstop": {
+        "controlType": "IconButton",
+        "style": "UpDownRightButtonStyle",
+        "iconPolicy": "single-path",
+        "iconRequired": true,
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "UpDownRightButtonStyle", "iconPolicy": "single-path", "iconRequired": true }
+        ]
+      }
+    }
+  },
+  "inputTemplates": {
+    "match": { "property": "属性 1" },
+    "unconfirmedVariants": ["密码输入框"],
+    "variants": {
+      "输入框-整数-40": { "controlType": "IntNumberBox", "style": null, "iconPolicy": "none", "height": 40, "slots": [{ "slot": "input", "controlType": "IntNumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-整数-36": { "controlType": "IntNumberBox", "style": null, "iconPolicy": "none", "height": 36, "slots": [{ "slot": "input", "controlType": "IntNumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-整数-32": { "controlType": "IntNumberBox", "style": null, "iconPolicy": "none", "height": 32, "slots": [{ "slot": "input", "controlType": "IntNumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-整数-28": { "controlType": "IntNumberBox", "style": null, "iconPolicy": "none", "height": 28, "slots": [{ "slot": "input", "controlType": "IntNumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-小数-40": { "controlType": "NumberBox", "style": null, "iconPolicy": "none", "height": 40, "slots": [{ "slot": "input", "controlType": "NumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-小数-36": { "controlType": "NumberBox", "style": null, "iconPolicy": "none", "height": 36, "slots": [{ "slot": "input", "controlType": "NumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-小数-32": { "controlType": "NumberBox", "style": null, "iconPolicy": "none", "height": 32, "slots": [{ "slot": "input", "controlType": "NumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-小数-28": { "controlType": "NumberBox", "style": null, "iconPolicy": "none", "height": 28, "slots": [{ "slot": "input", "controlType": "NumberBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-文字-40": { "controlType": "TextBox", "style": null, "iconPolicy": "none", "height": 40, "slots": [{ "slot": "input", "controlType": "TextBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-文字-36": { "controlType": "TextBox", "style": null, "iconPolicy": "none", "height": 36, "slots": [{ "slot": "input", "controlType": "TextBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-文字-32": { "controlType": "TextBox", "style": null, "iconPolicy": "none", "height": 32, "slots": [{ "slot": "input", "controlType": "TextBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "输入框-文字-28": { "controlType": "TextBox", "style": null, "iconPolicy": "none", "height": 28, "slots": [{ "slot": "input", "controlType": "TextBox", "iconPolicy": "none", "valueSource": "dsl.text" }] }
+    }
+  },
+  "selectBoxTemplates": {
+    "match": { "property": "属性 1" },
+    "variants": {
+      "选择框-40": { "controlType": "ComboBox", "style": null, "iconPolicy": "none", "height": 40, "slots": [{ "slot": "select", "controlType": "ComboBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "选择框-36": { "controlType": "ComboBox", "style": null, "iconPolicy": "none", "height": 36, "slots": [{ "slot": "select", "controlType": "ComboBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "选择框-32": { "controlType": "ComboBox", "style": null, "iconPolicy": "none", "height": 32, "slots": [{ "slot": "select", "controlType": "ComboBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "选择框-28": { "controlType": "ComboBox", "style": null, "iconPolicy": "none", "height": 28, "slots": [{ "slot": "select", "controlType": "ComboBox", "iconPolicy": "none", "valueSource": "dsl.text" }] }
+    }
+  },
+  "selectionInfoTemplates": {
+    "match": { "property": "属性 1" },
+    "variants": {
+      "单选-选中/未选择": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [
+        { "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" },
+        { "slot": "text", "controlType": "TextBlock", "valueSource": "dsl.text" }
+      ] },
+      "多选-选中/未选中": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [
+        { "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" },
+        { "slot": "text", "controlType": "TextBlock", "valueSource": "dsl.text" }
+      ] }
+    }
+  },
+  "selectionTemplates": {
+    "match": { "property": "属性 1" },
+    "variants": {
+      "单选-选中/未选择": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "多选-选中/未选择": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] }
+    }
+  },
+  "infoGroupTemplates": {
+    "match": { "property": "component" },
+    "variants": {
+      "信息分组-模块化": { "controlType": "GroupBox", "style": null, "iconPolicy": "none", "childPolicy": "nested-page-templates", "slots": [{ "slot": "group", "controlType": "GroupBox", "iconPolicy": "none", "valueSource": "dsl.text" }] }
+    }
+  },
+  "mainMenuTemplates": {
+    "match": { "property": "component" },
+    "variants": {
+      "主菜单": { "controlType": "IconButton", "style": "MainButtonStyle", "iconPolicy": "single-path", "slots": [{ "slot": "button", "controlType": "IconButton", "style": "MainButtonStyle", "iconPolicy": "single-path", "valueSource": "dsl.text" }] }
+    }
+  },
+  "tableTemplates": {
+    "match": { "property": "component" },
+    "variants": {
+      "Table": { "controlType": "DataGrid", "style": null, "iconPolicy": "none", "childPolicy": "columns-from-page-mapping", "requiredAttrs": ["Value"], "slots": [{ "slot": "table", "controlType": "DataGrid", "iconPolicy": "none", "valueSource": "dsl.text" }] }
+    }
+  },
+  "textTemplates": {
+    "match": { "property": "role" },
+    "variants": {
+      "独立文本": { "controlType": "TextBlock", "style": null, "iconPolicy": "none", "slots": [{ "slot": "text", "controlType": "TextBlock", "valueSource": "dsl.text" }] }
+    }
+  },
   "roleMap": {
     "button": "Button",
     "iconbutton": "IconButton",

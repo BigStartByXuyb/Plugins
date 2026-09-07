@@ -8,6 +8,12 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const script = path.join(__dirname, "gen-mastergo-page-bundle.js");
+const scriptText = fs.readFileSync(script, "utf8");
+assert.match(
+  scriptText,
+  /run\(LAYOUT_SCRIPT,\s*\["--manifest",\s*layoutInput\]\.concat\(args\.overwrite \? \["--overwrite"\] : \[\]\)\)/,
+  "bundle --overwrite 必须传给 Layout 生成器"
+);
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "mastergo-bundle-"));
 const project = path.join(root, "Demo.Pages");
 fs.mkdirSync(project, { recursive: true });

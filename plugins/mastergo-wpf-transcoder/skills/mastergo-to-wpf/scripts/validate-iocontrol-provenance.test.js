@@ -30,6 +30,20 @@ if (result.ok) throw new Error('校验器必须拒绝错误 Value 和错误 Widt
 if (!result.errors.some(x => /Value/.test(x))) throw new Error('缺少 Value 错误');
 if (!result.errors.some(x => /Width/.test(x))) throw new Error('缺少 Width 错误');
 if (!result.errors.some(x => /expectedLeft/.test(x))) throw new Error('缺少 sourceNodes 坐标重算错误');
+const flatXmlPath = path.join(dir, 'flat.xml');
+const flatManifestPath = path.join(dir, 'flat.json');
+fs.writeFileSync(flatXmlPath, '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ID="FlatChild" ControlType="TextBlock" Value="SCAN" Left="150" Top="158" Width="45" Height="18" /></IOContorl>');
+fs.writeFileSync(flatManifestPath, JSON.stringify({ contentOriginY: 192, rootRef: 'root', sourceNodes: [
+  { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
+  { ref: 'component', parentRef: 'root', pageAbsX: 100, pageAbsY: 300, relativeX: 100, relativeY: 300, width: 384, height: 132 },
+  { ref: 'component/scan', parentRef: 'component', pageAbsX: 150, pageAbsY: 350, relativeX: 50, relativeY: 50, width: 45, height: 18, text: 'SCAN' }
+], nodes: [{
+  xmlId: 'FlatChild', sourceRef: 'component/scan', sourceParent: 'component', layoutParent: null,
+  sourceText: 'SCAN', valueSource: 'dsl.text', expectedLeft: 150, expectedTop: 158,
+  expectedWidth: 45, expectedHeight: 18
+}] }));
+const flatResult = validate(flatXmlPath, flatManifestPath);
+if (!flatResult.ok) throw new Error('展平模板节点应按 layoutParent=null 使用页面绝对坐标: ' + flatResult.errors.join('; '));
 const fixedManifestPath = path.join(dir, 'wrong-origin.json');
 const fixedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 fixedManifest.contentOriginY = 191;

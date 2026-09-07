@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+const { auditMappingCoverage } = require("./audit-mtslg-feishu-map.js");
+
+const docPath = path.join(__dirname, "..", "references", "adapters", "mtslg-iocontrol", "feishu-component-library-mapping.md");
+const mapPath = path.join(__dirname, "..", "references", "adapters", "mtslg-iocontrol", "mtslg-iocontrol-map.json");
+const report = auditMappingCoverage(fs.readFileSync(docPath, "utf8"), JSON.parse(fs.readFileSync(mapPath, "utf8")));
+
+assert.deepStrictEqual(report.missing, [], "飞书正式模板不应缺失机器映射");
+assert.ok(report.covered.length >= 30, "正式模板覆盖数量异常");
+assert.deepStrictEqual(report.ambiguous, [], "文档不应保留没有组件集/变体标题的孤立结构");
+assert.deepStrictEqual(report.unconfirmed, ["inputTemplates/密码输入框"], "密码框只保留待确认状态");
+const doc = fs.readFileSync(docPath, "utf8");
+assert.ok(!doc.includes("RightUpDownButtonStyle"), "不得保留旧的 RightUpDownButtonStyle 兼容别名");
+assert.ok(!doc.includes("或其他实际变量值"), "按钮模板必须使用明确的 startstop 变体");
+assert.ok(doc.includes("40/36/32/28"), "高度规则必须包含 28 变体");
+console.log("PASS Feishu mapping coverage audit test");

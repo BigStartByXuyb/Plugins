@@ -78,12 +78,19 @@ function validate(xmlPath, manifestPath) {
         !sameNumber(src.pageAbsY, (parent ? parent.pageAbsY : 0) + Number(src.relativeY || 0))) {
       errors.push('[' + n.xmlId + '] sourceNodes 的页面绝对坐标与父子相对坐标不一致');
     }
-    const expectedSourceLeft = Number(src.pageAbsX) - (parent ? Number(parent.pageAbsX) : 0);
+    const outputParentRef = n.layoutParent !== undefined
+      ? n.layoutParent
+      : (n.parent !== undefined ? n.parent : (src.parentRef || null));
+    const outputParent = outputParentRef ? sourceMap.get(outputParentRef) : null;
+    if (outputParentRef && !outputParent) {
+      errors.push('[' + n.xmlId + '] layoutParent 不存在: ' + outputParentRef);
+    }
     // Root-level output is content-relative: subtract the public shell/title once.
-    // Nested output is parent-relative: subtract only the parent's raw page bbox.
-    const parentIsRoot = parent && parent.ref === rootRef;
+    // Nested output is parent-relative: subtract only the output parent's raw page bbox.
+    const parentIsRoot = outputParent && outputParent.ref === rootRef;
+    const expectedSourceLeft = Number(src.pageAbsX) - (outputParent ? Number(outputParent.pageAbsX) : 0);
     const expectedSourceTop = Number(src.pageAbsY) -
-      (parent ? Number(parent.pageAbsY) : 0) - (parentIsRoot || !parent ? originY : 0);
+      (outputParent ? Number(outputParent.pageAbsY) : 0) - (parentIsRoot || !outputParent ? originY : 0);
     if (!sameNumber(n.expectedLeft, expectedSourceLeft) || !sameNumber(n.expectedTop, expectedSourceTop)) {
       errors.push('[' + n.xmlId + '] expectedLeft/Top 不是由 sourceNodes 父子坐标计算得到');
     }

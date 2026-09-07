@@ -68,4 +68,17 @@ assert.match(text, /Target="ExistingPage"/);
 assert.match(text, /Name="旧页面" Index="9"/);
 assert.match(text, /Target="F2NewPage"/);
 
+fs.writeFileSync(layout, [
+  "<Layout>",
+  "  <Page Target=\"F2NewPage\"><Menu><MenuItem Name=\"旧页面\" Index=\"9\" /></Menu></Page>",
+  "</Layout>",
+  ""
+].join("\n"), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", manifest, "--overwrite"], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+text = fs.readFileSync(layout, "utf8");
+assert.strictEqual((text.match(/<Page\s+Target="F2NewPage"/g) || []).length, 1);
+assert.match(text, /Name="第一项" Icon="FirstGeometry" TopLeftContent="F1" Index="1"/);
+assert.doesNotMatch(text, /Name="旧页面"/);
+
 console.log("PASS MTSLG Layout generator regression test");

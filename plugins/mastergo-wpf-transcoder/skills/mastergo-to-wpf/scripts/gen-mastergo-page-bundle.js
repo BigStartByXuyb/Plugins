@@ -16,6 +16,8 @@ const LAYOUT_SCRIPT = path.join(SCRIPT_DIR, "gen-mtslg-layout.js");
 const HOST_SCRIPT = path.join(SCRIPT_DIR, "gen-mw-wpf-page.js");
 const PROVENANCE_SCRIPT = path.join(SCRIPT_DIR, "validate-iocontrol-provenance.js");
 const COORDS_SCRIPT = path.join(SCRIPT_DIR, "check-iocontrol-coords.js");
+const TEMPLATE_RESOLVER_SCRIPT = path.join(SCRIPT_DIR, "resolve-mtslg-template-mapping.js");
+const DEFAULT_TEMPLATE_MAP = path.resolve(SCRIPT_DIR, "..", "references", "adapters", "mtslg-iocontrol", "mtslg-iocontrol-map.json");
 
 function fail(message) { throw new Error(message); }
 
@@ -264,7 +266,10 @@ function main() {
   const mappingPath = resolveInput(manifestDir, projectRoot, manifest.mappingPath, "mappingPath");
   const svgPath = resolveInput(manifestDir, projectRoot, manifest.svgPath, "svgPath");
   const iconMapPath = resolveInput(manifestDir, projectRoot, manifest.iconMapPath, "iconMapPath");
-  [mappingPath, svgPath, iconMapPath].forEach(function (filePath) {
+  const templateMapPath = manifest.templateMapPath
+    ? resolveInput(manifestDir, projectRoot, manifest.templateMapPath, "templateMapPath")
+    : DEFAULT_TEMPLATE_MAP;
+  [mappingPath, svgPath, iconMapPath, templateMapPath].forEach(function (filePath) {
     if (!fs.existsSync(filePath)) fail("输入文件不存在: " + filePath);
   });
 
@@ -279,6 +284,7 @@ function main() {
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mastergo-page-bundle-"));
   const tempXml = path.join(tempRoot, "page.xml");
+  const tempMapping = path.join(tempRoot, "resolved.mapping.json");
   const tempIcon = path.join(tempRoot, "icon.xaml");
   const tempLayout = path.join(tempRoot, "Layout.xml");
   const layoutInput = path.join(tempRoot, "layout.json");
@@ -292,14 +298,19 @@ function main() {
   const snapshots = snapshotFiles(outputTargets.concat([layoutPath, mappingAudit, bundleAudit, csprojPath]));
 
   try {
-    const mapping = readJson(mappingPath);
+    run(TEMPLATE_RESOLVER_SCRIPT, [
+      "--mapping", mappingPath,
+      "--map", templateMapPath,
+      "--out", tempMapping
+    ]);
+    const mapping = readJson(tempMapping);
     const contentOriginY = mapping.contentOriginY === undefined
       ? 192 : Number(mapping.contentOriginY);
     if (contentOriginY !== 192) {
       fail("contentOriginY 必须固定为 192");
     }
-    run(XML_SCRIPT, ["--fresh", mappingPath, "--out", tempXml]);
-    run(PROVENANCE_SCRIPT, ["--xml", tempXml, "--mapping", mappingPath]);
+    run(XML_SCRIPT, ["--fresh", tempMapping, "--out", tempXml]);
+    run(PROVENANCE_SCRIPT, ["--xml", tempXml, "--mapping", tempMapping]);
     run(ICON_SCRIPT, [svgPath, iconMapPath, tempIcon]);
 
     let layoutSource = null;
@@ -316,7 +327,7 @@ function main() {
       menuItems: manifest.menuItems
     };
     fs.writeFileSync(layoutInput, JSON.stringify(layoutManifest, null, 2), "utf8");
-    run(LAYOUT_SCRIPT, ["--manifest", layoutInput]);
+    run(LAYOUT_SCRIPT, ["--manifest", layoutInput].concat(args.overwrite ? ["--overwrite"] : []));
 
     const host = {
       projectRoot,
@@ -343,7 +354,7 @@ function main() {
 
     const changedCsproj = ensureLayoutContent(csprojPath, layoutPath);
     fs.mkdirSync(generatedDir, { recursive: true });
-    fs.copyFileSync(mappingPath, mappingAudit);
+    fs.copyFileSync(tempMapping, mappingAudit);
 
     validateBundleOutputs({
       projectRoot,
