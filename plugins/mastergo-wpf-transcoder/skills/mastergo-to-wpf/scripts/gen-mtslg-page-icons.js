@@ -101,7 +101,9 @@ for (const icon of iconMap.icons) {
   output.push(`  <!-- ${escapeXml(icon.comment)} -->`);
   const fillAttribute = fillRule === 'EvenOdd' ? ' FillRule="EvenOdd"' : '';
   output.push(`  <Geometry o:Freeze="True"${fillAttribute} x:Key="${escapeXml(key)}">`);
-  for (const path of paths) output.push(`    ${path.d}`);
+  for (const path of paths) {
+    for (const line of path.d.split(/\r?\n/)) output.push(`    ${line.trim()}`);
+  }
   output.push('  </Geometry>', '');
 }
 
