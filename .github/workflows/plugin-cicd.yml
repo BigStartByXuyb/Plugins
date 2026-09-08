@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: BigStartByXuyb/cicd/.github/workflows/plugin-marketplace.yml@v2
+    uses: BigStartByXuyb/cicd/.github/workflows/plugin-marketplace.yml@v2.1
     with:
-      ci_ref: v2
+      ci_ref: v2.1
     secrets: inherit
