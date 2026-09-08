@@ -1,0 +1,21 @@
+name: Plugin CI/CD
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, review_requested]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  plugin-ci:
+    uses: BigStartByXuyb/cicd/.github/workflows/reusable-plugin-cicd.yml@v1
+    with:
+      ci_ref: v1
+    secrets: inherit
