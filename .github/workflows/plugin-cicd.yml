@@ -1,0 +1,26 @@
+name: Plugin CI/CD
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, review_requested]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  plugin-ci:
+    uses: BigStartByXuyb/cicd/.github/workflows/plugin-marketplace.yml@e40fc59c01ea10240359aecde5c004d7253e23f8
+    with:
+      ci_ref: e40fc59c01ea10240359aecde5c004d7253e23f8
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+      FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+      FEISHU_DEFAULT_CHAT_ID: ${{ secrets.FEISHU_DEFAULT_CHAT_ID }}
+      FEISHU_RECIPIENT_MAP_JSON: ${{ secrets.FEISHU_RECIPIENT_MAP_JSON }}
