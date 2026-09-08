@@ -7,6 +7,13 @@
 - `skills/mastergo-to-wpf/` — 转码流程、组件映射参考、MTSLG 来源验证和坐标回归检查。
 - `skills/mastergo-iocontrol-document-format/` — 编写和审查 MasterGo → MTSLG IOContorl 映射文档的统一格式规范。
 
+完整页面转换分为两个强制阶段：
+
+- `skills/mastergo-to-wpf/scripts/mastergo-dsl-pipeline.ps1` — 管理 MasterGo 总览、逐 section DSL 快照、覆盖校验和失败重试；只有覆盖报告为 `complete` 才能继续生成。
+- `skills/mastergo-to-wpf/scripts/gen-mastergo-page-bundle.js` — 接收已确认的页面 mapping，统一生成页面 XML、Icon、Layout、WPF 宿主和审计产物。
+
+Agent 的完整工作流是：MasterGo MCP 总览 → DSL pipeline `Init/Write/Merge` → coverage complete → 组件映射 → page bundle。DSL pipeline 不负责猜测控件、资源键或运行时业务绑定。
+
 ## Claude Code 安装
 
 从仓库根目录通过 Claude Code 的本地插件或 marketplace 流程安装。插件清单位于 `.claude-plugin/plugin.json`；Claude Code 会自动发现 `skills/` 下的两个独立 Skill。

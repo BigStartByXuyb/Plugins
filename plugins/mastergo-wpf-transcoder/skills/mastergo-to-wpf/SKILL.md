@@ -139,6 +139,16 @@ MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `
 - 生成器必须在写文件前执行 scripts/validate-iocontrol-provenance.js；校验器不得把 nodes 中的 expected 值当作 DSL 事实，必须用 sourceNodes 独立重算。任何 sourceNodes 缺失、UNTRACKED、Value != sourceText、缺少来源字段、父节点缺失或几何不匹配都必须以非零状态失败。验证失败时禁止输出、覆盖或交付 XML。
 - 禁止仅凭 XML 可解析、控件数量正确或肉眼看起来接近就宣称完成；必须保留 manifest 和校验输出作为交付证据。无法建立来源链的已映射节点必须停止并标记待确认；未映射组件则保留其来源记录，不得伪造 XML 节点。
 
+## MasterGo DSL 分段采集流水线（强制）
+
+当任务需要读取完整 MasterGo 页面或容器时，必须使用 `scripts/mastergo-dsl-pipeline.ps1` 管理 DSL 快照，不能直接从单次工具响应进入页面生成：
+
+1. 先调用 `getDesignSections` 获取总览，并将总览保存为 `overview.json`；随后执行 `mastergo-dsl-pipeline.ps1 -Action Init -Overview <overview.json> -Out <runDir> -Ui <ui>`。
+2. 按总览中的全部 section 逐项读取 DSL。读取请求按每批 3–5 个并发 worker 执行；每个响应先保存为独立 JSON，再执行 `mastergo-dsl-pipeline.ps1 -Action Write -Manifest <runDir>/manifest.json -SectionId <sectionId> -InputFile <section.json> -Attempt <n>`。
+3. 所有 section 写入完成后执行 `mastergo-dsl-pipeline.ps1 -Action Merge -Manifest <runDir>/manifest.json`。只有 `coverage-report.json.status=complete` 且 section 与 source node 数量一致时，才允许进入组件映射、Icon 发现和 `gen-mastergo-page-bundle.js`。
+4. 覆盖校验失败时，必须根据 `retry-manifest.json` 只重取失败 section；不允许使用不完整快照生成 XML、Icon、Layout 或 WPF 宿主。
+5. 该流水线只负责 DSL 快照的完整性和来源保留；完成后仍必须按已选适配器调用正式映射、`gen-iocontrol-xml.js`、`gen-mtslg-page-icons.js`、`gen-mtslg-layout.js` 和 `gen-mastergo-page-bundle.js`。
+
 ## 交付和验证
 
 默认交付完整页面，不是截图、占位控件或近似原型。生成后必须按目标模式验证：
