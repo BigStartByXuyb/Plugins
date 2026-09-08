@@ -38,4 +38,16 @@ result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { enco
 assert.notStrictEqual(result.status, 0);
 assert.match(result.stderr, /must not use the layer-id prefix/);
 
+fs.writeFileSync(svgFile, JSON.stringify({ svgs: [
+  { id: 'page/icon-transform', svg: '<svg><path d="M0,0 L1,0 L1,1 Z" transform="matrix(1,0,0,-1,0,10)"/></svg>' }
+] }), 'utf8');
+fs.writeFileSync(mapFile, JSON.stringify({ icons: [
+  { sourceId: 'page/icon-transform', name: 'DownGeometry', comment: '向下', sourceRef: 'dsl/transform' }
+] }), 'utf8');
+result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
+assert.strictEqual(result.status, 0, result.stderr);
+const transformedXaml = fs.readFileSync(outFile, 'utf8');
+assert.match(transformedXaml, /<PathGeometry o:Freeze="True" x:Key="DownGeometry" Figures="M0,0 L1,0 L1,1 Z">/);
+assert.match(transformedXaml, /<MatrixTransform Matrix="1,0,0,-1,0,10"\s*\/>/);
+
 console.log('PASS semantic icon naming regression test');

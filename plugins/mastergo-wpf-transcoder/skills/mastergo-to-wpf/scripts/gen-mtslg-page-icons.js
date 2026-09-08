@@ -46,11 +46,26 @@ function parsePaths(svg, sourceId) {
     if (!d.trim()) continue;
     const attrs = match[2];
     const fillRule = (attrs.match(/fill-rule="([^"]+)"/i) || [])[1];
-    const matrix = (attrs.match(/transform="matrix\\(([^)]+)\\)"/i) || [])[1];
-    paths.push({ d, fillRule: fillRule === 'evenodd' ? 'EvenOdd' : 'Nonzero', matrix });
+    const transform = (attrs.match(/transform="([^"]+)"/i) || [])[1];
+    const matrix = (transform && transform.match(/^matrix\(([^)]+)\)$/i) || [])[1];
+    paths.push({ d, fillRule: fillRule === 'evenodd' ? 'EvenOdd' : 'Nonzero', transform, matrix });
   }
   if (paths.length === 0) throw new Error(`Source ${sourceId} has no supported SVG path`);
   return paths;
+}
+
+function parseMatrix(matrix, sourceId) {
+  const values = String(matrix).split(/[\s,]+/).filter(Boolean).map(Number);
+  if (values.length !== 6 || values.some(value => !Number.isFinite(value))) {
+    throw new Error(`Source ${sourceId} has an invalid SVG matrix transform: ${matrix}`);
+  }
+  return values.join(',');
+}
+
+function appendMatrixTransform(output, matrix) {
+  output.push('    <PathGeometry.Transform>');
+  output.push(`      <MatrixTransform Matrix="${escapeXml(matrix)}" />`);
+  output.push('    </PathGeometry.Transform>');
 }
 
 const svgData = readJson(svgFile, 'extractSvg JSON');
@@ -95,10 +110,22 @@ for (const icon of iconMap.icons) {
   if (!svg) throw new Error(`Icon sourceId is not an exact extractSvg entry id: ${icon.sourceId}`);
   const paths = parsePaths(svg, icon.sourceId);
   const fillRule = paths.some(path => path.fillRule === 'EvenOdd') ? 'EvenOdd' : 'Nonzero';
-  if (paths.some(path => path.matrix)) {
-    throw new Error(`Standard Geometry output cannot preserve SVG matrix transforms: ${icon.sourceId}`);
+  if (paths.some(path => path.transform && !path.matrix)) {
+    throw new Error(`Unsupported SVG transform (only matrix is supported): ${icon.sourceId}`);
   }
   output.push(`  <!-- ${escapeXml(icon.comment)} -->`);
+  if (paths.some(path => path.matrix)) {
+    if (paths.length !== 1) {
+      throw new Error(`Matrix transforms on multi-path icons are not supported yet: ${icon.sourceId}`);
+    }
+    const path = paths[0];
+    const pathFillAttribute = path.fillRule === 'EvenOdd' ? ' FillRule="EvenOdd"' : '';
+    const figures = escapeXml(path.d.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim());
+    output.push(`  <PathGeometry o:Freeze="True"${pathFillAttribute} x:Key="${escapeXml(key)}" Figures="${figures}">`);
+    appendMatrixTransform(output, parseMatrix(path.matrix, icon.sourceId));
+    output.push('  </PathGeometry>', '');
+    continue;
+  }
   const fillAttribute = fillRule === 'EvenOdd' ? ' FillRule="EvenOdd"' : '';
   output.push(`  <Geometry o:Freeze="True"${fillAttribute} x:Key="${escapeXml(key)}">`);
   for (const path of paths) {
