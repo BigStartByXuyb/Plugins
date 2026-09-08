@@ -15,6 +15,8 @@ assert.match(
   "bundle --overwrite 必须传给 Layout 生成器"
 );
 assert.match(scriptText, /run\(ICON_DISCOVERY_SCRIPT,/, "bundle 必须先执行页面 Icon 候选发现");
+assert.match(scriptText, /PathGeometry\|GeometryGroup.*MatrixTransform|MatrixTransform.*PathGeometry\|GeometryGroup/, "bundle 必须拒绝旧式 Icon 几何结构");
+assert.match(scriptText, /o:Freeze=\[\"'\]True\[\"'\].*x:Key=|x:Key=\[\"'\].*o:Freeze=\[\"'\]True/, "bundle 必须校验 Geometry 的冻结和资源键");
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "mastergo-bundle-"));
 const project = path.join(root, "Demo.Pages");
 fs.mkdirSync(project, { recursive: true });

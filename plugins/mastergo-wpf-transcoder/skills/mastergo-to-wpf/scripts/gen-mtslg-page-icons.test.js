@@ -9,11 +9,13 @@ const script = path.join(__dirname, 'gen-mtslg-page-icons.js');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mastergo-icons-'));
 const svgFile = path.join(dir, 'extractSvg.json');
 const mapFile = path.join(dir, 'icon-map.json');
-const outFile = path.join(dir, 'PageIcon.xaml');
+const outFile = path.join(dir, 'nested', 'PageIcon.xaml');
 
 fs.writeFileSync(svgFile, JSON.stringify({ svgs: [
   { id: 'page/icon-a', svg: '<svg><path d="M0,0 L1,1"/></svg>' },
-  { id: 'page/icon-b', svg: '<svg><path d="M1,1\nL2,2"/></svg>' }
+  { id: 'page/icon-b', svg: '<svg><path d="M1,1\nL2,2"/></svg>' },
+  { id: 'page/icon-evenodd', svg: '<svg><path fill-rule="evenodd" d="M0,0 L1,0 Z"/></svg>' },
+  { id: 'page/icon-nonzero', svg: '<svg><path fill-rule="nonzero" d="M0,0 L1,0 Z"/></svg>' }
 ] }), 'utf8');
 fs.writeFileSync(mapFile, JSON.stringify({ icons: [
   { sourceId: 'page/icon-a', name: 'LoadGeometry', comment: '上料', sourceRef: 'dsl/a' },
@@ -47,7 +49,22 @@ fs.writeFileSync(mapFile, JSON.stringify({ icons: [
 result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);
 const transformedXaml = fs.readFileSync(outFile, 'utf8');
-assert.match(transformedXaml, /<PathGeometry o:Freeze="True" x:Key="DownGeometry" Figures="M0,0 L1,0 L1,1 Z">/);
-assert.match(transformedXaml, /<MatrixTransform Matrix="1,0,0,-1,0,10"\s*\/>/);
+assert.match(transformedXaml, /<Geometry o:Freeze="True" x:Key="DownGeometry">/);
+assert.match(transformedXaml, /M0,10 L1,10 L1,9 Z/);
+assert.doesNotMatch(transformedXaml, /PathGeometry|MatrixTransform/);
+
+fs.writeFileSync(svgFile, JSON.stringify({ svgs: [
+  { id: 'page/icon-evenodd', svg: '<svg><path fill-rule="evenodd" d="M0,0 L1,0 Z"/></svg>' },
+  { id: 'page/icon-nonzero', svg: '<svg><path fill-rule="nonzero" d="M0,0 L1,0 Z"/></svg>' }
+] }), 'utf8');
+fs.writeFileSync(mapFile, JSON.stringify({ icons: [
+  { sourceId: 'page/icon-evenodd', name: 'EvenOddGeometry', comment: '奇偶', sourceRef: 'dsl/evenodd' },
+  { sourceId: 'page/icon-nonzero', name: 'NonzeroGeometry', comment: '非零', sourceRef: 'dsl/nonzero' }
+] }), 'utf8');
+result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
+assert.strictEqual(result.status, 0, result.stderr);
+const fillRuleXaml = fs.readFileSync(outFile, 'utf8');
+assert.match(fillRuleXaml, /x:Key="EvenOddGeometry">\r?\n\s+F0/);
+assert.match(fillRuleXaml, /x:Key="NonzeroGeometry">\r?\n\s+F1/);
 
 console.log('PASS semantic icon naming regression test');

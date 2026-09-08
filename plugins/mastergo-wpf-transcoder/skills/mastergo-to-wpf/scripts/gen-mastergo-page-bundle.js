@@ -177,6 +177,15 @@ function validateBundleOutputs(info) {
   if (!/<ResourceDictionary\b/.test(icon) || !/<Geometry\b/.test(icon) || !/<\/ResourceDictionary>/.test(icon)) {
     fail("页面 Icon 不是完整 ResourceDictionary: " + info.iconPath);
   }
+  if (/<(?:PathGeometry|GeometryGroup)\b|<MatrixTransform\b/.test(icon)) {
+    fail("页面 Icon 使用了不兼容的几何结构；必须只使用 Geometry 内联路径: " + info.iconPath);
+  }
+  const geometryResources = icon.match(/<Geometry\b[^>]*>[\s\S]*?<\/Geometry>/g) || [];
+  if (geometryResources.length === 0 || geometryResources.some(function (resource) {
+    return !/\bo:Freeze=["']True["']/i.test(resource) || !/\bx:Key=["'][^"']+["']/i.test(resource);
+  })) {
+    fail("页面 Icon 的 Geometry 缺少 o:Freeze=True 或 x:Key: " + info.iconPath);
+  }
   const iconMapAudit = readJson(info.iconMapAudit, "页面 Icon mapping 审计");
   if (!Array.isArray(iconMapAudit.icons) || !Array.isArray(iconMapAudit.candidates) || !Array.isArray(iconMapAudit.unmapped)) {
     fail("页面 Icon mapping 审计缺少 icons/candidates/unmapped 数组: " + info.iconMapAudit);

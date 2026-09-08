@@ -39,14 +39,19 @@ function readJson(file, label) {
 
 function parsePaths(svg, sourceId) {
   const paths = [];
-  const pathRe = /<path\s+d="([^"]*)"([^>]*?)\/?>/gi;
+  const pathRe = /<path\b([^>]*?)\/?>/gi;
   let match;
   while ((match = pathRe.exec(svg))) {
-    const d = match[1];
+    const attrs = match[1];
+    const attrValue = name => {
+      const found = attrs.match(new RegExp(name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')", 'i'));
+      return found ? (found[1] ?? found[2]) : undefined;
+    };
+    const d = attrValue('d');
+    if (d === undefined) continue;
     if (!d.trim()) continue;
-    const attrs = match[2];
-    const fillRule = (attrs.match(/fill-rule="([^"]+)"/i) || [])[1];
-    const transform = (attrs.match(/transform="([^"]+)"/i) || [])[1];
+    const fillRule = attrValue('fill-rule');
+    const transform = attrValue('transform');
     const matrix = (transform && transform.match(/^matrix\(([^)]+)\)$/i) || [])[1];
     paths.push({ d, fillRule: fillRule === 'evenodd' ? 'EvenOdd' : 'Nonzero', transform, matrix });
   }
@@ -59,13 +64,107 @@ function parseMatrix(matrix, sourceId) {
   if (values.length !== 6 || values.some(value => !Number.isFinite(value))) {
     throw new Error(`Source ${sourceId} has an invalid SVG matrix transform: ${matrix}`);
   }
-  return values.join(',');
+  return values;
 }
 
-function appendMatrixTransform(output, matrix) {
-  output.push('    <PathGeometry.Transform>');
-  output.push(`      <MatrixTransform Matrix="${escapeXml(matrix)}" />`);
-  output.push('    </PathGeometry.Transform>');
+function formatNumber(value) {
+  const rounded = Number(Number(value).toFixed(12));
+  return Object.is(rounded, -0) ? '0' : String(rounded);
+}
+
+function transformPathData(data, matrixText, sourceId) {
+  const matrix = parseMatrix(matrixText, sourceId);
+  const [a, b, c, d, e, f] = matrix;
+  const tokens = String(data).match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g) || [];
+  const parameterCount = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7 };
+  let index = 0;
+  let command = null;
+  let currentX = 0;
+  let currentY = 0;
+  let startX = 0;
+  let startY = 0;
+  const output = [];
+  const isCommand = token => /^[A-Za-z]$/.test(token);
+  const readNumber = () => {
+    if (index >= tokens.length || isCommand(tokens[index])) {
+      throw new Error(`Source ${sourceId} has incomplete SVG path data near token ${index}`);
+    }
+    const value = Number(tokens[index++]);
+    if (!Number.isFinite(value)) throw new Error(`Source ${sourceId} has invalid SVG path number`);
+    return value;
+  };
+  const transformPoint = ([x, y]) => [a * x + c * y + e, b * x + d * y + f];
+  const pointText = ([x, y]) => `${formatNumber(x)},${formatNumber(y)}`;
+  const relativePoint = (x, y, relative) => relative ? [currentX + x, currentY + y] : [x, y];
+
+  while (index < tokens.length) {
+    if (isCommand(tokens[index])) command = tokens[index++];
+    if (!command) throw new Error(`Source ${sourceId} has SVG coordinates without a command`);
+    const upper = command.toUpperCase();
+    const relative = command === command.toLowerCase();
+    if (upper === 'Z') {
+      output.push('Z');
+      currentX = startX;
+      currentY = startY;
+      command = null;
+      continue;
+    }
+    const count = parameterCount[upper];
+    if (!count) throw new Error(`Source ${sourceId} uses unsupported SVG command ${command}`);
+    if (upper === 'A') {
+      throw new Error(`Source ${sourceId} uses an arc command with a matrix transform; refusing lossy conversion`);
+    }
+    let firstMove = upper === 'M';
+    while (index < tokens.length && !isCommand(tokens[index])) {
+      const values = Array.from({ length: count }, readNumber);
+      let points;
+      let end;
+      if (upper === 'H') {
+        end = relativePoint(values[0], 0, relative);
+        points = [end];
+      } else if (upper === 'V') {
+        end = relativePoint(0, values[0], relative);
+        points = [end];
+      } else if (upper === 'M' || upper === 'L' || upper === 'T') {
+        end = relativePoint(values[0], values[1], relative);
+        points = [end];
+      } else if (upper === 'C') {
+        points = [
+          relativePoint(values[0], values[1], relative),
+          relativePoint(values[2], values[3], relative),
+          relativePoint(values[4], values[5], relative)
+        ];
+        end = points[2];
+      } else if (upper === 'S' || upper === 'Q') {
+        points = [
+          relativePoint(values[0], values[1], relative),
+          relativePoint(values[2], values[3], relative)
+        ];
+        end = points[1];
+      }
+      const transformed = points.map(transformPoint);
+      if (upper === 'H' || upper === 'V') {
+        output.push(`L${pointText(transformed[0])}`);
+      } else if (upper === 'M' || upper === 'L' || upper === 'T') {
+        output.push(`${firstMove ? 'M' : upper}${pointText(transformed[0])}`);
+      } else if (upper === 'C') {
+        output.push(`C ${transformed.map(pointText).join(' ')}`);
+      } else {
+        output.push(`${upper} ${transformed.map(pointText).join(' ')}`);
+      }
+      currentX = end[0];
+      currentY = end[1];
+      if (upper === 'M') {
+        if (firstMove) {
+          startX = currentX;
+          startY = currentY;
+          firstMove = false;
+        }
+        command = relative ? 'l' : 'L';
+      }
+    }
+  }
+  return output.join(' ');
 }
 
 const svgData = readJson(svgFile, 'extractSvg JSON');
@@ -109,31 +208,27 @@ for (const icon of iconMap.icons) {
   const svg = svgById.get(icon.sourceId);
   if (!svg) throw new Error(`Icon sourceId is not an exact extractSvg entry id: ${icon.sourceId}`);
   const paths = parsePaths(svg, icon.sourceId);
-  const fillRule = paths.some(path => path.fillRule === 'EvenOdd') ? 'EvenOdd' : 'Nonzero';
+  const fillRules = new Set(paths.map(path => path.fillRule));
+  if (fillRules.size > 1) {
+    throw new Error(`Mixed SVG fill rules are not supported in one Geometry resource: ${icon.sourceId}`);
+  }
+  const fillRule = paths[0].fillRule;
   if (paths.some(path => path.transform && !path.matrix)) {
     throw new Error(`Unsupported SVG transform (only matrix is supported): ${icon.sourceId}`);
   }
+  const pathData = paths.map(path => path.matrix
+    ? transformPathData(path.d, path.matrix, icon.sourceId)
+    : path.d.trim());
   output.push(`  <!-- ${escapeXml(icon.comment)} -->`);
-  if (paths.some(path => path.matrix)) {
-    if (paths.length !== 1) {
-      throw new Error(`Matrix transforms on multi-path icons are not supported yet: ${icon.sourceId}`);
-    }
-    const path = paths[0];
-    const pathFillAttribute = path.fillRule === 'EvenOdd' ? ' FillRule="EvenOdd"' : '';
-    const figures = escapeXml(path.d.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim());
-    output.push(`  <PathGeometry o:Freeze="True"${pathFillAttribute} x:Key="${escapeXml(key)}" Figures="${figures}">`);
-    appendMatrixTransform(output, parseMatrix(path.matrix, icon.sourceId));
-    output.push('  </PathGeometry>', '');
-    continue;
-  }
-  const fillAttribute = fillRule === 'EvenOdd' ? ' FillRule="EvenOdd"' : '';
-  output.push(`  <Geometry o:Freeze="True"${fillAttribute} x:Key="${escapeXml(key)}">`);
-  for (const path of paths) {
-    for (const line of path.d.split(/\r?\n/)) output.push(`    ${line.trim()}`);
+  output.push(`  <Geometry o:Freeze="True" x:Key="${escapeXml(key)}">`);
+  output.push(`    ${fillRule === 'EvenOdd' ? 'F0' : 'F1'}`);
+  for (const data of pathData) {
+    for (const line of data.split(/\r?\n/)) output.push(`    ${line.trim()}`);
   }
   output.push('  </Geometry>', '');
 }
 
 output.push('</ResourceDictionary>', '');
+fs.mkdirSync(require('path').dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, output.join('\n'), 'utf8');
 console.log(`Generated ${keys.size} icon(s): ${outFile}`);
