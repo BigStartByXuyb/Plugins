@@ -17,6 +17,11 @@
       "name": "agent-plugin-publisher",
       "source": "./plugins/agent-plugin-publisher",
       "description": "将用户明确指定的本地目录按团队统一格式打包为插件。"
+    },
+    {
+      "name": "ci-invalid-structure-demo",
+      "source": "./plugins/ci-invalid-structure-demo",
+      "description": "仅用于验证插件 CI 结构门禁的故意异常测试插件。"
     }
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "name": "ci-invalid-structure-demo",
+  "description": "仅用于验证插件 CI 结构门禁的故意异常测试插件。",
+  "version": "0.1.0",
+  "author": {
+    "name": "BigStartByXuyb"
+  },
+  "keywords": [
+    "ci",
+    "test",
+    "invalid-structure"
+  ],
+  "license": "UNLICENSED"
+}
