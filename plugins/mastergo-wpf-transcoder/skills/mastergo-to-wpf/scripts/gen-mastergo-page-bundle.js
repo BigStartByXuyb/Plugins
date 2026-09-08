@@ -17,6 +17,7 @@ const HOST_SCRIPT = path.join(SCRIPT_DIR, "gen-mw-wpf-page.js");
 const PROVENANCE_SCRIPT = path.join(SCRIPT_DIR, "validate-iocontrol-provenance.js");
 const COORDS_SCRIPT = path.join(SCRIPT_DIR, "check-iocontrol-coords.js");
 const TEMPLATE_RESOLVER_SCRIPT = path.join(SCRIPT_DIR, "resolve-mtslg-template-mapping.js");
+const ICON_DISCOVERY_SCRIPT = path.join(SCRIPT_DIR, "discover-mtslg-page-icon-map.js");
 const DEFAULT_TEMPLATE_MAP = path.resolve(SCRIPT_DIR, "..", "references", "adapters", "mtslg-iocontrol", "mtslg-iocontrol-map.json");
 
 function fail(message) { throw new Error(message); }
@@ -176,6 +177,10 @@ function validateBundleOutputs(info) {
   if (!/<ResourceDictionary\b/.test(icon) || !/<Geometry\b/.test(icon) || !/<\/ResourceDictionary>/.test(icon)) {
     fail("页面 Icon 不是完整 ResourceDictionary: " + info.iconPath);
   }
+  const iconMapAudit = readJson(info.iconMapAudit, "页面 Icon mapping 审计");
+  if (!Array.isArray(iconMapAudit.icons) || !Array.isArray(iconMapAudit.candidates) || !Array.isArray(iconMapAudit.unmapped)) {
+    fail("页面 Icon mapping 审计缺少 icons/candidates/unmapped 数组: " + info.iconMapAudit);
+  }
   const layout = requireFile(info.layoutPath, "Layout.xml");
   if (!/<Layout\b/.test(layout) || !new RegExp("<Page\\s+[^>]*Target=[\\\"']" +
     String(info.pageTarget).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&") + "[\\\"']", "i").test(layout)) {
@@ -285,6 +290,7 @@ function main() {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mastergo-page-bundle-"));
   const tempXml = path.join(tempRoot, "page.xml");
   const tempMapping = path.join(tempRoot, "resolved.mapping.json");
+  const tempIconMap = path.join(tempRoot, "resolved.icon-map.json");
   const tempIcon = path.join(tempRoot, "icon.xaml");
   const tempLayout = path.join(tempRoot, "Layout.xml");
   const layoutInput = path.join(tempRoot, "layout.json");
@@ -294,8 +300,9 @@ function main() {
   const originalCsproj = fs.readFileSync(csprojPath, "utf8");
   const generatedDir = path.join(projectRoot, "Generated");
   const mappingAudit = path.join(generatedDir, manifest.pageName + ".mapping.json");
+  const iconMapAudit = path.join(generatedDir, manifest.pageName + ".icon-map.json");
   const bundleAudit = path.join(generatedDir, manifest.pageName + ".bundle.manifest.json");
-  const snapshots = snapshotFiles(outputTargets.concat([layoutPath, mappingAudit, bundleAudit, csprojPath]));
+  const snapshots = snapshotFiles(outputTargets.concat([layoutPath, mappingAudit, iconMapAudit, bundleAudit, csprojPath]));
 
   try {
     run(TEMPLATE_RESOLVER_SCRIPT, [
@@ -311,7 +318,13 @@ function main() {
     }
     run(XML_SCRIPT, ["--fresh", tempMapping, "--out", tempXml]);
     run(PROVENANCE_SCRIPT, ["--xml", tempXml, "--mapping", tempMapping]);
-    run(ICON_SCRIPT, [svgPath, iconMapPath, tempIcon]);
+    run(ICON_DISCOVERY_SCRIPT, [
+      "--svg", svgPath,
+      "--mapping", mappingPath,
+      "--confirmed", iconMapPath,
+      "--out", tempIconMap
+    ]);
+    run(ICON_SCRIPT, [svgPath, tempIconMap, tempIcon]);
 
     let layoutSource = null;
     if (fs.existsSync(layoutPath)) {
@@ -355,6 +368,7 @@ function main() {
     const changedCsproj = ensureLayoutContent(csprojPath, layoutPath);
     fs.mkdirSync(generatedDir, { recursive: true });
     fs.copyFileSync(tempMapping, mappingAudit);
+    fs.copyFileSync(tempIconMap, iconMapAudit);
 
     validateBundleOutputs({
       projectRoot,
@@ -365,6 +379,7 @@ function main() {
       pageTarget: manifest.pageTarget,
       hostPaths: outputTargets.slice(2),
       mappingAudit,
+      iconMapAudit,
       mapping,
       tempRoot
     });
@@ -378,6 +393,7 @@ function main() {
         projectRelative(projectRoot, iconPath),
         projectRelative(projectRoot, layoutPath),
         projectRelative(projectRoot, mappingAudit),
+        projectRelative(projectRoot, iconMapAudit),
         projectRelative(projectRoot, bundleAudit)
       ],
       csprojChanged: changedCsproj,
@@ -396,6 +412,7 @@ function main() {
         projectRelative(projectRoot, iconPath),
         projectRelative(projectRoot, layoutPath),
         projectRelative(projectRoot, mappingAudit),
+        projectRelative(projectRoot, iconMapAudit),
         projectRelative(projectRoot, bundleAudit)
       ],
       backups

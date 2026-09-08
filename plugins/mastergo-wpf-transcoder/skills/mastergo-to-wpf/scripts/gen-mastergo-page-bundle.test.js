@@ -14,6 +14,7 @@ assert.match(
   /run\(LAYOUT_SCRIPT,\s*\["--manifest",\s*layoutInput\]\.concat\(args\.overwrite \? \["--overwrite"\] : \[\]\)\)/,
   "bundle --overwrite 必须传给 Layout 生成器"
 );
+assert.match(scriptText, /run\(ICON_DISCOVERY_SCRIPT,/, "bundle 必须先执行页面 Icon 候选发现");
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "mastergo-bundle-"));
 const project = path.join(root, "Demo.Pages");
 fs.mkdirSync(project, { recursive: true });
@@ -86,6 +87,7 @@ for (const relative of [
   "Resources/Icons/F2NewPageIcon.xaml",
   "Resources/Files/Layout.xml",
   "Generated/F2NewPage.mapping.json",
+  "Generated/F2NewPage.icon-map.json",
   "Generated/F2NewPage.bundle.manifest.json"
 ]) {
   assert.ok(fs.existsSync(path.join(project, ...relative.split("/"))), relative);
@@ -93,6 +95,9 @@ for (const relative of [
 assert.match(fs.readFileSync(path.join(project, "Resources/Icons/F2NewPageIcon.xaml"), "utf8"), /ActionGeometry/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Files/Layout.xml"), "utf8"), /Index="1"/);
 assert.match(fs.readFileSync(csproj, "utf8"), /F2NewPagePage\.xml|F2NewPageIcon\.xaml/);
+const iconMapAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.icon-map.json"), "utf8"));
+assert.ok(Array.isArray(iconMapAudit.candidates));
+assert.ok(Array.isArray(iconMapAudit.unmapped));
 const bundleAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.bundle.manifest.json"), "utf8"));
 assert.deepStrictEqual(bundleAudit.layout, {
   status: "complete",

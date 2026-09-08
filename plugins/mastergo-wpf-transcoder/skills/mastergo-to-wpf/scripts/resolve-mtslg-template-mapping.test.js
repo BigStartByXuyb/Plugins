@@ -136,6 +136,13 @@ assert.deepStrictEqual(
 );
 assert.ok(templateMap.rightSidebarTemplates, "缺少右侧栏通用模板");
 assert.strictEqual(templateMap.rightSidebarTemplates.variants.stop.style, "RightButtonStyle");
+assert.strictEqual(templateMap.rightSidebarTemplates.variants["上下结构-icon+文案"].style, "UpDownRightButtonStyle");
+for (const variant of ["F+文案", "文案 大button", "删除料盒-1", "删除料盒-2", "文案-小button"]) {
+  assert.strictEqual(templateMap.rightSidebarTemplates.variants[variant].style, null, "默认右侧栏变体不得带 Style: " + variant);
+}
+for (const variant of ["enter", "exit", "start", "恢复切割", "stop", "左右结构-icon+文案"]) {
+  assert.strictEqual(templateMap.rightSidebarTemplates.variants[variant].style, "RightButtonStyle", "左右结构变体必须使用 RightButtonStyle: " + variant);
+}
 const documentedTemplateFamilies = {
   inputTemplates: [
     "输入框-整数-40", "输入框-整数-36", "输入框-整数-32",
@@ -171,6 +178,10 @@ for (const variant of [
 ]) {
   assert.ok(templateMap.componentTemplates.variants[variant], "缺少正式模板: " + variant);
 }
+assert.strictEqual(templateMap.selectionTemplates.variants["单选-选中"].controlType, "RadioButton");
+assert.strictEqual(templateMap.selectionTemplates.variants["单选-未选择"].controlType, "RadioButton");
+assert.strictEqual(templateMap.selectionTemplates.variants["多选-选中"].controlType, "CheckBox");
+assert.strictEqual(templateMap.selectionTemplates.variants["多选-未选择"].controlType, "CheckBox");
 
 const resolved = resolveTemplateMapping(
   makeMapping("加减快捷操作-有标题", slotsForWithTitle()),
@@ -197,6 +208,17 @@ assert.throws(
   /未登记的 MTSLG 模板变体/
 );
 
+const singleSelectedMapping = makeMapping("单选-选中", [{ slot: "choice", sourceRef: "choice/selected", controlType: "RadioButton" }]);
+singleSelectedMapping.componentInstances[0].template = "selectionTemplates";
+const resolvedSingleSelected = resolveTemplateMapping(singleSelectedMapping, templateMap);
+assert.strictEqual(resolvedSingleSelected.templateInstances[0].variant, "单选-选中");
+assert.strictEqual(resolvedSingleSelected.nodes[0].attrs.ControlType, "RadioButton");
+
+const multiUnselectedMapping = makeMapping("多选-未选择", [{ slot: "choice", sourceRef: "choice/unselected", controlType: "CheckBox" }]);
+multiUnselectedMapping.componentInstances[0].template = "selectionTemplates";
+const resolvedMultiUnselected = resolveTemplateMapping(multiUnselectedMapping, templateMap);
+assert.strictEqual(resolvedMultiUnselected.nodes[0].attrs.ControlType, "CheckBox");
+
 const missingSlot = makeMapping("加减快捷操作-有标题", slotsForWithTitle().slice(0, -1));
 assert.throws(
   () => resolveTemplateMapping(missingSlot, templateMap),
@@ -210,17 +232,17 @@ assert.throws(
   /Value 不是 DSL 文本/
 );
 
-const unconfirmedFastAxis = makeMapping("轴操作-快慢", [
+const confirmedFastAxis = makeMapping("轴操作-快慢", [
   { slot: "up", sourceRef: "button/up" },
   { slot: "left", sourceRef: "button/left" },
   { slot: "right", sourceRef: "button/right" },
   { slot: "down", sourceRef: "button/down" },
   { slot: "scan", sourceRef: "text/scan", valueSourceRef: "text/scan", text: "SCAN", controlType: "TextBlock" }
 ]);
-assert.throws(
-  () => resolveTemplateMapping(unconfirmedFastAxis, templateMap),
-  /尚未确认的 MTSLG 模板变体/
-);
+const resolvedFastAxis = resolveTemplateMapping(confirmedFastAxis, templateMap);
+assert.strictEqual(resolvedFastAxis.templateInstances.length, 1);
+assert.strictEqual(resolvedFastAxis.templateInstances[0].variant, "轴操作-快慢");
+assert.strictEqual(resolvedFastAxis.nodes.length, 5);
 
 const resolvedRight = resolveTemplateMapping(
   makeRightSidebarMapping("stop", "right/stop", "STOP"),
@@ -236,6 +258,24 @@ const resolvedRightIcon = resolveTemplateMapping(
 );
 assert.strictEqual(resolvedRightIcon.nodes[0].attrs.Style, "RightButtonStyle");
 assert.strictEqual(resolvedRightIcon.nodes[0].attrs.Icon, "ExitGeometry");
+
+const resolvedRightTextIcon = resolveTemplateMapping(
+  makeRightSidebarMapping("上下结构-icon+文案", "right/text-icon", "文案"),
+  templateMap
+);
+assert.strictEqual(resolvedRightTextIcon.nodes[0].attrs.Style, "UpDownRightButtonStyle");
+
+const resolvedRightDefault = resolveTemplateMapping(
+  makeRightSidebarMapping("F+文案", "right/f-plus-text", "文案"),
+  templateMap
+);
+assert.ok(!Object.prototype.hasOwnProperty.call(resolvedRightDefault.nodes[0].attrs, "Style"));
+
+const resolvedRightLeft = resolveTemplateMapping(
+  makeRightSidebarMapping("左右结构-icon+文案", "right/left-icon-text", "文案"),
+  templateMap
+);
+assert.strictEqual(resolvedRightLeft.nodes[0].attrs.Style, "RightButtonStyle");
 
 const mainMenuMapping = makeRightSidebarMapping("enter", "main/menu", "传感器", "SensorGeometry");
 mainMenuMapping.componentInstances[0] = {

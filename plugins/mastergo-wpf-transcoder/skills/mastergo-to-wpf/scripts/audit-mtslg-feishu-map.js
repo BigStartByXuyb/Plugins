@@ -32,7 +32,8 @@ function extractDocumentedRules(markdown) {
 
   const operationHeadings = markdown.match(/^### 固定模板：属性 1=([^\r\n]+)/gm) || [];
   for (const heading of operationHeadings) {
-    families.componentTemplates.push(heading.replace(/^### 固定模板：属性 1=/, "").trim());
+    const variants = heading.replace(/^### 固定模板：属性 1=/, "").trim();
+    families.componentTemplates.push(...splitVariants(variants));
   }
 
   const uniqueFamilies = {};

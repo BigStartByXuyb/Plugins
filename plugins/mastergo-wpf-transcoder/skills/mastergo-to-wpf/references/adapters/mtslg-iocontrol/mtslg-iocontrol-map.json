@@ -33,7 +33,7 @@
   ],
   "componentTemplates": {
     "match": { "property": "属性 1" },
-    "unconfirmedVariants": ["轴操作-快慢"],
+    "unconfirmedVariants": [],
     "variants": {
       "加减快捷键-无标题": {
         "controlType": "IconButton", "style": "SmallButton", "iconPolicy": "none",
@@ -70,6 +70,16 @@
         ]
       },
       "轴操作": {
+        "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "up", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "left", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "right", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "down", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
+          { "slot": "scan", "controlType": "TextBlock", "valueSource": "dsl.text" }
+        ]
+      },
+      "轴操作-快慢": {
         "controlType": "IconButton", "style": null, "iconPolicy": "single-path",
         "slots": [
           { "slot": "up", "controlType": "IconButton", "iconPolicy": "single-path", "valueSource": "dsl.text" },
@@ -151,20 +161,84 @@
       "右侧栏-上下结构": { "style": "UpDownRightButtonStyle" }
     },
     "variants": {
+      "F+文案": {
+        "controlType": "IconButton",
+        "style": null,
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "iconPolicy": "single-path" }
+        ]
+      },
       "文案 大button": {
         "controlType": "IconButton",
-        "style": "RightButtonStyle",
-        "iconPolicy": "none",
+        "style": null,
+        "iconPolicy": "single-path",
         "slots": [
-          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "none" }
+          { "slot": "button", "controlType": "IconButton", "iconPolicy": "single-path" }
+        ]
+      },
+      "上下结构-icon+文案": {
+        "controlType": "IconButton",
+        "style": "UpDownRightButtonStyle",
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "UpDownRightButtonStyle", "iconPolicy": "single-path" }
+        ]
+      },
+      "左右结构-icon+文案": {
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path" }
         ]
       },
       "stop": {
         "controlType": "IconButton",
         "style": "RightButtonStyle",
-        "iconPolicy": "none",
+        "iconPolicy": "single-path",
         "slots": [
-          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "none" }
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path" }
+        ]
+      },
+      "start": {
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path" }
+        ]
+      },
+      "恢复切割": {
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path" }
+        ]
+      },
+      "删除料盒-1": {
+        "controlType": "IconButton",
+        "style": null,
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "iconPolicy": "single-path" }
+        ]
+      },
+      "删除料盒-2": {
+        "controlType": "IconButton",
+        "style": null,
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "iconPolicy": "single-path" }
+        ]
+      },
+      "文案-小button": {
+        "controlType": "IconButton",
+        "style": null,
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "iconPolicy": "single-path" }
         ]
       },
       "enter": {
@@ -240,7 +314,11 @@
     "match": { "property": "属性 1" },
     "variants": {
       "单选-选中/未选择": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" }] },
-      "多选-选中/未选择": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] }
+      "单选-选中": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "单选-未选择": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "多选-选中/未选择": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "多选-选中": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
+      "多选-未选择": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] }
     }
   },
   "infoGroupTemplates": {
