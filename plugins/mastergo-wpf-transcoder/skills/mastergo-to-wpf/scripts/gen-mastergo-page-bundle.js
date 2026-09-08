@@ -137,6 +137,13 @@ function copyOutput(source, target, overwrite, created, backups, allowExisting) 
   fs.copyFileSync(source, target);
 }
 
+function copyLayoutOutput(source, target, overwrite, created, backups) {
+  // Layout 支持新增 Page 的增量注册；相同 pageTarget 的替换由
+  // gen-mtslg-layout.js 强制要求 --overwrite。这里保留备份，但不把
+  // 这个行为伪装成普通页面文件的无条件覆盖。
+  copyOutput(source, target, overwrite, created, backups, true);
+}
+
 function snapshotFiles(filePaths) {
   const snapshots = new Map();
   filePaths.forEach(function (filePath) {
@@ -168,23 +175,62 @@ function requireFile(filePath, label) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function readGeometryKeys(iconText) {
+  const keys = new Set();
+  const duplicateKeys = new Set();
+  const geometryTag = /<Geometry\b([^>]*)>/gi;
+  let match;
+  while ((match = geometryTag.exec(iconText)) !== null) {
+    const keyMatch = match[1].match(/\bx:Key=["']([^"']+)["']/i);
+    if (!keyMatch) continue;
+    const key = keyMatch[1];
+    if (keys.has(key)) duplicateKeys.add(key);
+    keys.add(key);
+  }
+  return { keys, duplicateKeys };
+}
+
+function collectIconReferences(mapping, layoutMenuItems) {
+  const references = new Set();
+  (mapping.nodes || []).forEach(function (node) {
+    const icon = node && node.attrs && node.attrs.Icon;
+    if (typeof icon === "string" && icon.trim()) references.add(icon.trim());
+  });
+  (layoutMenuItems || []).forEach(function (item) {
+    const icon = item && item.icon;
+    if (typeof icon === "string" && icon.trim()) references.add(icon.trim());
+  });
+  return references;
+}
+
 function validateBundleOutputs(info) {
   const pageXml = requireFile(info.pageXmlPath, "页面 XML");
   if (!/<IOContorl\b/.test(pageXml) || !/<\/IOContorl>\s*$/.test(pageXml)) {
     fail("页面 XML 根节点不符合 IOContorl 格式: " + info.pageXmlPath);
   }
   const icon = requireFile(info.iconPath, "页面 Icon");
-  if (!/<ResourceDictionary\b/.test(icon) || !/<Geometry\b/.test(icon) || !/<\/ResourceDictionary>/.test(icon)) {
+  if (!/<ResourceDictionary\b/.test(icon) || !/<\/ResourceDictionary>/.test(icon)) {
     fail("页面 Icon 不是完整 ResourceDictionary: " + info.iconPath);
   }
   if (/<(?:PathGeometry|GeometryGroup)\b|<MatrixTransform\b/.test(icon)) {
     fail("页面 Icon 使用了不兼容的几何结构；必须只使用 Geometry 内联路径: " + info.iconPath);
   }
   const geometryResources = icon.match(/<Geometry\b[^>]*>[\s\S]*?<\/Geometry>/g) || [];
-  if (geometryResources.length === 0 || geometryResources.some(function (resource) {
+  if (geometryResources.some(function (resource) {
     return !/\bo:Freeze=["']True["']/i.test(resource) || !/\bx:Key=["'][^"']+["']/i.test(resource);
   })) {
     fail("页面 Icon 的 Geometry 缺少 o:Freeze=True 或 x:Key: " + info.iconPath);
+  }
+  const geometryInfo = readGeometryKeys(icon);
+  if (geometryInfo.duplicateKeys.size > 0) {
+    fail("页面 Icon 存在重复 Geometry 资源键: " + [...geometryInfo.duplicateKeys].join(", "));
+  }
+  const iconReferences = collectIconReferences(info.mapping, info.layoutMenuItems);
+  const missingReferences = [...iconReferences].filter(function (key) {
+    return !geometryInfo.keys.has(key);
+  });
+  if (missingReferences.length > 0) {
+    fail("页面实际引用了未生成的 Geometry: " + missingReferences.join(", "));
   }
   const iconMapAudit = readJson(info.iconMapAudit, "页面 Icon mapping 审计");
   if (!Array.isArray(iconMapAudit.icons) || !Array.isArray(iconMapAudit.candidates) || !Array.isArray(iconMapAudit.unmapped)) {
@@ -372,7 +418,7 @@ function main() {
 
     copyOutput(tempXml, pageXmlPath, args.overwrite, created, backups);
     copyOutput(tempIcon, iconPath, args.overwrite, created, backups);
-    copyOutput(tempLayout, layoutPath, args.overwrite, created, backups, true);
+    copyLayoutOutput(tempLayout, layoutPath, args.overwrite, created, backups);
 
     const changedCsproj = ensureLayoutContent(csprojPath, layoutPath);
     fs.mkdirSync(generatedDir, { recursive: true });
@@ -390,6 +436,7 @@ function main() {
       mappingAudit,
       iconMapAudit,
       mapping,
+      layoutMenuItems: manifest.menuItems,
       tempRoot
     });
 

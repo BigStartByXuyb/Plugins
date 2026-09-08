@@ -67,4 +67,10 @@ const fillRuleXaml = fs.readFileSync(outFile, 'utf8');
 assert.match(fillRuleXaml, /x:Key="EvenOddGeometry">\r?\n\s+F0/);
 assert.match(fillRuleXaml, /x:Key="NonzeroGeometry">\r?\n\s+F1/);
 
+fs.writeFileSync(mapFile, JSON.stringify({ icons: [] }), 'utf8');
+const emptyOut = path.join(dir, 'EmptyIcons.xaml');
+result = spawnSync(process.execPath, [script, svgFile, mapFile, emptyOut], { encoding: 'utf8' });
+assert.strictEqual(result.status, 0, result.stderr);
+assert.doesNotMatch(fs.readFileSync(emptyOut, 'utf8'), /<Geometry\b/);
+
 console.log('PASS semantic icon naming regression test');

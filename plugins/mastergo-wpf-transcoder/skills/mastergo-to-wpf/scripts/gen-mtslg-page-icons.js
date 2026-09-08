@@ -170,7 +170,7 @@ function transformPathData(data, matrixText, sourceId) {
 const svgData = readJson(svgFile, 'extractSvg JSON');
 const iconMap = readJson(mapFile, 'page icon map');
 if (!Array.isArray(svgData.svgs)) throw new Error('extractSvg JSON must contain svgs[]');
-if (!Array.isArray(iconMap.icons) || iconMap.icons.length === 0) throw new Error('page icon map must contain a non-empty icons[]');
+if (!Array.isArray(iconMap.icons)) throw new Error('page icon map must contain icons[]');
 
 const svgById = new Map();
 for (const item of svgData.svgs) {

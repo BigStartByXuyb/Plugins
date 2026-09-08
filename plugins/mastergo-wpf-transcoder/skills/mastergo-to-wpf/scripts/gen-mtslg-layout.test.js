@@ -74,6 +74,15 @@ fs.writeFileSync(layout, [
   "</Layout>",
   ""
 ].join("\n"), "utf8");
+const existingPageBeforeOverwrite = fs.readFileSync(layout, "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", manifest], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "替换已有 Page 必须显式使用 --overwrite");
+assert.match(result.stderr + result.stdout, /相同 Target|overwrite|覆盖/i);
+assert.strictEqual(
+  fs.readFileSync(layout, "utf8"),
+  existingPageBeforeOverwrite,
+  "未加 --overwrite 时 Layout.xml 必须保持不变"
+);
 result = spawnSync(process.execPath, [script, "--manifest", manifest, "--overwrite"], { encoding: "utf8" });
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(layout, "utf8");

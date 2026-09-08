@@ -107,6 +107,31 @@ assert.deepStrictEqual(bundleAudit.layout, {
   menuItemCount: 1
 });
 
+const emptyIconMap = path.join(root, "empty-icon-map.json");
+fs.writeFileSync(emptyIconMap, JSON.stringify({ icons: [] }, null, 2), "utf8");
+const noIconManifest = JSON.parse(fs.readFileSync(manifest, "utf8"));
+noIconManifest.pageName = "NoIconPage";
+noIconManifest.pageTarget = "NoIconPage";
+noIconManifest.pageLangName = "NoIconPageTitle";
+noIconManifest.viewPath = "UI/F2-Teach/View/NoIconPageView.xaml";
+noIconManifest.codeBehindPath = "UI/F2-Teach/View/NoIconPageView.xaml.cs";
+noIconManifest.viewModelPath = "UI/F2-Teach/ViewModel/NoIconPageViewModel.cs";
+noIconManifest.pageXmlPath = "Common/Pages/NoIconPagePage.xml";
+noIconManifest.iconPath = "Resources/Icons/NoIconPageIcon.xaml";
+noIconManifest.iconMapPath = emptyIconMap;
+noIconManifest.menuItems = [];
+noIconManifest.layoutStatus = "none";
+noIconManifest.layoutEvidence = { matchedBottomBarItems: 0, unresolvedBottomBarItems: 0 };
+const noIconManifestPath = path.join(root, "no-icon.json");
+fs.writeFileSync(noIconManifestPath, JSON.stringify(noIconManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", noIconManifestPath], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+assert.doesNotMatch(
+  fs.readFileSync(path.join(project, "Resources/Icons/NoIconPageIcon.xaml"), "utf8"),
+  /<Geometry\b/,
+  "没有实际 Icon 引用的页面允许生成空 ResourceDictionary"
+);
+
 const incompleteManifest = JSON.parse(fs.readFileSync(manifest, "utf8"));
 incompleteManifest.pageName = "NoLayoutState";
 incompleteManifest.pageTarget = "NoLayoutState";
