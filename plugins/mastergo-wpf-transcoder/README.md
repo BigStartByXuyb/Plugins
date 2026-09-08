@@ -10,6 +10,7 @@
 完整页面转换分为两个强制阶段：
 
 - `skills/mastergo-to-wpf/scripts/mastergo-dsl-pipeline.ps1` — 管理 MasterGo 总览、逐 section DSL 快照、覆盖校验和失败重试；只有覆盖报告为 `complete` 才能继续生成。
+- `skills/mastergo-to-wpf/scripts/resolve-mastergo-visibility.js` — 从 DSL 机械提取节点可见属性、祖先继承后的有效可见状态、TEXT/PATH 索引和可见性来源；只生成 visibility audit，不直接生成 mapping。
 - `skills/mastergo-to-wpf/scripts/gen-mastergo-page-bundle.js` — 接收已确认的页面 mapping，统一生成页面 XML、Icon、Layout、WPF 宿主和审计产物。
 
 Layout 增量注册与 `--overwrite` 的语义：
@@ -21,6 +22,8 @@ Layout 增量注册与 `--overwrite` 的语义：
 页面可以没有任何运行时 Icon。Bundle 不以 PATH 候选数量或 Geometry 数量判断页面是否需要图标；只有 IOContorl 节点或 Layout 菜单实际引用了 Icon 时，才要求对应 Geometry 已生成。
 
 Agent 的完整工作流是：MasterGo MCP 总览 → DSL pipeline `Init/Write/Merge` → coverage complete → 组件映射 → page bundle。DSL pipeline 不负责猜测控件、资源键或运行时业务绑定。
+
+可见性脚本的输出是 AI 映射的事实输入，不是最终页面文件。AI 仍需结合原始 DSL、visibility audit、正式组件映射和目标运行时资料生成 mapping；mapping 再由 Bundle 生成 XML、Icon、Layout 和宿主文件。
 
 ## Claude Code 安装
 

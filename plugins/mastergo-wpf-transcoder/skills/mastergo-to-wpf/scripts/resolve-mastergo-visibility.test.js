@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("assert");
+const { collectNodes } = require("./resolve-mastergo-visibility.js");
+
+const nodes = collectNodes({
+  type: "INSTANCE",
+  id: "button",
+  properties: { visible: true },
+  children: [
+    { type: "TEXT", id: "label", text: "按钮", properties: { visible: true } },
+    { type: "TEXT", id: "f", text: "F1", properties: { visible: false } },
+    { type: "PATH", id: "icon", properties: { visible: true } },
+    { type: "TEXT", id: "title", text: "标题", properties: { visible: true } }
+  ]
+});
+
+const byId = new Map(nodes.map(node => [node.ref, node]));
+assert.strictEqual(byId.get("label").effectiveVisible, true);
+assert.strictEqual(byId.get("f").effectiveVisible, false);
+assert.strictEqual(byId.get("icon").effectiveVisible, true);
+assert.strictEqual(byId.get("title").effectiveVisible, true);
+
+const inherited = collectNodes({
+  type: "INSTANCE",
+  id: "hidden-parent",
+  properties: { visible: false },
+  children: [{ type: "TEXT", id: "child", text: "仍然隐藏", properties: { visible: true } }]
+});
+assert.strictEqual(inherited.find(node => node.ref === "child").effectiveVisible, false);
+
+console.log("PASS MasterGo visibility resolver regression test");

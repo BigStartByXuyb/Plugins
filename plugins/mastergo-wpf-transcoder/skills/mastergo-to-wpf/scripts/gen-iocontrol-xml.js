@@ -44,6 +44,7 @@
 'use strict';
 
 const fs = require('fs');
+const { validateTextAudit } = require('./validate-iocontrol-provenance');
 
 // ---------- 参数 ----------
 function usage() {
@@ -76,6 +77,10 @@ function validateFreshMapping() {
     throw new Error('映射门禁失败: 缺少 sourceNodes，不能证明映射来自真实 DSL');
   }
   const sourceMap = new Map(mapping.sourceNodes.map(n => [n.ref, n]));
+  const textAuditErrors = validateTextAudit(mapping, nodes);
+  if (textAuditErrors.length > 0) {
+    throw new Error('文本可见性闭环失败: ' + textAuditErrors.join('; '));
+  }
   const seenRefs = new Set();
   for (const n of nodes) {
     if (!n.ref || seenRefs.has(n.ref)) throw new Error('映射门禁失败: 每个节点必须有唯一 ref: ' + (n.ref || '(missing)'));

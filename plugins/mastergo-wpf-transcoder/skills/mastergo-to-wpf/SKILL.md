@@ -151,6 +151,12 @@ MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `
 4. 覆盖校验失败时，必须根据 `retry-manifest.json` 只重取失败 section；不允许使用不完整快照生成 XML、Icon、Layout 或 WPF 宿主。
 5. 该流水线只负责 DSL 快照的完整性和来源保留；完成后仍必须按已选适配器调用正式映射、`gen-iocontrol-xml.js`、`gen-mtslg-page-icons.js`、`gen-mtslg-layout.js` 和 `gen-mastergo-page-bundle.js`。
 
+### 可见性事实提取与 AI 映射边界
+
+在组件映射前，对每个完整 DSL section 或合并快照运行 `scripts/resolve-mastergo-visibility.js --input <dsl.json> --out <visibility.json>`。该脚本只机械输出节点的 `explicitVisible`、`effectiveVisible`、`visibilityProperty`、`visibilitySourceRef` 以及 `texts`/`paths` 索引；它不决定组件类型、不命名 Icon、不生成 IOContorl XML，也不替代 AI mapping。
+
+AI 必须同时读取原始 DSL、`visibility.json` 和正式组件映射，按有效可见状态决定每个普通 TEXT、F 文本和 Icon 是否进入 mapping：可见普通文本必须生成，隐藏文本删除，标题文本永远删除。最终 mapping 必须用 `textAudit` 记录每个 TEXT 的 `sourceRef`、真实文本、可见性、角色、输出决定和 `outputRefs`，再交给 Bundle 生成页面文件。
+
 ## 交付和验证
 
 默认交付完整页面，不是截图、占位控件或近似原型。生成后必须按目标模式验证：

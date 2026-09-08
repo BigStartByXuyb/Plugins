@@ -32,6 +32,65 @@ function sameNumber(actual, expected, tolerance) {
     Math.abs(a - e) <= (tolerance || 0.0001);
 }
 
+function validateTextAudit(manifest, entries) {
+  const errors = [];
+  const textSources = (manifest.sourceNodes || []).filter(function (source) {
+    return source && (source.type === 'TEXT' || source.type === 'text') && typeof source.text === 'string';
+  });
+  if (textSources.length === 0) return errors;
+  if (!Array.isArray(manifest.textAudit)) {
+    return ['映射清单缺少 textAudit：每个 TEXT 源节点都必须记录可见性和输出决定'];
+  }
+  const auditByRef = new Map();
+  for (const audit of manifest.textAudit) {
+    if (!audit || typeof audit.sourceRef !== 'string') {
+      errors.push('textAudit 条目缺少 sourceRef');
+      continue;
+    }
+    if (auditByRef.has(audit.sourceRef)) {
+      errors.push('textAudit 重复 sourceRef: ' + audit.sourceRef);
+      continue;
+    }
+    auditByRef.set(audit.sourceRef, audit);
+  }
+  const nodeBySource = new Map((entries || []).filter(function (node) {
+    return node && typeof node.sourceRef === 'string';
+  }).map(function (node) { return [node.sourceRef, node]; }));
+  for (const source of textSources) {
+    const audit = auditByRef.get(source.ref);
+    if (!audit) {
+      errors.push('TEXT 源节点缺少 textAudit: ' + source.ref);
+      continue;
+    }
+    if (audit.sourceText !== source.text) {
+      errors.push('textAudit sourceText 与 DSL 不一致: ' + source.ref);
+    }
+    if (typeof audit.visibility !== 'boolean') {
+      errors.push('textAudit visibility 必须是 boolean: ' + source.ref);
+      continue;
+    }
+    const role = audit.role || 'content';
+    const shouldEmit = audit.visibility && role !== 'title' && role !== 'host-shell';
+    const outputRefs = Array.isArray(audit.outputRefs) ? audit.outputRefs : [];
+    if (shouldEmit) {
+      if (audit.decision !== 'emit' || outputRefs.length === 0) {
+        errors.push('可见普通 TEXT 必须 decision=emit 且存在 outputRefs: ' + source.ref);
+        continue;
+      }
+      const outputForSource = nodeBySource.get(source.ref);
+      if (!outputForSource || outputForSource.valueSource !== 'dsl.text' || outputForSource.sourceText !== source.text) {
+        errors.push('可见普通 TEXT 没有对应的 dsl.text 输出节点: ' + source.ref);
+      }
+    } else {
+      if (audit.decision !== 'omit' || !['hidden', 'title', 'host-shell'].includes(audit.omitReason)) {
+        errors.push('隐藏/标题 TEXT 必须 decision=omit 并记录 omitReason: ' + source.ref);
+      }
+      if (outputRefs.length > 0) errors.push('被省略的 TEXT 不得存在 outputRefs: ' + source.ref);
+    }
+  }
+  return errors;
+}
+
 function validate(xmlPath, manifestPath) {
   const errors = [];
   let xml;
@@ -54,6 +113,7 @@ function validate(xmlPath, manifestPath) {
     errors.push('contentOriginY 必须固定为 192');
     return { ok: false, errors };
   }
+  errors.push(...validateTextAudit(manifest, entries));
   const rootRef = manifest.rootRef || (manifest.source && manifest.source.layerId) ||
     (manifest.sourceNodes.find(n => !n.parentRef) || {}).ref;
   const tags = Array.from(xml.matchAll(/<IOContorl\b[^<>]*>/g)).map(m => attrsFromTag(m[0]));
@@ -130,4 +190,4 @@ if (require.main === module) {
   console.log('PASS: provenance and geometry validation');
 }
 
-module.exports = { validate };
+module.exports = { validate, validateTextAudit };

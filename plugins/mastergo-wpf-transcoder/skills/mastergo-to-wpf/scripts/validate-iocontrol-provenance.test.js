@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { validate } = require('./validate-iocontrol-provenance');
+const { validate, validateTextAudit } = require('./validate-iocontrol-provenance');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'iocontrol-provenance-'));
 const xmlPath = path.join(dir, 'bad.xml');
@@ -51,5 +51,29 @@ fs.writeFileSync(fixedManifestPath, JSON.stringify(fixedManifest));
 const fixedResult = validate(xmlPath, fixedManifestPath);
 if (fixedResult.ok || !fixedResult.errors.some(x => /固定为 192/.test(x))) {
   throw new Error('校验器必须拒绝非 192 的 contentOriginY');
+}
+
+const textAuditMapping = {
+  sourceNodes: [
+    { ref: 'visible-text', type: 'TEXT', text: '显示文本' },
+    { ref: 'hidden-text', type: 'TEXT', text: '隐藏文本' },
+    { ref: 'title-text', type: 'TEXT', text: '标题' }
+  ],
+  nodes: [
+    { xmlId: 'visible-text', sourceRef: 'visible-text', sourceText: '显示文本', valueSource: 'dsl.text' }
+  ],
+  textAudit: [
+    { sourceRef: 'visible-text', sourceText: '显示文本', visibility: true, role: 'content', decision: 'emit', outputRefs: ['visible-text'] },
+    { sourceRef: 'hidden-text', sourceText: '隐藏文本', visibility: false, role: 'content', decision: 'omit', omitReason: 'hidden', outputRefs: [] },
+    { sourceRef: 'title-text', sourceText: '标题', visibility: true, role: 'title', decision: 'omit', omitReason: 'title', outputRefs: [] }
+  ]
+};
+if (validateTextAudit(textAuditMapping, textAuditMapping.nodes).length !== 0) {
+  throw new Error('正确的 textAudit 不应失败');
+}
+const missingVisibleOutput = JSON.parse(JSON.stringify(textAuditMapping));
+missingVisibleOutput.nodes = [];
+if (!validateTextAudit(missingVisibleOutput, missingVisibleOutput.nodes).some(x => /可见普通 TEXT/.test(x))) {
+  throw new Error('可见普通 TEXT 缺少输出时必须失败');
 }
 console.log('PASS provenance regression test');
