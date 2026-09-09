@@ -59,7 +59,7 @@
 - **先识别公共栏，再归一**：从宿主页面、Layout 配置和运行截图建立 `ContentRect`。顶部/底部公共栏默认由宿主负责、页面不生成；左右区域必须按目标框架职责逐侧判断，不能把左右节点一律当公共栏或一律当页面内容。
 - **页面坐标不是完整窗口坐标**：根级保留业务节点统一计算 `PageX = MasterGoX − contentOriginX`、`PageY = MasterGoY − 192`。业务页面固定使用 `contentOriginY=192`，公共栏和 `design-artifact-title` 的偏移只能在根级归一化时扣除一次，嵌套控件不重复扣除。不得按单个控件手调偏移。
 - **公共栏节点不重复生成**：顶部/底部公共背景、标题栏、状态栏、底部快捷键区和宿主已有控件必须在映射表标记“框架负责、页面不生成”；页面标题只有在 MasterGo 业务区确有独立标题节点且宿主不提供时才生成。
-- **组件文本高度与字号分开处理**：由组件实例映射出的 `TextBlock`（标签、数值、单位）`Height` 必须取对应外层组件实例的实际高度；不得使用内部文字 bbox 或 `FontSize` 替代组件高度。`FontSize` 从该实例 MasterGo DSL 的字体属性读取并写入。只有独立、非组件映射文本才按自身 bbox 取高度；无 bbox 时使用目标项目已确认默认值，并记录 `heightFallback=true`。
+- **组件文本高度与字号分开处理**：所有 MTSLG `TextBlock`（标签、数值、单位和独立文本）的 `Height` 固定为 `40`；不得使用外层组件高度、内部文字 bbox、独立文本 bbox 或 `FontSize` 改写该值。`FontSize` 仍从对应 MasterGo DSL 的字体属性读取并写入。输入框、选择框等非 TextBlock 控件按正式变体模板取自身高度。
 - **文本来源与 `Value` 硬门禁**：每个 `TextBlock` 的 `Value` 必须回溯到唯一 MasterGo `layerId`/DSL `ref` 及其真实文本节点；不得依据 XML `ID`、控件名称、坐标方向、页面语义或相邻实例推断文本。生成前必须逐项核对“XML 节点 → layerId/ref → 父节点链 → 原始文本 → Value”；不一致即停止生成并标记待确认。
 - **设计稿最上方示例标题默认剥离**：位于根节点或展示外壳、仅用于说明组件或工件示教的标题标记为 `design-artifact-title`，不写入页面 XML。业务内容容器内部且运行时需要的标题才保留。
 - **设计稿像素直传（归一后）**：`Left = pageAbsX − parentPageAbsX`，`Top = pageAbsY − parentPageAbsY`，Width/Height 原样。目标画布尺寸必须与第 1 节适配记录一致；不允许从固定分辨率、截图缩放或其他页面推断。

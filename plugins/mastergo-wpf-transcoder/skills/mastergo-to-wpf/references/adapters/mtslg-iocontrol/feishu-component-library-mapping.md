@@ -16,7 +16,7 @@
 
 “输入框”现在是独立的 MasterGo 组件集，不再作为“左标题+右信息”的嵌套变体处理。匹配时直接识别输入框组件集、公开变体和真实高度值。
 
-## 匹配规则：组件集=输入框
+### 匹配规则
 
 - 输入框本体单独生成，不把标题或单位合并进输入框的 ControlType。
 - 变体名称中的 `-40`、`-36`、`-32`、`-28` 只表示设计尺寸高度，不产生新的代码控件类型。
@@ -54,7 +54,7 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 # MasterGo 组件集：选择框 → MTSLG 映射关系
 
-## 匹配规则：组件集=选择框
+### 匹配规则
 
 - MasterGo 真实变体为 `选择框-40`、`选择框-36`、`选择框-32`、`选择框-28`。
 - 四个变体均生成一个 `ComboBox` IOContorl；变体后缀只决定自身 `Height`。
@@ -94,7 +94,13 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 # MasterGo 组件集：选择+信息 → MTSLG 映射关系
 
-固定结构：选择控件 + TextBlock，两个平级节点。属性1 决定选择控件类型和选中状态：单选-选中/未选择→RadioButton，多选-选中/未选中→CheckBox。
+### 匹配规则
+
+组件集=选择+信息；属性 1 决定选择控件类型和选中状态：单选-选中/未选择→RadioButton，多选-选中/未选中→CheckBox。
+
+### 固定模板：组件集=选择+信息
+
+固定节点：选择控件 + TextBlock，两个平级节点。
 
 ```
 <!-- 属性1=单选-选中/未选择：默认圆点 RadioButton，使用隐式 RadioButtonBaseStyle -->
@@ -108,7 +114,13 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 # MasterGo 组件集：单选+多选 → MTSLG 映射关系
 
-固定结构：一个选择控件 IOContorl，无 TextBlock 子节点。属性1 决定 ControlType 和状态：单选-选中/未选择→RadioButton，多选-选中/未选择→CheckBox。
+### 匹配规则
+
+组件集=单选+多选；属性 1 决定 ControlType 和状态：单选-选中/未选择→RadioButton，多选-选中/未选择→CheckBox。
+
+### 固定模板：组件集=单选+多选
+
+固定节点：一个选择控件 IOContorl，无 TextBlock 子节点。
 
 ```
 <!-- 属性1=单选-选中/未选择：使用默认 RadioButtonBaseStyle，除非 MasterGo 明确提供已登记 Style -->
@@ -127,7 +139,13 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 # MasterGo 组件集：信息分组-模块化 → MTSLG 映射关系
 
-MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外壳。该组件对外只有两个业务参数：标题名称→Header；多语言资源→LangName（由 Header 查资源库）。内部子节点不是 GroupBox 的可变类型参数，按子组件模板展开。
+### 匹配规则
+
+组件集=信息分组-模块化。
+
+### 固定模板：组件集=信息分组-模块化
+
+固定节点：一个固定 GroupBox 外壳；该组件对外只有两个业务参数：标题名称→Header；多语言资源→LangName（由 Header 查资源库）。内部子节点不是 GroupBox 的可变类型参数，按子组件模板展开。
 
 ```
 <IOContorl ID="{id_group}" IOName="" ControlType="GroupBox" IOEnable="{io_enable}" Header="{header}" LangName="{lang_name}" MinValue="" MaxValue="" Left="{left}" Top="{top}" Width="{width}" Height="{height}">{child_io_controls}</IOContorl>
@@ -350,17 +368,17 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 ```
 
 - 按钮文案→Value；业务字段/动作→IOName/IOCommand；图标→Icon/IconHeight/IconWidth；F1/F2/F10→TopLeftContent；多语言→LangName。
-- MasterGo 未提供的 Icon、TopLeftContent、状态或其他可选字段，连同对应 XML 属性删除；不新增代码库未登记的属性。
+- 固定模板中声明但 MasterGo 未提供的 Icon、TopLeftContent、状态或其他可选字段，保留对应 XML 属性并输出空字符串；没有对应槽位的属性不新增，不新增代码库未登记的属性。
 
 # MasterGo 组件集：Table → MTSLG 映射关系
 
-## 匹配规则
+### 匹配规则
 
 - 独立识别 MasterGo 组件集 Table；组件集 ID 和实例 ID 只作来源追踪，不参与唯一匹配。
 - 父节点、子节点关系和表格列顺序按 MasterGo 实际结构读取；若父节点明确是 TabControl，则外层按 TabControl/TabItem 规则处理，Table 子节点仍只映射为 DataGrid。
 - 根节点数据源必须映射到非空 Value；无法确认数据源时标记待业务确认，不得省略或编造。
 
-## 固定模板：组件集=Table
+### 固定模板：组件集=Table
 
 固定节点：一个 DataGrid IOContorl，可包含按 MasterGo 列结构展开的列定义子节点；根节点 ControlType 固定为 DataGrid，节点父子关系和列顺序固定。
 
@@ -394,9 +412,9 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 
 - 独立文本节点统一映射为 `TextBlock`，不因所在组件或变体改变 ControlType。
 - 如果文本是输入框、选择框等控件内部内容，则保留为所属控件内容，不额外拆分为 TextBlock。
-- 文本的 Value、FontSize、Width 和坐标必须来自对应 MasterGo 节点；组件映射产生的 TextBlock 的 Height 取对应外层组件实例高度，独立且非组件映射的文本才按自身 bbox 或已确认默认值取高；不能从组件名称或语义猜测。
+- 文本的 Value、FontSize、Width 和坐标必须来自对应 MasterGo 节点；所有 MTSLG TextBlock 的 Height 固定为 40，不能从外层组件高度、文字 bbox 或组件语义改写。
 - 独立的标题、单位、说明文字和其他文本节点，统一映射为 `ControlType="TextBlock"`；如果文字是输入框、选择框等控件内部内容，则保留为所属控件内容，不额外拆分。
-- FontSize 只表示字体字号，Height 只表示控件布局边界；两者必须分别读取。组件映射 TextBlock 使用外层组件高度，独立文本使用自身 bbox 或已确认默认值，禁止把字号或行高直接赋给 Height。
+- FontSize 只表示字体字号，Height 只表示控件布局边界；两者必须分别读取。所有 MTSLG TextBlock 使用固定 Height=40，禁止把外层组件高度、文字 bbox、字号或行高赋给 Height。
 - 每个输出控件的 Left、Top、Width 必须来自自身 MasterGo bbox；输入框和选择框外框的 Height 按已命中的 40/36/32/28 变体处理；固定模板、相邻控件或父容器不能代替真实尺寸。
 - 最终坐标统一按内容区绝对坐标计算：`Left = pageAbsX - contentOriginX`，`Top = pageAbsY - 192`。公共外壳偏移只扣除一次；父子关系只用于确认真实结构和裁剪边界。
 - 组件映射文档只登记组件集、变体、ControlType 和固定结构；具体节点来源、尺寸、字体和坐标由 AI 转码规则逐节点核对。
@@ -410,7 +428,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 
 # 转码专项规则：文本尺寸与顶部示例标题
 
-**TextBlock 高度与字号：**FontSize 只表示字体字号，Height 只表示控件布局边界，两者必须分别读取。组件映射出的 TextBlock（标签、数值、单位）使用对应外层组件实例的实际高度；独立、非组件映射文本按自身 bbox 或已确认默认值取高。输入框和选择框外框的 Height 按 40/36/32/28 变体处理，禁止把 FontSize 或行高直接赋给 Height。
+**TextBlock 高度与字号：**FontSize 只表示字体字号，Height 只表示控件布局边界，两者必须分别读取。所有 MTSLG TextBlock（标签、数值、单位和独立文本）固定使用 `Height="40"`。输入框和选择框外框的 Height 仍按 40/36/32/28 变体处理，禁止把 FontSize、文字 bbox、外层组件高度或行高直接赋给 TextBlock Height。
 
 **顶部示例标题：**位于页面根节点或展示外壳、仅用于组件展示/工件示教的最上方标题（例如“工件边缘示教（2.2.1.E）”）标记为 design-artifact-title，默认不生成到业务 XML。业务内容容器内部且运行时明确需要的标题才保留。
 

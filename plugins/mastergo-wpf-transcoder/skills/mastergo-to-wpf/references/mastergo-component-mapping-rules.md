@@ -41,16 +41,16 @@
 
 ### TextBlock 高度
 
-`TextBlock` 的高度是布局边界，不是字号：
+`TextBlock` 的高度是固定布局边界，不是字号：
 
 ```text
-优先级 1：文本节点自身 bbox.W / bbox.H
-优先级 2：组件内部对应文本子节点 bbox.W / bbox.H
-优先级 3：父容器约束（仅在没有文本 bbox 时）
-优先级 4：框架默认高度（必须标记 heightFallback）
+MTSLG TextBlock Height = 40
+FontSize 独立取对应 MasterGo DSL 字体事实
+文本 bbox、外层组件高度和行高不得改写 TextBlock Height
+输入框/选择框等非 TextBlock 控件按正式变体模板取自身 Height
 ```
 
-`FontSize`、`LineHeight` 和文本内容不能反推出控件 Height。IOContorl XML 的 `Height`、WPF `Height`/布局行高都必须遵守上述优先级。
+`FontSize`、`LineHeight` 和文本内容不能反推出控件 Height。MTSLG IOContorl `TextBlock` 的 Height 必须固定为 `40`；WPF 的 Height/布局行高仍由对应 WPF 容器和项目事实决定。
 
 ### 顶部示例标题
 
