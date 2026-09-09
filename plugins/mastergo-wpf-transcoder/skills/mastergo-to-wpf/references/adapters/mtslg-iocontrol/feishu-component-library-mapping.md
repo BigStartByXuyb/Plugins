@@ -68,7 +68,7 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 <IOContorl ID="{id_combo}" IOName="{io_name}" ControlType="ComboBox" IOState="{state}" IOEnable="{enable}" Value="{selected_value}" IOCommand="{io_command}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" FontSize="{font_size}">{combo_items}</IOContorl>
 ```
 
-字段来源：选择框实例→`Value`、位置和尺寸→`Left/Top/Width/Height`、业务字段/动作→`IOName/IOCommand`；MasterGo 未提供的可选字段整行删除。
+字段来源：选择框实例→`Value`、位置和尺寸→`Left/Top/Width/Height`、业务字段/动作→`IOName/IOCommand`；MasterGo 未提供的可选字段字段缺失时保留对应 XML 属性并输出空字符串值。
 
 # 坐标与容器边界规则
 
@@ -157,7 +157,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{id}" IOName="{io_name}" IOCommand="{io_command}" ControlType="IconButton" Style="RightButtonStyle" Icon="{icon}" IconHeight="{icon_height}" IconWidth="{icon_width}" TopLeftContent="{top_left_content}" IOEnable="{io_enable}" IOState="{io_state}" LangName="{lang_name}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
 ```
 
-文案→Value；业务字段/动作→IOName/IOCommand；图标→Icon/IconHeight/IconWidth；F1/F2/F10→TopLeftContent；MasterGo 未提供的可选属性整行删除。
+文案→Value；业务字段/动作→IOName/IOCommand；图标→Icon/IconHeight/IconWidth；F1/F2/F10→TopLeftContent；MasterGo 未提供或目标项目未确认的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。Icon 键可使用目标项目已确认键或当前页面唯一的临时 Geometry 键。
 
 ### 固定模板：父节点=右侧栏-上下结构
 
@@ -167,7 +167,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{id}" IOName="{io_name}" IOCommand="{io_command}" ControlType="IconButton" Style="UpDownRightButtonStyle" Icon="{icon}" IconHeight="{icon_height}" IconWidth="{icon_width}" TopLeftContent="{top_left_content}" IOEnable="{io_enable}" IOState="{io_state}" LangName="{lang_name}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
 ```
 
-固定模板：按钮类型=startstop。文案→Value；业务字段/动作→IOName/IOCommand；图标→Icon/IconHeight/IconWidth；F1/F2/F10→TopLeftContent；MasterGo 未提供的可选属性整行删除。
+固定模板：按钮类型=startstop。文案→Value；业务字段/动作→IOName/IOCommand；图标→Icon/IconHeight/IconWidth；F1/F2/F10→TopLeftContent；MasterGo 未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ## 界面内操作组：IconButton 映射关系
 
@@ -191,7 +191,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{direction_id}" ControlType="TextBlock" LangName="{direction_lang}" Value="{direction}" Left="{direction_left}" Top="{direction_top}" Width="{direction_width}" Height="{direction_height}" />
 ```
 
-按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的其他可选属性整行删除。
+按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的其他可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=加减快捷键操作-2有标题
 
@@ -206,7 +206,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{value_id}" ControlType="TextBlock" LangName="{value_lang}" Value="{display_value}" Left="{value_left}" Top="{value_top}" Width="{value_width}" Height="{value_height}" />
 ```
 
-四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题和数值文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的可选属性整行删除。
+四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题和数值文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=加减快捷操作-有标题
 
@@ -222,7 +222,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{direction_id}" ControlType="TextBlock" LangName="{direction_lang}" Value="{direction}" Left="{direction_left}" Top="{direction_top}" Width="{direction_width}" Height="{direction_height}" />
 ```
 
-四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题、数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock 的 Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的其他可选属性整行删除。
+四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题、数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock 的 Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的其他可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=轴操作、轴操作-快慢
 
@@ -236,7 +236,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{scan_id}" ControlType="TextBlock" Value="{scan_text}" Left="{scan_left}" Top="{scan_top}" Width="{scan_width}" Height="{scan_height}" />
 ```
 
-四个按钮的图标、文案、业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；SCAN 文本节点填入 TextBlock.Value。存在图标槽位时生成 Icon、IconHeight、IconWidth；未提供的可选字段整行删除。
+四个按钮的图标、文案、业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；SCAN 文本节点填入 TextBlock.Value。存在图标槽位时生成 Icon、IconHeight、IconWidth；未提供的可选字段字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=方向
 
@@ -262,7 +262,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{down_id}" IOName="{down_io_name}" IOCommand="{down_io_command}" ControlType="IconButton" Icon="{down_icon}" IconHeight="{down_icon_height}" IconWidth="{down_icon_width}" IOEnable="{down_enable}" IOState="{down_state}" Value="{down_value}" Left="{down_left}" Top="{down_top}" Width="{down_width}" Height="{down_height}" />
 ```
 
-四个方向按钮的图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；MasterGo 未提供的可选属性整行删除。
+四个方向按钮的图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；MasterGo 未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=图像移动-双侧
 
@@ -275,7 +275,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{fourth_id}" IOName="{fourth_io_name}" IOCommand="{fourth_io_command}" ControlType="IconButton" Icon="{fourth_icon}" IconHeight="{fourth_icon_height}" IconWidth="{fourth_icon_width}" IOEnable="{fourth_enable}" IOState="{fourth_state}" Value="{fourth_value}" Left="{fourth_left}" Top="{fourth_top}" Width="{fourth_width}" Height="{fourth_height}" />
 ```
 
-四个按钮的双图标槽位、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性整行删除。
+四个按钮的双图标槽位、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=缺口位置
 
@@ -286,7 +286,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{right_id}" IOName="{right_io_name}" IOCommand="{right_io_command}" ControlType="IconButton" Icon="{right_icon}" IconHeight="{right_icon_height}" IconWidth="{right_icon_width}" IOEnable="{right_enable}" IOState="{right_state}" Value="{right_value}" Left="{right_left}" Top="{right_top}" Width="{right_width}" Height="{right_height}" />
 ```
 
-左右按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性整行删除。
+左右按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=拟合数据-双侧上下
 
@@ -297,7 +297,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{second_id}" IOName="{second_io_name}" IOCommand="{second_io_command}" ControlType="IconButton" Icon="{second_icon}" IconHeight="{second_icon_height}" IconWidth="{second_icon_width}" IOEnable="{second_enable}" IOState="{second_state}" Value="{second_value}" Left="{second_left}" Top="{second_top}" Width="{second_width}" Height="{second_height}" />
 ```
 
-两个按钮的双图标槽位、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性整行删除。
+两个按钮的双图标槽位、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=拟合数据-前后
 
@@ -308,7 +308,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{back_id}" IOName="{back_io_name}" IOCommand="{back_io_command}" ControlType="IconButton" Icon="{back_icon}" IconHeight="{back_icon_height}" IconWidth="{back_icon_width}" IOEnable="{back_enable}" IOState="{back_state}" Value="{back_value}" Left="{back_left}" Top="{back_top}" Width="{back_width}" Height="{back_height}" />
 ```
 
-前后按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性整行删除。
+前后按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=拟合数据-单侧上下
 
@@ -319,7 +319,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{down_id}" IOName="{down_io_name}" IOCommand="{down_io_command}" ControlType="IconButton" Icon="{down_icon}" IconHeight="{down_icon_height}" IconWidth="{down_icon_width}" IOEnable="{down_enable}" IOState="{down_state}" Value="{down_value}" Left="{down_left}" Top="{down_top}" Width="{down_width}" Height="{down_height}" />
 ```
 
-上下按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性整行删除。
+上下按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取；未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=扫描
 
@@ -331,7 +331,7 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 <IOContorl ID="{right_id}" IOName="{right_io_name}" IOCommand="{right_io_command}" ControlType="IconButton" Icon="{right_icon}" IconHeight="{right_icon_height}" IconWidth="{right_icon_width}" IOEnable="{right_enable}" IOState="{right_state}" Value="{right_value}" Left="{right_left}" Top="{right_top}" Width="{right_width}" Height="{right_height}" />
 ```
 
-扫描文本节点填入 TextBlock.Value；左右按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取。MasterGo 未提供的可选属性整行删除。
+扫描文本节点填入 TextBlock.Value；左右按钮图标、业务字段/动作、状态、文案、位置和尺寸逐节点读取。MasterGo 未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ## 父节点=主菜单：IconButton → MTSLG 映射关系
 
@@ -415,3 +415,10 @@ MasterGo 组件集“信息分组-模块化”映射为一个固定 GroupBox 外
 **顶部示例标题：**位于页面根节点或展示外壳、仅用于组件展示/工件示教的最上方标题（例如“工件边缘示教（2.2.1.E）”）标记为 design-artifact-title，默认不生成到业务 XML。业务内容容器内部且运行时明确需要的标题才保留。
 
 被剥离或保留的标题必须记录节点 ID 和原因，便于 XML 验证和追溯。
+
+## 文本占位与省略门禁
+
+- `_placeholder=true` 只表示该 TEXT 来自组件库占位来源，不能单独决定删除。
+- `_placeholder=true` 且文本在当前页面中承担真实按钮文案、F 值、标签、数值、标题栏、组件内部标题或其他业务内容时，按真实可见属性生成；即使映射中保留 placeholder 标记，也必须生成。
+- 页面文本只有在页面根级/工件级 `page-title`、DSL 明确标记为 hidden，或已被宿主结构边界剥离为 `host-shell` 时允许省略。省略必须在 `textAudit` 中记录 `decision=omit` 和原因。
+- GroupBox Header、Tab/TabItem 标题、Table 列标题、组件内部标题不因名字包含“标题”而自动省略；它们按自身可见性和正式组件映射处理。

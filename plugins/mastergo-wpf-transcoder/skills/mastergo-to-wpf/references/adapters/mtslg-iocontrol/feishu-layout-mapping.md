@@ -30,7 +30,7 @@
 </Page>
 ```
 
-新建页面时，Index 取当前页面底部栏中该实例的实际排列顺序；不写入 Left、Top、Width、Height。增量修改已有 Layout 时，已有页面和已有 MenuItem 的 Index 原样保留，不用设计稿顺序覆盖。PageName、IOEnable、UserRightId 只能取目标项目已确认的 Layout 配置；项目未提供时不生成对应属性。
+新建页面时，Index 取当前页面底部栏中该实例的实际排列顺序；不写入 Left、Top、Width、Height。增量修改已有 Layout 时，已有页面和已有 MenuItem 的 Index 原样保留，不用设计稿顺序覆盖。固定模板已经声明的 `PageName`、`IOEnable`、`UserRightId` 等可选属性，目标项目未提供时保留属性并输出空字符串；当前变体没有声明的属性不新增。
 
 ### 属性 1：首页-长方形
 
@@ -44,7 +44,7 @@
 <MenuItem Name="{text}" Icon="{icon}" Index="{index}"/>
 ```
 
-文本槽位写入 Name；已有确认的多语言键才写入 LangName。图标槽位存在且已在当前页面的 Icon 文件中确认时才写入 Icon。开关状态用于该实例的视觉状态核对，不生成未定义的 Layout 属性；本变体没有键盘提示槽位，不生成 TopLeftContent。
+文本槽位写入 Name；固定模板声明的多语言键缺失时写入 `LangName=""`。图标槽位存在且已在当前页面的 Icon 文件中确认时才写入 Icon；图标槽位存在但资源名待配置时写入 `Icon=""` 并在 mapping 标记待配置。开关状态用于该实例的视觉状态核对，不生成未定义的 Layout 属性；本变体没有键盘提示槽位，不生成 TopLeftContent。
 
 ### 属性 1：非首页-长方形
 
@@ -58,7 +58,7 @@
 <MenuItem Name="{text}" Icon="{icon}" TopLeftContent="{key}" Index="{index}"/>
 ```
 
-文案写入 Name，图标写入 Icon，F 键提示写入 TopLeftContent；LangName 和运行时属性按已确认来源补充。
+文案写入 Name，图标写入 Icon，F 键提示写入 TopLeftContent；固定模板声明但来源缺失的 `LangName` 和运行时属性输出空字符串并标记待配置。
 
 ### 属性 1：方-icon+文案
 
@@ -159,11 +159,11 @@ MasterGo 顶部栏组件用于识别宿主插槽和核对显示内容；运行�
 </Page>
 ```
 
-底部栏需要登记 Name、LangName、Icon、TopLeftContent、Index、PageName、IOEnable 和 UserRightId（项目实际提供时），并按目标 Layout.xml 的现有结构写入。其中 Icon 的值仅从当前页面的 Icon 文件中查找；当前页面未提供时不生成 Icon 属性。
+底部栏需要登记固定模板声明的 Name、LangName、Icon、TopLeftContent、Index、PageName、IOEnable 和 UserRightId，并按目标 Layout.xml 的现有结构写入。声明的字段没有可靠来源时输出空字符串并标记待配置；没有 Icon 槽位的变体不生成 Icon 属性。存在 Icon 槽位时，Icon 值只能从当前页面的 Icon 文件中查找。
 
 ## Layout.xml 参数说明
 
-顶部栏和底部栏按目标 Layout.xml 的节点结构生成。目标 Layout.xml 存在时，沿用其真实节点结构；目标项目声明了 Layout 路径但文件不存在时，按本文正式模板新建文件。参数值必须来自项目现有配置、映射文件或已确认的 MasterGo 来源；无法确认时省略并标记为“待确认”。
+顶部栏和底部栏按目标 Layout.xml 的节点结构生成。目标 Layout.xml 存在时，沿用其真实节点结构；目标项目声明了 Layout 路径但文件不存在时，按本文正式模板新建文件。参数值必须来自项目现有配置、映射文件或已确认的 MasterGo 来源；固定模板已声明但无法确认的字段输出空字符串并标记为“待确认”，模板未声明的字段不新增。
 
 ```xml
 <HeaderItem Id="{id}" Target="{target}"/>
@@ -208,7 +208,7 @@ Layout 映射只定义字段来源和生成条件，不登记任何具体页面�
 
 Name 取当前组件实例的真实文本槽位；LangName 仅从当前页面的语言文件读取；Icon 仅从当前页面的 Icon 文件读取；TopLeftContent 取当前实例的 F 键提示槽位；新建页面的 Index 取当前页面底部栏中该实例的实际排列顺序，已有 MenuItem 的 Index 保留 Layout.xml 原值。
 
-当前实例没有对应来源时，删除整个属性。PageName、IOEnable、UserRightId 仍只从目标项目已确认的 Layout 配置读取。
+当前实例没有对应来源时，如果该字段属于当前固定模板，则保留属性并输出空字符串；如果字段不属于当前固定模板，则不新增属性。PageName、IOEnable、UserRightId 仍只从目标项目或用户明确提供的 Layout 配置读取。
 
 ## 未确认项处理
 
@@ -218,19 +218,26 @@ Name 取当前组件实例的真实文本槽位；LangName 仅从当前页面的
 
 ## 新建 Layout.xml
 
-目标项目声明了 `layout_file` 但文件不存在，且用户要求生成新页面时，按以下正式壳层创建文件；页面实例只填入已确认的字段，未确认的运行时属性整行删除：
+目标项目声明了 `layout_file` 但文件不存在，且用户要求生成新页面时，按正式运行结构创建文件；页面实例只填入已确认的字段，未确认的运行时属性字段缺失时保留对应 XML 属性并输出空字符串值。新建文件仍保留 `Header`、`Body/Pages`、`LeftToolBox`、`ToolBox` 和 `Footer` 壳层；壳层运行时属性没有来源时保持空元素，不复制其他项目的字段：
 
 ```xml
 <Layout>
   <Header>
     <!-- 仅写入已确认的 HeaderItem -->
   </Header>
-  <Page Target="{target}" LangName="{page_lang_name}">
-    <Menu>
-      <!-- 每个已命中的底部栏变体生成一个 MenuItem -->
-    </Menu>
-  </Page>
+  <Body>
+    <Pages>
+      <Page Target="{target}" LangName="{page_lang_name}">
+        <Menu>
+          <!-- 每个已命中的底部栏变体生成一个 MenuItem -->
+        </Menu>
+      </Page>
+    </Pages>
+    <LeftToolBox />
+    <ToolBox />
+  </Body>
+  <Footer />
 </Layout>
 ```
 
-新建文件不继承其他项目的 Header、Page、Menu、MenuItem、Target 或运行时字段；没有来源的属性删除并在交付清单中标记待确认。
+新建文件不继承其他项目的 Header、Page、Menu、MenuItem、Target 或运行时字段；当前正式模板声明的字段没有来源时输出空字符串并在交付清单中标记待确认，模板没有声明的字段不新增。

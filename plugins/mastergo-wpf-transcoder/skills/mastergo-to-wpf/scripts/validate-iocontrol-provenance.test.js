@@ -56,16 +56,19 @@ if (fixedResult.ok || !fixedResult.errors.some(x => /固定为 192/.test(x))) {
 const textAuditMapping = {
   sourceNodes: [
     { ref: 'visible-text', type: 'TEXT', text: '显示文本' },
+    { ref: 'placeholder-text', type: 'TEXT', text: '组件占位文案' },
     { ref: 'hidden-text', type: 'TEXT', text: '隐藏文本' },
     { ref: 'title-text', type: 'TEXT', text: '标题' }
   ],
   nodes: [
-    { xmlId: 'visible-text', sourceRef: 'visible-text', sourceText: '显示文本', valueSource: 'dsl.text' }
+    { xmlId: 'visible-text', sourceRef: 'visible-text', sourceText: '显示文本', valueSource: 'dsl.text' },
+    { xmlId: 'placeholder-text', sourceRef: 'placeholder-text', sourceText: '组件占位文案', valueSource: 'dsl.text' }
   ],
   textAudit: [
     { sourceRef: 'visible-text', sourceText: '显示文本', visibility: true, role: 'content', decision: 'emit', outputRefs: ['visible-text'] },
+    { sourceRef: 'placeholder-text', sourceText: '组件占位文案', visibility: true, role: 'mapped-placeholder', decision: 'emit', outputRefs: ['placeholder-text'] },
     { sourceRef: 'hidden-text', sourceText: '隐藏文本', visibility: false, role: 'content', decision: 'omit', omitReason: 'hidden', outputRefs: [] },
-    { sourceRef: 'title-text', sourceText: '标题', visibility: true, role: 'title', decision: 'omit', omitReason: 'title', outputRefs: [] }
+    { sourceRef: 'title-text', sourceText: '标题', visibility: true, role: 'page-title', decision: 'omit', omitReason: 'page-title', outputRefs: [] }
   ]
 };
 if (validateTextAudit(textAuditMapping, textAuditMapping.nodes).length !== 0) {

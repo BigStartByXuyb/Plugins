@@ -126,29 +126,64 @@ function validateSlot(spec, slot, sourceMap, nodeMap, variant, usedSources) {
   };
 }
 
+function validateOmittedSlot(slot, sourceMap, nodeMap, variant, usedSources) {
+  if (!slot || typeof slot.slot !== "string" || typeof slot.sourceRef !== "string") {
+    fail("省略槽位缺少 slot/sourceRef: " + variant);
+  }
+  if (!sourceMap.has(slot.sourceRef)) {
+    fail("省略槽位 sourceRef 不存在: " + variant + "/" + slot.slot + " -> " + slot.sourceRef);
+  }
+  if (usedSources.has(slot.sourceRef)) {
+    fail("省略槽位重复使用 sourceRef: " + variant + "/" + slot.slot + " -> " + slot.sourceRef);
+  }
+  usedSources.add(slot.sourceRef);
+  if (nodeMap.has(slot.sourceRef)) {
+    fail("省略槽位不得存在输出节点: " + variant + "/" + slot.slot);
+  }
+  if (!["hidden", "page-title", "host-shell"].includes(slot.omitReason)) {
+    fail("省略槽位缺少合法 omitReason: " + variant + "/" + slot.slot);
+  }
+  return { slot: slot.slot, sourceRef: slot.sourceRef, omitReason: slot.omitReason };
+}
+
 function validateInstance(instance, spec, mapping, sourceMap, nodeMap, usedSources, variant) {
-  const supplied = instance.requiredSlots || instance.slots;
+  const supplied = instance.requiredSlots || instance.slots || [];
   if (!Array.isArray(supplied)) fail("固定模板实例缺少 requiredSlots: " + variant);
   const expected = spec.slots || [];
-  if (supplied.length !== expected.length) {
-    fail("固定模板槽位数量不一致: " + variant + "，期望 " + expected.length + "，实际 " + supplied.length);
+  const omitted = Array.isArray(instance.omittedSlots) ? instance.omittedSlots : [];
+  const omittedByName = new Map(omitted.map(slot => [slot.slot, slot]));
+  const visibleExpected = expected.filter(slot => !omittedByName.has(slot.slot));
+  if (supplied.length !== visibleExpected.length) {
+    fail("固定模板槽位数量不一致（可见槽位）: " + variant + "，期望 " + visibleExpected.length + "，实际 " + supplied.length);
   }
   const suppliedByName = new Map(supplied.map(slot => [slot.slot, slot]));
-  const requiredSlots = expected.map(expectedSlot => {
+  const requiredSlots = visibleExpected.map(expectedSlot => {
     const slot = suppliedByName.get(expectedSlot.slot);
     if (!slot) fail("固定模板槽位缺失: " + variant + "/" + expectedSlot.slot);
     return validateSlot(expectedSlot, slot, sourceMap, nodeMap, variant, usedSources);
   });
-  for (const slot of supplied) {
+  const omittedSlots = omitted.map(slot => {
     if (!expected.some(expectedSlot => expectedSlot.slot === slot.slot)) {
-      fail("固定模板包含未登记槽位: " + variant + "/" + slot.slot);
+      fail("省略槽位未在固定模板登记: " + variant + "/" + slot.slot);
+    }
+    return validateOmittedSlot(slot, sourceMap, nodeMap, variant, usedSources);
+  });
+  for (const slot of supplied) {
+    if (!visibleExpected.some(expectedSlot => expectedSlot.slot === slot.slot)) {
+      fail("固定模板包含未登记或已省略槽位: " + variant + "/" + slot.slot);
     }
   }
+  const extraTextSlots = Array.isArray(instance.extraTextSlots) ? instance.extraTextSlots.map(slot => {
+    if (typeof slot.slot !== "string") fail("额外文本槽位缺少 slot: " + variant);
+    return validateSlot({ controlType: "TextBlock" }, slot, sourceMap, nodeMap, variant, usedSources);
+  }) : [];
   return {
     variant,
     ...(instance.template ? { template: instance.template } : {}),
     instanceRef: instance.instanceRef,
-    requiredSlots
+    requiredSlots,
+    ...(omittedSlots.length > 0 ? { omittedSlots } : {}),
+    ...(extraTextSlots.length > 0 ? { extraTextSlots } : {})
   };
 }
 

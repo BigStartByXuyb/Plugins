@@ -34,7 +34,7 @@ assert.strictEqual(output.candidates.length, 2);
 const shell = output.candidates.find((candidate) => candidate.sourceId === "shell/top");
 assert.ok(shell);
 assert.strictEqual(shell.status, "unmapped");
-assert.strictEqual(shell.reason, "missing-approved-resource-name");
+assert.strictEqual(shell.reason, "missing-page-resource-name");
 assert.strictEqual(shell.sourceRef, "shell/top/path");
 assert.ok(!Object.prototype.hasOwnProperty.call(shell, "name"));
 const known = output.candidates.find((candidate) => candidate.sourceId === "page/known");

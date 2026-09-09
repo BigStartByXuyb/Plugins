@@ -34,17 +34,17 @@ fs.writeFileSync(csproj, [
 
 const mapping = path.join(root, "mapping.json");
 fs.writeFileSync(mapping, JSON.stringify({
-  rootRef: "title",
+  rootRef: "body-text",
   sourceNodes: [{
-    ref: "title", parentRef: null, pageAbsX: 100, pageAbsY: 292,
+    ref: "body-text", parentRef: null, pageAbsX: 100, pageAbsY: 292,
     relativeX: 100, relativeY: 292, width: 80, height: 20, text: "测试页面"
   }],
   nodes: [{
-    ref: "title", xmlId: "title", id: "title", sourceRef: "title",
+    ref: "body-text", xmlId: "body-text", id: "body-text", sourceRef: "body-text",
     sourceParent: null, sourceText: "测试页面", valueSource: "dsl.text",
     controlType: "TextBlock", absX: 100, absY: 292, w: 80, h: 20,
     expectedLeft: 100, expectedTop: 100, expectedWidth: 80, expectedHeight: 20,
-    attrs: { Value: "测试页面" }
+    attrs: { Value: "测试页面", IOName: "" }
   }]
 }, null, 2), "utf8");
 
@@ -95,6 +95,7 @@ for (const relative of [
   assert.ok(fs.existsSync(path.join(project, ...relative.split("/"))), relative);
 }
 assert.match(fs.readFileSync(path.join(project, "Resources/Icons/F2NewPageIcon.xaml"), "utf8"), /ActionGeometry/);
+assert.match(fs.readFileSync(path.join(project, "Common/Pages/F2NewPagePage.xml"), "utf8"), /IOName=""/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Files/Layout.xml"), "utf8"), /Index="1"/);
 assert.match(fs.readFileSync(csproj, "utf8"), /F2NewPagePage\.xml|F2NewPageIcon\.xaml/);
 const iconMapAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.icon-map.json"), "utf8"));
@@ -131,6 +132,83 @@ assert.doesNotMatch(
   /<Geometry\b/,
   "没有实际 Icon 引用的页面允许生成空 ResourceDictionary"
 );
+
+const auditCollision = JSON.parse(JSON.stringify(noIconManifest));
+auditCollision.pageName = "AuditCollision";
+auditCollision.pageTarget = "AuditCollision";
+auditCollision.pageLangName = "AuditCollisionTitle";
+auditCollision.viewPath = "UI/F2-Teach/View/AuditCollisionView.xaml";
+auditCollision.codeBehindPath = "UI/F2-Teach/View/AuditCollisionView.xaml.cs";
+auditCollision.viewModelPath = "UI/F2-Teach/ViewModel/AuditCollisionViewModel.cs";
+auditCollision.pageXmlPath = "Common/Pages/AuditCollisionPage.xml";
+auditCollision.iconPath = "Resources/Icons/AuditCollisionIcon.xaml";
+const auditCollisionPath = path.join(root, "audit-collision.json");
+fs.mkdirSync(path.join(project, "Generated"), { recursive: true });
+fs.writeFileSync(path.join(project, "Generated/AuditCollision.mapping.json"), "{}", "utf8");
+fs.writeFileSync(auditCollisionPath, JSON.stringify(auditCollision, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", auditCollisionPath], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "已存在审计文件时不得在没有 --overwrite 的情况下覆盖");
+assert.match(result.stderr + result.stdout, /审计文件已存在|未覆盖/);
+assert.ok(!fs.existsSync(path.join(project, "Common/Pages/AuditCollisionPage.xml")));
+
+// 空项目脚手架：目标目录可以尚不存在，但必须生成完整文件结构；只做静态校验，不编译或加载 WPF。
+const scaffoldProject = path.join(root, "EmptyScaffold");
+const scaffoldManifest = path.join(root, "scaffold.json");
+fs.writeFileSync(scaffoldManifest, JSON.stringify({
+  projectRoot: scaffoldProject,
+  projectName: "EmptyScaffold",
+  scaffold: true,
+  pageName: "ScaffoldPage",
+  area: "F2-Teach",
+  pageTarget: "ScaffoldPage",
+  pageLangName: "ScaffoldPageTitle",
+  pageXmlPath: "Common/Pages/ScaffoldPage.xml",
+  iconPath: "Resources/Icons/ScaffoldPageIcon.xaml",
+  layoutPath: "Resources/Files/Layout.xml",
+  mappingPath: mapping,
+  svgPath: svg,
+  iconMapPath: emptyIconMap,
+  menuItems: [],
+  layoutStatus: "none",
+  layoutEvidence: { matchedBottomBarItems: 0, unresolvedBottomBarItems: 0 }
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", scaffoldManifest], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+for (const relative of [
+  "EmptyScaffold.csproj",
+  "framework.config.json",
+  "UI/F2-Teach/View/ScaffoldPageView.xaml",
+  "UI/F2-Teach/View/ScaffoldPageView.xaml.cs",
+  "UI/F2-Teach/ViewModel/ScaffoldPageViewModel.cs",
+  "Common/Pages/ScaffoldPage.xml",
+  "Resources/Icons/ScaffoldPageIcon.xaml",
+  "Resources/Files/Layout.xml",
+  "Generated/ScaffoldPage.mapping.json",
+  "Generated/ScaffoldPage.icon-map.json",
+  "Generated/ScaffoldPage.bundle.manifest.json"
+]) {
+  assert.ok(fs.existsSync(path.join(scaffoldProject, ...relative.split("/"))), relative);
+}
+const scaffoldConfig = JSON.parse(fs.readFileSync(path.join(scaffoldProject, "framework.config.json"), "utf8"));
+assert.strictEqual(scaffoldConfig.mode, "mtslg-iocontrol");
+assert.strictEqual(scaffoldConfig.scaffold, true);
+assert.strictEqual(scaffoldConfig.source_root, "");
+assert.strictEqual(scaffoldConfig.index_root, "");
+assert.deepStrictEqual(scaffoldConfig.resource_roots, []);
+assert.strictEqual(scaffoldConfig.key_catalog, "");
+const scaffoldAudit = JSON.parse(fs.readFileSync(
+  path.join(scaffoldProject, "Generated/ScaffoldPage.bundle.manifest.json"), "utf8"
+));
+assert.strictEqual(scaffoldAudit.projectMode, "scaffold");
+assert.deepStrictEqual(scaffoldAudit.verification, {
+  static: "passed",
+  compile: "skipped",
+  wpfLoad: "skipped",
+  runtimeLoad: "skipped"
+});
+assert.ok(scaffoldAudit.generated.includes("EmptyScaffold.csproj"));
+assert.ok(scaffoldAudit.generated.includes("framework.config.json"));
+assert.ok(scaffoldAudit.generated.includes("UI/F2-Teach/View/ScaffoldPageView.xaml"));
 
 const incompleteManifest = JSON.parse(fs.readFileSync(manifest, "utf8"));
 incompleteManifest.pageName = "NoLayoutState";

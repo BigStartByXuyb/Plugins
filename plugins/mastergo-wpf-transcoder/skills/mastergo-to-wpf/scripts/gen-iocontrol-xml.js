@@ -161,7 +161,7 @@ const ATTR_ORDER = [
 const GEOM_ATTRS = ['Left', 'Top', 'Width', 'Height'];
 
 function orderedEntries(attrMap) {
-  const entries = Object.entries(attrMap).filter(([, v]) => v !== null && v !== undefined && v !== '');
+  const entries = Object.entries(attrMap).filter(([, v]) => v !== null && v !== undefined);
   entries.sort((a, b) => {
     const ia = ATTR_ORDER.indexOf(a[0]);
     const ib = ATTR_ORDER.indexOf(b[0]);

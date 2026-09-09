@@ -70,7 +70,7 @@ function validateTextAudit(manifest, entries) {
       continue;
     }
     const role = audit.role || 'content';
-    const shouldEmit = audit.visibility && role !== 'title' && role !== 'host-shell';
+    const shouldEmit = audit.visibility && role !== 'page-title' && role !== 'host-shell';
     const outputRefs = Array.isArray(audit.outputRefs) ? audit.outputRefs : [];
     if (shouldEmit) {
       if (audit.decision !== 'emit' || outputRefs.length === 0) {
@@ -82,7 +82,7 @@ function validateTextAudit(manifest, entries) {
         errors.push('可见普通 TEXT 没有对应的 dsl.text 输出节点: ' + source.ref);
       }
     } else {
-      if (audit.decision !== 'omit' || !['hidden', 'title', 'host-shell'].includes(audit.omitReason)) {
+      if (audit.decision !== 'omit' || !['hidden', 'page-title', 'host-shell'].includes(audit.omitReason)) {
         errors.push('隐藏/标题 TEXT 必须 decision=omit 并记录 omitReason: ' + source.ref);
       }
       if (outputRefs.length > 0) errors.push('被省略的 TEXT 不得存在 outputRefs: ' + source.ref);

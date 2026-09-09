@@ -5,7 +5,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 # MasterGo 转 MW 代码
 
-本 Skill 负责 MasterGo 设计稿到目标项目代码的完整转换。必须区分“按正式映射表生成结构”与“接入目标项目并完成运行时交付”：前者可以在没有目标项目时生成带待绑定标记的静态映射稿；后者才必须先使用 `mw-framework-index` 完成项目、框架、源码、索引、版本和页面宿主核对。
+本 Skill 负责 MasterGo 设计稿到目标项目代码的完整转换。必须区分“按正式映射表生成完整结构”与“接入目标项目并完成运行时交付”：没有目标项目时创建完整脚手架并生成同一套页面结构；只有运行时交付才必须先使用 `mw-framework-index` 完成项目、框架、源码、索引、版本和页面宿主核对。
 
 ## 触发边界
 
@@ -36,11 +36,15 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 按以下层级执行：
 
 1. **正式映射表**决定 `ControlType`、`Style` 槽位/语义类别、节点数量、父子关系、槽位顺序和固定属性；不据此虚构具体资源键。
-2. **目标项目源码/真实页面/键索引**决定 `IOName`、`IOCommand`、`LangName`、实际已登记的 `Style`/`Icon` 资源键和其他运行时字段；缺少对应键时标记待确认。
+2. **目标项目源码/真实页面/键索引**决定已登记的 `Style`/`Icon` 资源键和其他运行时字段；固定模板中存在的 `IOName`、`IOCommand`、`LangName`、`IOEnable`、`IOState`、`PageName` 等字段没有可靠来源时保留对应 XML 属性并输出空字符串值；不在固定模板中的属性不新增，不填猜测值。
 3. **MasterGo DSL**为映射槽位提供真实文本、实例属性、图标来源、尺寸和逐级坐标。
 4. 图层名称、组件名称和视觉外观不得触发额外推断；没有映射的组件不得静默改成 `Button`、`Border`、无类型容器或其他近似控件。
 
-结构映射稿与运行时交付的边界如下：目标项目缺失时仍必须完成已有映射覆盖的结构转换，但必须将未确认的绑定、资源键和运行时行为标记为待配置；不得把“静态 XML 可解析”描述为“页面已完成”。
+结构映射稿与运行时交付使用同一条生成链路：目标项目缺失时仍必须创建完整脚手架，并生成与正式运行结构一致的 `.csproj`、`framework.config.json`、WPF 宿主、页面 XML、Icon 资源容器、Layout 壳层和 mapping/provenance。固定模板中已经声明的可选运行时属性，映射清单缺少来源时必须显式写成空字符串值，并在 mapping/manifest 中标记待配置；不在当前固定模板中的属性不新增，尤其是没有 Icon 槽位的变体不得写 `Icon=""`。只有项目引用、真实运行时资源、可编译宿主和加载验证都通过后，才能称为“完整可运行页面”。静态产物与运行时产物的文件结构和节点结构应一致，差别是运行时资料是否已补齐以及编译/加载验证是否完成。
+
+### 空项目脚手架模式
+
+没有目标项目时，仍沿用同一套 DSL、可见性、组件映射、文本审计、XML、Icon、Layout 和 WPF 宿主生成链路；必须创建完整项目脚手架，包括 `.csproj`、`framework.config.json`、WPF 宿主、页面 XML、页面 Icon、Layout 和 mapping/provenance 目录。脚手架中的运行时程序集、业务字段、资源键和目标绑定只能留空或标记待配置，不得猜写。该模式生成完整文件结构，但不执行编译、WPF 加载或真实运行时验证；有真实目标项目后再复用同一结构补齐运行时资料并验证。
 
 ## 适配器选择门禁（必须先完成）
 
@@ -58,7 +62,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 1. 核对真实 MW 控件源码、现有 WPF 页面、Style/Resource 键、Geometry 资源和页面宿主。
 2. 先读 `references/adapters/mw-wpf/mw-wpf-framework.md`；再按命中的控件、资源或协议按需读 `references/adapters/mw-wpf/framework-manual/` 下对应的 controls、resources、protocols 或 scenarios 文档。不得预读 MTSLG 映射或 XML 文档。
 3. 生成目标项目约定的 XAML、C# UserControl/ViewModel 与资源；直接使用项目真实的 MW 控件和协议，例如 `s:IconButton`、`MainButtonStyle`、`PageName`、`s:Action`、`IOEnable`。
-4. 验证命名空间、资源键、绑定、编译和 WPF 页面加载。禁止以普通 WPF 控件替代已有 MW 能力；先用 `scripts/discover-mtslg-page-icon-map.js` 从当前页真实 PATH/SVG 生成页面级候选及未映射审计，再由 `scripts/gen-mtslg-page-icons.js` 只发射已确认资源键，页面只引用自己的 Geometry 键。
+4. 验证命名空间、资源键、绑定、编译和 WPF 页面加载。禁止以普通 WPF 控件替代已有 MW 能力；先用 `scripts/discover-mtslg-page-icon-map.js` 从当前页真实 PATH/SVG 生成页面级候选及未映射审计，再由 `scripts/gen-mtslg-page-icons.js` 发射已确认或页面内唯一的临时 Geometry 键，页面只引用自己的 Geometry 键。
 
 本作业不得生成 MTSLG `IOContorl` XML、MTSLG `Layout.xml` 注册或调用 MTSLG provenance 校验器。
 
@@ -67,10 +71,10 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `scripts/gen-mastergo-page-bundle.js` 作为总入口；适配器仍记录为 `mtslg-iocontrol`。bundle 生成的 WPF 文件仅是加载 MTSLG 页面 XML 的宿主壳，不是第二套 WPF 页面适配器，也不得在其中猜写 WPF 业务控件或把 WPF 私有协议写入 IOContorl XML。
 
 1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。设计稿包含顶部栏、底部栏或快捷键，或本次需要创建/修改 Layout 注册时，必须再读 `feishu-layout-mapping.md`；未触发页面壳层或 Layout 注册时不读取该文件。不得读取 MW WPF 控件协议作为 XML 事实源。
- 2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表，目标项目只用于确认 Style/Icon/LangName、IOName/IOCommand 和运行时键。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；先发现当前页面 PATH/SVG 候选，再由 `scripts/gen-mtslg-page-icons.js` 生成当前页面的 Icon 文件。图标映射输入必须逐项提供当前页面的资源键和 DSL 来源；未确认候选只能进入 `Generated/*.icon-map.json` 审计，不得猜写资源键；Layout 只引用该页面 Icon 文件中已生成的键。
+2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表。目标项目已确认的字段按事实填写；固定模板中存在但缺少可靠来源的 `IOName`、`IOCommand`、`LangName`、`IOEnable`、`IOState`、`PageName`、`UserRightId` 等保留属性并输出空字符串值，不删除整个节点；不在模板中的属性不新增。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；先发现当前页面 PATH/SVG 候选，再由 `scripts/gen-mtslg-page-icons.js` 生成当前页面的 Icon 文件。Icon 资源名优先使用中文语义对应的英文键；无法形成可靠语义名时才使用当前页面内唯一的临时键。临时键必须写入 mapping/manifest，不能使用 `MGIcon_<layer-id>`，并必须保持页面内唯一。Layout 只引用该页面 Icon 文件中已生成的键。
    - `gen-mastergo-page-bundle.js` 的 `--overwrite` 只允许替换已有页面产物或已有同名 `Page Target`；首次注册一个不存在的 `Page Target` 属于 Layout 增量注册，可以不带 `--overwrite`，但必须保留原 Layout 备份。
    - 页面可以没有任何运行时 Icon。PATH/SVG 候选只是来源审计；只有 IOContorl 节点或 Layout 菜单实际引用的 Icon，才必须在当前页面 Icon 文件中存在对应 Geometry 资源键。
-   - **Layout 必须先完成映射清单，再生成 XML。** 读取完全部 MasterGo DSL 后，按 `feishu-layout-mapping.md` 生成 Layout manifest；已命中的底部栏组件必须生成对应的 `menuItems`。目标项目未提供的运行时字段只省略对应属性，不能因此把整个 `Menu` 留空。`layoutStatus`、`layoutEvidence` 和数量一致性由 `gen-mtslg-layout.js` 强制校验；校验失败表示“清单不完整”，不是拒绝生成页面，补齐清单后重新运行即可。
+   - **Layout 必须先完成映射清单，再生成 XML。** 读取完全部 MasterGo DSL 后，按 `feishu-layout-mapping.md` 生成 Layout manifest；已命中的底部栏组件必须生成对应的 `menuItems`。当前固定模板声明的运行时字段缺失时写入空字符串并标记待配置；没有声明的字段不新增，不能因此把整个 `Menu` 留空。`layoutStatus`、`layoutEvidence` 和数量一致性由 `gen-mtslg-layout.js` 强制校验；校验失败表示“清单不完整”，不是拒绝生成页面，补齐清单后重新运行即可。
    - 顶部栏 `HeaderItem` 的运行时 `Id/Target` 仍须来自目标项目事实源；无法确认时单独标记待确认，不得用顶部文字或图标名称猜写。页面中间的 `主菜单button` 也不因存在 F 键就自动写入 Layout，只有正式 Layout 映射命中时才写入。
 3. 在 XML 结构检查前运行 `scripts/validate-iocontrol-provenance.js`；需要独立坐标检查时以节点数组调用 `scripts/check-iocontrol-coords.js`，有 Geometry 时调用 `scripts/scan-icon-coords.js`，再执行宿主加载与视觉核对。
 
@@ -78,7 +82,7 @@ MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `
 
 ## 页面 Icon 文件（两个适配器共用）
 
-每个页面必须单独维护一个 Icon 文件。转换时先从当前页 MasterGo PATH/SVG 自动发现候选；图标映射输入逐项提供已确认的英文资源名、中文注释名和 DSL 来源，禁止从图层 ID、坐标或几何外观拼接资源名。资源名必须是英文标识符；同一页面内重复名称按出现顺序追加数字后缀（`Name2`、`Name3`）。未确认候选写入 `Generated/<Page>.icon-map.json` 的 `candidates/unmapped`，不进入 XAML。XAML 注释只写该图标的中文名称，`sourceId/sourceRef/key` 等溯源信息写入 mapping/manifest，不写入 Icon 文件。不得生成 `MGIcon_<layer-id>` 形式的资源名。`mw-wpf` 的页面以 `StaticResource` 引用该页 Geometry；`mtslg-iocontrol` 的 Layout 仅引用该页 Icon 文件中已生成的键。页面 Icon 文件的真实相对路径和加载方式必须由目标项目确认。
+每个页面必须单独维护一个 Icon 文件。转换时先从当前页 MasterGo PATH/SVG 自动发现候选；图标映射输入逐项提供目标项目已确认或页面内生成的英文资源名、中文注释名和 DSL 来源，禁止从图层 ID、坐标或几何外观直接拼出 `MGIcon_<layer-id>` 形式的资源名。资源名必须是英文标识符且在当前页面唯一；重复名称由生成器按稳定数字后缀处理。没有目标项目键时，允许使用页面内唯一的临时 Geometry 键，状态标记为 `provisional` 并保留 sourceId/sourceRef。只有未被任何实际 Icon 槽位引用的 PATH 候选才进入 `candidates/unmapped` 而不进入 XAML。XAML 注释只写中文名称，溯源和 `keyStatus` 写入 mapping/manifest。`mw-wpf` 的页面以 `StaticResource` 引用该页 Geometry；`mtslg-iocontrol` 的 Layout 仅引用该页 Icon 文件中已生成的键。
 
 ## 页面输出目录
 
@@ -155,7 +159,24 @@ MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `
 
 在组件映射前，对每个完整 DSL section 或合并快照运行 `scripts/resolve-mastergo-visibility.js --input <dsl.json> --out <visibility.json>`。该脚本只机械输出节点的 `explicitVisible`、`effectiveVisible`、`visibilityProperty`、`visibilitySourceRef` 以及 `texts`/`paths` 索引；它不决定组件类型、不命名 Icon、不生成 IOContorl XML，也不替代 AI mapping。
 
-AI 必须同时读取原始 DSL、`visibility.json` 和正式组件映射，按有效可见状态决定每个普通 TEXT、F 文本和 Icon 是否进入 mapping：可见普通文本必须生成，隐藏文本删除，标题文本永远删除。最终 mapping 必须用 `textAudit` 记录每个 TEXT 的 `sourceRef`、真实文本、可见性、角色、输出决定和 `outputRefs`，再交给 Bundle 生成页面文件。
+AI 必须同时读取原始 DSL、`visibility.json` 和正式组件映射，按有效可见状态决定每个普通 TEXT、F 文本和 Icon 是否进入 mapping：可见的当前页面文本必须生成，明确 hidden 文本删除；只有页面根级/工件级大标题标记为 `page-title` 时永远删除，组件内部标题、GroupBox Header、表格列标题以及组件库占位文案都按自身可见属性生成。宿主公共栏由结构边界剥离，不作为组件文本删除理由。最终 mapping 必须用 `textAudit` 记录每个 TEXT 的 `sourceRef`、真实文本、可见性、角色、输出决定和 `outputRefs`，再交给 Bundle 生成页面文件。
+
+- `_placeholder=true` 只是 MasterGo 组件库来源提示，不是删除条件。即使正式组件映射把文本标记为 placeholder，只要它属于当前页面或当前组件的可见内容，也必须生成。文本只有在明确属于页面根级 `page-title`、明确 hidden，或已被宿主结构边界剥离为 `host-shell` 时才允许 `decision=omit`。
+
+### 辅助脚本触发矩阵
+
+以下脚本不是每次都由 Bundle 自动调用，而是按场景触发：
+
+- `resolve-mastergo-visibility.js`：组件映射前强制运行；输出所有节点的有效可见性，供 AI 生成 mapping/textAudit。
+- `scan-mtslg-keys.ps1`：只有存在目标 MTSLG 运行时目录、需要确认 Style/Icon/LangName/IOName/IOCommand 等键时运行；静态映射没有目标目录时不运行。
+- `classify-mastergo-groups.js`：DSL 中存在未明确语义的 GROUP、容器或组合层级时运行；已由正式组件模板命中的实例不重复运行。
+- `scan-icon-coords.js`：Icon XAML 已生成且包含 Geometry 时运行；页面没有 Geometry 时跳过。
+- `audit-mtslg-feishu-map.js`：组件映射文档或模板 JSON 修改后运行，用于检查文档覆盖，不是页面生成步骤。
+- `cap-window.ps1` / `cap-window2.ps1`：运行时宿主加载成功后做视觉截图验证；不能替代 XML/provenance 校验。
+- `sync-to-mt.ps1`：静态 XML、来源、坐标、键和运行时加载验证完成，并且用户要求部署到运行目录后运行；不能作为生成步骤自动调用。
+- `convert-to-responsive.js`：只有用户明确要求响应式 HTML 时运行；不属于 IOContorl/WPF 主链路。
+
+主 Bundle 的固定调用顺序是：模板解析 → XML 生成 → provenance/坐标校验 → Icon discovery/生成 → Layout → WPF 宿主 → 最终校验。辅助脚本不得被误认为已自动包含在 Bundle 中。
 
 ## 交付和验证
 

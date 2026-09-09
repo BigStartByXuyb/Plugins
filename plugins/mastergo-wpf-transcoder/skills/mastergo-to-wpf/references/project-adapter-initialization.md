@@ -2,6 +2,8 @@
 
 Use this reference when a target project has no confirmed `framework.config.json`, component catalog, or resource-key catalog.
 
+If there is no target project at all, initialize a complete project scaffold from the selected adapter and the empty-template structure: create `.csproj`, `framework.config.json`, RootNamespace/project skeleton, WPF host shell, page, Icon, Layout, mapping, and audit directories/files. Leave runtime assembly paths, business bindings, and resource keys pending or empty when there is no evidence. Skip compilation and runtime loading until a real target project is supplied.
+
 ## Ownership
 
 Project discovery data belongs to the target project, not to this Skill. Do not copy project-private source code, DLLs, business pages, real MasterGo URLs, absolute paths, or resource dumps into `references/`.

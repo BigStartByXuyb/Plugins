@@ -85,6 +85,45 @@ function nodeName(node) {
 function nodeText(node) {
   for (const key of ["text", "characters", "content"]) {
     if (typeof node[key] === "string") return node[key];
+    if (Array.isArray(node[key])) {
+      const parts = node[key].map(item => item && typeof item.text === "string" ? item.text : "").filter(Boolean);
+      if (parts.length > 0) return parts.join("");
+    }
+  }
+  return null;
+}
+
+function normalizedPropertyKey(value) {
+  return String(value || "").replace(/\s+/g, "").toLowerCase();
+}
+
+function componentProperties(node) {
+  const componentInfo = node && node.componentInfo && node.componentInfo.properties;
+  if (componentInfo && typeof componentInfo === "object") return componentInfo;
+  if (node && node.properties && typeof node.properties === "object") return node.properties;
+  return null;
+}
+
+function slotVisibility(controller, target, isDirectChild) {
+  const properties = componentProperties(controller);
+  if (!properties) return null;
+  const type = String(nodeType(target) || "").toUpperCase();
+  const text = nodeText(target) || nodeName(target) || "";
+  const isText = type === "TEXT";
+  const isPath = type === "PATH";
+  const entries = Object.entries(properties);
+  const textKey = entries.find(([key]) => /显示(文案|文本|文字)/.test(normalizedPropertyKey(key)));
+  const shortcutKey = entries.find(([key]) => /显示(f|快捷标记|快捷键)/.test(normalizedPropertyKey(key)));
+  const titleKey = isDirectChild && entries.find(([key]) => /显示(主标题|左侧副标题)/.test(normalizedPropertyKey(key)));
+  const iconKey = entries.find(([key]) => /显示(icon|图标)/.test(normalizedPropertyKey(key)));
+  let preferred = null;
+  if (isText && /^f\d+$/i.test(String(text).trim())) preferred = shortcutKey;
+  else if (isText && titleKey) preferred = titleKey;
+  else if (isText) preferred = textKey;
+  else if (isPath) preferred = iconKey;
+  if (preferred) {
+    const parsed = parseBoolean(preferred[1]);
+    if (parsed !== null) return { value: parsed, property: `componentInfo.properties.${preferred[0]}`, raw: preferred[1], sourceRef: nodeRef(controller, null) };
   }
   return null;
 }
@@ -112,49 +151,56 @@ function collectNodes(input) {
   const result = [];
   const visited = new Set();
 
-  function visit(value, parent, containerPath) {
+  function visit(value, parent, containerPath, ancestors) {
     if (!value || typeof value !== "object") return;
     if (visited.has(value)) return;
     if (Array.isArray(value)) {
-      value.forEach((item, index) => visit(item, parent, containerPath + "[" + index + "]"));
+      value.forEach((item, index) => visit(item, parent, containerPath + "[" + index + "]", ancestors));
       return;
     }
     if (!looksLikeNode(value)) {
-      Object.keys(value).forEach(key => visit(value[key], parent, containerPath + "." + key));
+      Object.keys(value).forEach(key => visit(value[key], parent, containerPath + "." + key, ancestors));
       return;
     }
 
     visited.add(value);
     const ref = nodeRef(value, containerPath);
     const explicit = explicitVisibility(value);
+    let slotControl = null;
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+      slotControl = slotVisibility(ancestors[index].raw, value, parent && ancestors[index].record.ref === parent.ref);
+      if (slotControl) break;
+    }
+    const controller = explicit || slotControl;
     const record = {
       ref,
       parentRef: parent ? parent.ref : null,
       type: nodeType(value),
       name: nodeName(value),
       text: nodeText(value),
-      explicitVisible: explicit ? explicit.value : null,
-      visibilityProperty: explicit ? explicit.property : null,
-      visibilityRaw: explicit ? explicit.raw : null,
-      defaultVisible: explicit === null,
+      explicitVisible: controller ? controller.value : null,
+      visibilityProperty: controller ? controller.property : null,
+      visibilityRaw: controller ? controller.raw : null,
+      defaultVisible: controller === null,
       effectiveVisible: null,
       visibilitySourceRef: null,
       sourcePath: containerPath
     };
-    record.effectiveVisible = explicit ? explicit.value : (parent ? parent.effectiveVisible : true);
+    record.effectiveVisible = controller ? controller.value : (parent ? parent.effectiveVisible : true);
     if (parent && parent.effectiveVisible === false) {
       record.effectiveVisible = false;
       record.visibilitySourceRef = parent.visibilitySourceRef || parent.ref;
-    } else if (explicit) {
-      record.visibilitySourceRef = record.ref;
+    } else if (controller) {
+      record.visibilitySourceRef = controller.sourceRef || record.ref;
     } else if (parent && parent.visibilitySourceRef) {
       record.visibilitySourceRef = parent.visibilitySourceRef;
     }
     result.push(record);
-    for (const entry of childEntries(value)) visit(entry.child, record, containerPath + "." + entry.key);
+    const nextAncestors = ancestors.concat([{ raw: value, record }]);
+    for (const entry of childEntries(value)) visit(entry.child, record, containerPath + "." + entry.key, nextAncestors);
   }
 
-  visit(input, null, "$root");
+  visit(input, null, "$root", []);
   return result;
 }
 

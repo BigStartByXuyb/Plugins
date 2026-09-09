@@ -194,6 +194,35 @@ assert.deepStrictEqual(
   ["button_plus_5", "button_minus_5", "button_plus_1", "button_minus_1", "title", "value", "direction"]
 );
 
+const hiddenTitleMapping = makeMapping(
+  "加减快捷操作-有标题",
+  slotsForWithTitle().filter(slot => slot.slot !== "title")
+);
+hiddenTitleMapping.sourceNodes.push(source("text/title", "光源调整"));
+hiddenTitleMapping.componentInstances[0].omittedSlots = [
+  { slot: "title", sourceRef: "text/title", valueSourceRef: "text/title", omitReason: "hidden" }
+];
+const resolvedHiddenTitle = resolveTemplateMapping(hiddenTitleMapping, templateMap);
+assert.deepStrictEqual(
+  resolvedHiddenTitle.templateInstances[0].omittedSlots.map(slot => slot.slot),
+  ["title"]
+);
+
+const extraTextMapping = makeMapping(
+  "加减快捷键-无标题",
+  slotsForWithTitle().filter(slot => slot.slot !== "title")
+);
+extraTextMapping.sourceNodes.push(source("text/extra", "额外可见文本"));
+extraTextMapping.nodes.push(node("text/extra", "额外可见文本", "TextBlock"));
+extraTextMapping.componentInstances[0].extraTextSlots = [
+  { slot: "extra", sourceRef: "text/extra", valueSourceRef: "text/extra" }
+];
+const resolvedExtraText = resolveTemplateMapping(extraTextMapping, templateMap);
+assert.deepStrictEqual(
+  resolvedExtraText.templateInstances[0].extraTextSlots.map(slot => slot.slot),
+  ["extra"]
+);
+
 const inputMapping = makeMapping("输入框-整数-28", [
   { slot: "input", sourceRef: "input/28", controlType: "IntNumberBox" }
 ]);

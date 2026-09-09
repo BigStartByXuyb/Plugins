@@ -25,6 +25,8 @@ Agent 的完整工作流是：MasterGo MCP 总览 → DSL pipeline `Init/Write/M
 
 可见性脚本的输出是 AI 映射的事实输入，不是最终页面文件。AI 仍需结合原始 DSL、visibility audit、正式组件映射和目标运行时资料生成 mapping；mapping 再由 Bundle 生成 XML、Icon、Layout 和宿主文件。
 
+没有目标项目时也生成完整项目脚手架：`.csproj`、`framework.config.json`、WPF 宿主、页面 XML、Icon 资源容器、Layout 壳层、mapping/provenance 和待配置清单都必须存在；只跳过编译、WPF 加载和真实运行时验证。脚手架与正式项目使用同一套页面生成结构。
+
 ## Claude Code 安装
 
 从仓库根目录通过 Claude Code 的本地插件或 marketplace 流程安装。插件清单位于 `.claude-plugin/plugin.json`；Claude Code 会自动发现 `skills/` 下的两个独立 Skill。
