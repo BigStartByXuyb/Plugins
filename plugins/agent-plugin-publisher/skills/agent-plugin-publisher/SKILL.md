@@ -47,7 +47,8 @@ description: 将用户明确指定的本地目录打包为团队 marketplace 中
 
 | 文件证据 | 类型 | 插件内目标位置 |
 | --- | --- | --- |
-| 带 YAML frontmatter 的 `SKILL.md` | Skill | `skills/<skill-name>/` |
+| 源目录中直接位于 `skills/<skill-name>/SKILL.md` 的文件 | 公共 Skill | `skills/<skill-name>/` |
+| 位于 `references/`、`adapters/`、`examples/`、`assets/` 或其他支撑目录下的 `SKILL.md` | 支撑指导文档 | 保留原相对位置；不得自动注册为公共 Skill |
 | `commands/*.md` | Command | `commands/` |
 | `agents/*.md` 或用户明确确认的 agent 定义 | Subagent | `agents/` |
 | `.mcp.json` 或已确认的 MCP 服务配置 | MCP | 根目录 `.mcp.json` |
@@ -58,9 +59,9 @@ description: 将用户明确指定的本地目录打包为团队 marketplace 中
 | `themes/` | 主题 | `themes/` |
 | `bin/` | 可执行文件 | `bin/` |
 | `settings.json` | 插件默认设置 | 根目录 `settings.json` |
-| `scripts/`、`assets/`、`references/`、模板及被 skill 引用的文件 | 支撑资源 | 在所属组件下保留相对归属 |
+| `scripts/`、`assets/`、`references/`、`adapters/`、`examples/`、模板及被 Skill 引用的文件 | 支撑资源 | 在所属组件下保留相对归属 |
 
-不得仅凭目录名称分类。对于含义不明或暂不支持的文件，必须单独列出并询问用户如何处理；不得静默丢弃。
+不得仅凭 YAML frontmatter 或文件名分类。只有正式 `skills/<skill-name>/SKILL.md` 路径才是公共 Skill 入口；支撑目录中的 `SKILL.md` 必须按指导文档处理，不得自动提升、移动或复制到公共 `skills/` 目录。若用户明确希望它成为独立 Skill，应先将源文件移动到正式 Skill 路径或明确确认重命名为普通 `.md`，并同步修正所有引用。对于其他含义不明或暂不支持的文件，必须单独列出并询问用户如何处理；不得静默丢弃。
 
 ## 构建候选插件
 

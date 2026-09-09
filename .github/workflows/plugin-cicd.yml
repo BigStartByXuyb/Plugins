@@ -3,8 +3,18 @@ name: Plugin CI/CD
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, review_requested]
+    paths:
+      - 'plugins/**'
+      - '.claude-plugin/**'
+      - 'docs/plugin-semantic-audit.md'
+      - '.github/workflows/plugin-cicd.yml'
   push:
     branches: [main]
+    paths:
+      - 'plugins/**'
+      - '.claude-plugin/**'
+      - 'docs/plugin-semantic-audit.md'
+      - '.github/workflows/plugin-cicd.yml'
     tags: ['v*']
   workflow_dispatch:
 
@@ -15,9 +25,9 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: BigStartByXuyb/cicd/.github/workflows/plugin-marketplace.yml@e40fc59c01ea10240359aecde5c004d7253e23f8
+    uses: BigStartByXuyb/cicd/.github/workflows/plugin-marketplace.yml@aee3b44a470025c58b08521cfe17f8c342222aa4
     with:
-      ci_ref: e40fc59c01ea10240359aecde5c004d7253e23f8
+      ci_ref: aee3b44a470025c58b08521cfe17f8c342222aa4
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
