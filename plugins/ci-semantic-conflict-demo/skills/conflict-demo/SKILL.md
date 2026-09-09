@@ -6,6 +6,7 @@ description: 仅用于验证 CI 语义冲突审计的测试 Skill。
 # Semantic Conflict Demo
 
 <!-- Trigger a rerun against the Chinese semantic-audit contract. -->
+<!-- Trigger rerun against the structured JSON parser fix. -->
 
 ## 输出契约
 
