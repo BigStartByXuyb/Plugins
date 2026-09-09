@@ -188,8 +188,6 @@ AI 必须同时读取原始 DSL、`visibility.json` 和正式组件映射，按�
 - `audit-mtslg-feishu-map.js`：组件映射文档或模板 JSON 修改后运行，用于检查文档覆盖，不是页面生成步骤。
 - `cap-window.ps1` / `cap-window2.ps1`：运行时宿主加载成功后做视觉截图验证；不能替代 XML/provenance 校验。
 - `sync-to-mt.ps1`：静态 XML、来源、坐标、键和运行时加载验证完成，并且用户要求部署到运行目录后运行；不能作为生成步骤自动调用。
-- `convert-to-responsive.js`：只有用户明确要求响应式 HTML 时运行；不属于 IOContorl/WPF 主链路。
-
 主 Bundle 的固定调用顺序是：模板解析 → XML 生成 → provenance/坐标校验 → Icon discovery/生成 → Layout → WPF 宿主 → 最终校验。辅助脚本不得被误认为已自动包含在 Bundle 中。
 
 ## 交付和验证
