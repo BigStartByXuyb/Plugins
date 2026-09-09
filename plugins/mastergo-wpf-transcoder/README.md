@@ -16,6 +16,8 @@
 ```powershell
 node skills/mastergo-to-wpf/scripts/check-iocontrol-coords.test.js
 node skills/mastergo-to-wpf/scripts/validate-iocontrol-provenance.test.js
+node skills/mastergo-to-wpf/scripts/gen-mtslg-mapping-from-dsl.test.js
+node skills/mastergo-to-wpf/scripts/gen-mastergo-page-bundle.test.js
 ```
 
 Skill 中包含项目专用的 MW/MTSLG 规则。分享给其他团队前，请先检查参考资料，并根据实际项目调整路径和运行时集成方式。

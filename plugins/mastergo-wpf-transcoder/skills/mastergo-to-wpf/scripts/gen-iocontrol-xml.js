@@ -6,7 +6,7 @@
  *   --fresh               从映射 JSON 全新渲染页面 XML
  *   --merge <现有XML>     按 merge 语义更新现有页面（当前主路径）
  *
- * 映射 JSON 输入格式（由 LLM 从 MasterGo section DSL 逐节点建立，bbox 值机械抄录）：
+ * 映射 JSON 输入格式（由 LLM 从 MasterGo 完整 DSL 逐节点建立，bbox 值机械抄录）：
  * {
  *   "comment": "页面中文名（可选，写进 xml 声明后的注释）",
  *   "nodes": [
@@ -16,7 +16,7 @@
  *       "sourceText": "DSL 原文（TextBlock 必填）",
  *       "valueSource": "dsl.text（TextBlock 必须为此值）",
  *       "id": "XML ID 属性值（可选；省略则节点不带 ID）",
- *       "controlType": "IconButton | GroupBox | ...（可选；缺省=无 ControlType 布局容器）",
+ *       "controlType": "IconButton | GroupBox | ...（必填；页面根 IOContorl 不在 nodes 中）",
  *       "parent": null | "某节点 ref"（null = 页面根 IOContorl 的直接子级）",
  *       "absX": 10, "absY": 35,          // 页面绝对 bbox（double）
  *       "w": 160, "h": 150,              // 可省略（无宽高）；NaN 原样输出
@@ -44,6 +44,7 @@
 'use strict';
 
 const fs = require('fs');
+const { validateTextAudit } = require('./validate-iocontrol-provenance');
 
 // ---------- 参数 ----------
 function usage() {
@@ -76,10 +77,22 @@ function validateFreshMapping() {
     throw new Error('映射门禁失败: 缺少 sourceNodes，不能证明映射来自真实 DSL');
   }
   const sourceMap = new Map(mapping.sourceNodes.map(n => [n.ref, n]));
+  const textAuditErrors = validateTextAudit(mapping, nodes);
+  if (textAuditErrors.length > 0) {
+    throw new Error('文本可见性闭环失败: ' + textAuditErrors.join('; '));
+  }
   const seenRefs = new Set();
+  const seenXmlIds = new Set();
   for (const n of nodes) {
     if (!n.ref || seenRefs.has(n.ref)) throw new Error('映射门禁失败: 每个节点必须有唯一 ref: ' + (n.ref || '(missing)'));
     seenRefs.add(n.ref);
+    const xmlId = n.xmlId !== undefined ? n.xmlId : n.id;
+    if (xmlId !== undefined && xmlId !== null && xmlId !== '') {
+      if (seenXmlIds.has(xmlId)) {
+        throw new Error('映射门禁失败: XML ID 必须唯一: ' + xmlId);
+      }
+      seenXmlIds.add(xmlId);
+    }
     if (!sourceMap.has(n.sourceRef || n.ref)) {
       throw new Error('映射门禁失败: ' + n.ref + ' 没有对应 sourceNodes 记录');
     }
@@ -104,6 +117,9 @@ function validateFreshMapping() {
       throw new Error('映射门禁失败: ' + n.ref + ' 缺少 Width/Height bbox，禁止猜尺寸');
     }
     const type = n.controlType || (n.attrs && n.attrs.ControlType);
+    if (typeof type !== 'string' || !type.trim()) {
+      throw new Error('映射门禁失败: ' + n.ref + ' 缺少 ControlType；MTSLG 页面根节点之外禁止生成无类型布局容器');
+    }
     if (type === 'TextBlock') {
       if (typeof n.sourceRef !== 'string' || !n.sourceRef) {
         throw new Error('映射门禁失败: TextBlock ' + n.ref + ' 缺少 sourceRef');
@@ -142,6 +158,11 @@ function normalizedY(y) {
   return Number(y) - contentOriginY;
 }
 
+function outputHeight(node) {
+  const type = node.controlType || (node.attrs && node.attrs.ControlType);
+  return type === 'TextBlock' ? 40 : node.h;
+}
+
 // 属性渲染顺序：对齐 HomeContentPage.xml 惯例（业务属性在前、几何在后）
 const ATTR_ORDER = [
   'ID', 'ControlType', 'Style', 'Icon', 'LangName', 'PageName', 'TopLeftContent', 'Value',
@@ -156,7 +177,7 @@ const ATTR_ORDER = [
 const GEOM_ATTRS = ['Left', 'Top', 'Width', 'Height'];
 
 function orderedEntries(attrMap) {
-  const entries = Object.entries(attrMap).filter(([, v]) => v !== null && v !== undefined && v !== '');
+  const entries = Object.entries(attrMap).filter(([, v]) => v !== null && v !== undefined);
   entries.sort((a, b) => {
     const ia = ATTR_ORDER.indexOf(a[0]);
     const ib = ATTR_ORDER.indexOf(b[0]);
@@ -218,7 +239,7 @@ function renderFresh() {
     attrMap.Left = fmtNum(node.absX - parentAbsX);
     attrMap.Top = fmtNum(normalizedY(node.absY) - parentAbsY);
     if (node.w !== undefined && node.w !== null) attrMap.Width = fmtNum(node.w);
-    if (node.h !== undefined && node.h !== null) attrMap.Height = fmtNum(node.h);
+    if (outputHeight(node) !== undefined && outputHeight(node) !== null) attrMap.Height = fmtNum(outputHeight(node));
 
     const kids = childMap.get(node.ref) || [];
     if (node.comment) lines.push(`${indent}<!-- ${node.comment} -->`);
@@ -293,6 +314,22 @@ function mergeMode() {
   const existingText = fs.readFileSync(existingPath, 'utf8');
   const { tokens, openClose } = parseXmlText(existingText);
 
+  const invalidUntyped = [];
+  let rootSeen = false;
+  tokens.forEach((token) => {
+    if (token.type !== 'tag' || token.isClose || token.name !== 'IOContorl') return;
+    if (!rootSeen) {
+      rootSeen = true;
+      return;
+    }
+    if (!token.attrMap.ControlType) {
+      invalidUntyped.push(token.attrMap.ID || '(无 ID)');
+    }
+  });
+  if (invalidUntyped.length > 0) {
+    throw new Error('现有 IOContorl 页面包含无 ControlType 的非根节点，禁止继续生成: ' + invalidUntyped.join(', '));
+  }
+
   const report = { conflicts: [], added: [], updated: [], newNodes: [], unmapped: [] };
   const matchedOpenIdx = new Set();
 
@@ -318,6 +355,10 @@ function mergeMode() {
 
   const rendered = new Map(); // ref -> {n, attrMap, tokenIdx, matchKind}
   for (const n of nodes) {
+    const type = n.controlType || (n.attrs && n.attrs.ControlType);
+    if (typeof type !== 'string' || !type.trim()) {
+      throw new Error('映射门禁失败: ' + n.ref + ' 缺少 ControlType；MTSLG 页面根节点之外禁止生成无类型布局容器');
+    }
     const pa = resolveParentAbs(n);
     const attrMap = Object.assign({}, n.attrs || {});
     if (n.id) attrMap.ID = n.id;
@@ -325,7 +366,7 @@ function mergeMode() {
     attrMap.Left = fmtNum(n.absX - pa.x);
     attrMap.Top = fmtNum(normalizedY(n.absY) - pa.y);
     if (n.w !== undefined && n.w !== null) attrMap.Width = fmtNum(n.w);
-    if (n.h !== undefined && n.h !== null) attrMap.Height = fmtNum(n.h);
+    if (outputHeight(n) !== undefined && outputHeight(n) !== null) attrMap.Height = fmtNum(outputHeight(n));
     rendered.set(n.ref, { n, attrMap, tokenIdx: null, matchKind: null });
   }
 
@@ -432,7 +473,7 @@ function mergeMode() {
       am.Left = fmtNum(node.absX - pa2.x);
       am.Top = fmtNum(normalizedY(node.absY) - pa2.y);
       if (node.w !== undefined && node.w !== null) am.Width = fmtNum(node.w);
-      if (node.h !== undefined && node.h !== null) am.Height = fmtNum(node.h);
+      if (outputHeight(node) !== undefined && outputHeight(node) !== null) am.Height = fmtNum(outputHeight(node));
       const kk = nodes.filter(x => (x.parent || null) === node.ref);
       const ind = '    '.repeat(d);
       const parts = [];

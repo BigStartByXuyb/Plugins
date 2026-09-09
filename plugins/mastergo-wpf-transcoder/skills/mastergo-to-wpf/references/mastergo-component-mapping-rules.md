@@ -7,7 +7,7 @@
 - 先识别正式组件实例、父节点语义、公开变量属性和真实变量值；不能凭截图、Group 名称或外观猜测。
 - 组件集 ID、实例 ID 和图层 ID 用于追踪；唯一代码分支必须由已登记的组件语义和变体命中。
 - 固定模板决定控件类型、节点数量、父子关系和槽位顺序；MasterGo 实际提供的文本、图标、状态、尺寸和业务字段填入可变字段。
-- 命中失败时标记“未登记/待确认”，暂停最终生成并询问新增、修改、近似替代或静态保留。
+- 命中失败时隔离该组件并标记“未登记/待确认”，保留其 DSL 来源、坐标和 provenance；其他已唯一命中的组件可以继续生成，但包含未映射组件的产物不得宣称完整可运行。是否新增映射、修改正式映射或仅静态保留，由用户后续确认。
 
 ## 目标适配器
 
@@ -41,16 +41,16 @@
 
 ### TextBlock 高度
 
-`TextBlock` 的高度是布局边界，不是字号：
+`TextBlock` 的高度是固定布局边界，不是字号：
 
 ```text
-优先级 1：文本节点自身 bbox.W / bbox.H
-优先级 2：组件内部对应文本子节点 bbox.W / bbox.H
-优先级 3：父容器约束（仅在没有文本 bbox 时）
-优先级 4：框架默认高度（必须标记 heightFallback）
+MTSLG TextBlock Height = 40
+FontSize 独立取对应 MasterGo DSL 字体事实
+文本 bbox、外层组件高度和行高不得改写 TextBlock Height
+输入框/选择框等非 TextBlock 控件按正式变体模板取自身 Height
 ```
 
-`FontSize`、`LineHeight` 和文本内容不能反推出控件 Height。IOContorl XML 的 `Height`、WPF `Height`/布局行高都必须遵守上述优先级。
+`FontSize`、`LineHeight` 和文本内容不能反推出控件 Height。MTSLG IOContorl `TextBlock` 的 Height 必须固定为 `40`；WPF 的 Height/布局行高仍由对应 WPF 容器和项目事实决定。
 
 ### 顶部示例标题
 

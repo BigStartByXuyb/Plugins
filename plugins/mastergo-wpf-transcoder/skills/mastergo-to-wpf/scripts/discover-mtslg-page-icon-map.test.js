@@ -19,8 +19,8 @@ fs.writeFileSync(svgFile, JSON.stringify({ svgs: [
   { id: "page/known", name: "向上", svg: "<svg><path d=\"M1,1 L2,2\"/></svg>" }
 ] }), "utf8");
 fs.writeFileSync(mappingFile, JSON.stringify({ sourceNodes: [
-  { ref: "shell/top/path", type: "PATH", name: "路径", svgName: "顶部状态栏", sectionIndex: 1 },
-  { ref: "page/known/path", type: "PATH", name: "多边形", svgName: "向上", sectionIndex: 2 }
+  { ref: "shell/top/path", type: "PATH", name: "路径", svgName: "顶部状态栏" },
+  { ref: "page/known/path", type: "PATH", name: "多边形", svgName: "向上" }
 ] }), "utf8");
 fs.writeFileSync(confirmedFile, JSON.stringify({ icons: [
   { sourceId: "page/known", name: "UpGeometry", comment: "向上", sourceRef: "page/known/path" }
@@ -34,8 +34,9 @@ assert.strictEqual(output.candidates.length, 2);
 const shell = output.candidates.find((candidate) => candidate.sourceId === "shell/top");
 assert.ok(shell);
 assert.strictEqual(shell.status, "unmapped");
-assert.strictEqual(shell.reason, "missing-approved-resource-name");
+assert.strictEqual(shell.reason, "missing-page-resource-name");
 assert.strictEqual(shell.sourceRef, "shell/top/path");
+assert.ok(!Object.prototype.hasOwnProperty.call(shell, "sectionIndex"));
 assert.ok(!Object.prototype.hasOwnProperty.call(shell, "name"));
 const known = output.candidates.find((candidate) => candidate.sourceId === "page/known");
 assert.strictEqual(known.status, "confirmed");

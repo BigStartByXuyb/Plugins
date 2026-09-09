@@ -19,7 +19,9 @@ function extractDocumentedRules(markdown) {
     selectionInfoTemplates: ["单选-选中/未选择", "多选-选中/未选中"],
     selectionTemplates: ["单选-选中/未选择", "多选-选中/未选择"],
     infoGroupTemplates: ["信息分组-模块化"],
-    mainMenuTemplates: ["主菜单"],
+    // The mapping document names this component set "主菜单button" and
+    // "主菜单button-文字".  Do not invent a separate "主菜单" variant.
+    mainMenuTemplates: ["主菜单button", "主菜单button-文字"],
     tableTemplates: ["Table"],
     textTemplates: ["独立文本"]
   };
@@ -33,7 +35,10 @@ function extractDocumentedRules(markdown) {
   const operationHeadings = markdown.match(/^### 固定模板：属性 1=([^\r\n]+)/gm) || [];
   for (const heading of operationHeadings) {
     const variants = heading.replace(/^### 固定模板：属性 1=/, "").trim();
-    families.componentTemplates.push(...splitVariants(variants));
+    const values = splitVariants(variants);
+    // Main-menu variants belong to mainMenuTemplates, not the generic
+    // componentTemplates family.
+    families.componentTemplates.push(...values.filter(value => !["主菜单button", "主菜单button-文字"].includes(value)));
   }
 
   const uniqueFamilies = {};

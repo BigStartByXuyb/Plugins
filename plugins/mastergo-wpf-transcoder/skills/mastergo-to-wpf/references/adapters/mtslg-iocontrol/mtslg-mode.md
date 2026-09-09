@@ -30,7 +30,7 @@
 - 新建 Layout 时，未从目标项目或 MasterGo 确认的 `PageName`、`IOEnable`、`UserRightId`、运行时 Target 关联等字段不得猜写；缺少这些字段不阻塞静态页面和 Layout 模板生成，但必须在交付清单中标记运行时待确认。
 - 不得从其他项目复制 Layout 结构、菜单字段、页面 Target 或运行时键。
 
-页面和图标的正式输出路径也必须先完成项目适配：有效配置优先，其次读取目标 `.csproj` 的页面、图标和 Layout 声明。`Generated/` 只用于 provenance、manifest 和验证产物；项目文件已经给出唯一路径时，不能把页面 XML、页面 Icon 或 Layout 写到 `Generated/` 代替运行目录。Icon 映射必须提供英文资源名和中文注释名；XAML 注释只写中文名称，重复资源名由生成器按稳定数字后缀解析，禁止使用图层 ID 拼接 `MGIcon_*` 键。
+页面和图标的正式输出路径必须由项目脚手架或真实目标项目确认：有效配置优先，其次读取目标 `.csproj` 的页面、图标和 Layout 声明。没有目标项目时先创建完整脚手架及其声明路径，再把页面 XML、页面 Icon 和 Layout 写入脚手架的正式目录；`Generated/` 只用于 provenance、manifest 和验证产物。脚手架阶段不编译、不加载运行时程序集。Icon 映射必须提供目标项目已确认或页面内唯一的英文资源名和中文注释名；XAML 注释只写中文名称，重复资源名由生成器按稳定数字后缀解析，禁止使用图层 ID 拼接 `MGIcon_*` 键。
 
 ## 2. 页面文件骨架
 
@@ -59,15 +59,15 @@
 - **先识别公共栏，再归一**：从宿主页面、Layout 配置和运行截图建立 `ContentRect`。顶部/底部公共栏默认由宿主负责、页面不生成；左右区域必须按目标框架职责逐侧判断，不能把左右节点一律当公共栏或一律当页面内容。
 - **页面坐标不是完整窗口坐标**：根级保留业务节点统一计算 `PageX = MasterGoX − contentOriginX`、`PageY = MasterGoY − 192`。业务页面固定使用 `contentOriginY=192`，公共栏和 `design-artifact-title` 的偏移只能在根级归一化时扣除一次，嵌套控件不重复扣除。不得按单个控件手调偏移。
 - **公共栏节点不重复生成**：顶部/底部公共背景、标题栏、状态栏、底部快捷键区和宿主已有控件必须在映射表标记“框架负责、页面不生成”；页面标题只有在 MasterGo 业务区确有独立标题节点且宿主不提供时才生成。
-- **组件文本高度与字号分开处理**：由组件实例映射出的 `TextBlock`（标签、数值、单位）`Height` 必须取对应外层组件实例的实际高度；不得使用内部文字 bbox 或 `FontSize` 替代组件高度。`FontSize` 从该实例 MasterGo DSL 的字体属性读取并写入。只有独立、非组件映射文本才按自身 bbox 取高度；无 bbox 时使用目标项目已确认默认值，并记录 `heightFallback=true`。
+- **组件文本高度与字号分开处理**：所有 MTSLG `TextBlock`（标签、数值、单位和独立文本）的 `Height` 固定为 `40`；不得使用外层组件高度、内部文字 bbox、独立文本 bbox 或 `FontSize` 改写该值。`FontSize` 仍从对应 MasterGo DSL 的字体属性读取并写入。输入框、选择框等非 TextBlock 控件按正式变体模板取自身高度。
 - **文本来源与 `Value` 硬门禁**：每个 `TextBlock` 的 `Value` 必须回溯到唯一 MasterGo `layerId`/DSL `ref` 及其真实文本节点；不得依据 XML `ID`、控件名称、坐标方向、页面语义或相邻实例推断文本。生成前必须逐项核对“XML 节点 → layerId/ref → 父节点链 → 原始文本 → Value”；不一致即停止生成并标记待确认。
 - **设计稿最上方示例标题默认剥离**：位于根节点或展示外壳、仅用于说明组件或工件示教的标题标记为 `design-artifact-title`，不写入页面 XML。业务内容容器内部且运行时需要的标题才保留。
 - **设计稿像素直传（归一后）**：`Left = pageAbsX − parentPageAbsX`，`Top = pageAbsY − parentPageAbsY`，Width/Height 原样。目标画布尺寸必须与第 1 节适配记录一致；不允许从固定分辨率、截图缩放或其他页面推断。
 - 允许小数与负数；`NaN` 表示自适应（根节点四属性均为 `NaN`；叶子无宽高时省略属性）。具体数值必须来自当前实例的 MasterGo bbox。
 - 子控件坐标相对**父容器左上角**；父容器与子控件的坐标关系必须由唯一 MasterGo 父子链和 bbox 计算。
-- 当根组件 `rootContainer.overflow` 为 `hidden` 时，必须保留外层布局容器及其 `Width/Height` 裁剪边界，内部子控件继续使用相对父容器坐标；该规则优先于模板中“平级节点”的展开形式。只有无裁剪需求时才允许展开为同级节点，且必须保留等价裁剪边界。
+- 当完整 DSL 的根节点或对应容器节点的 `overflow` 属性为 `hidden` 时，必须保留外层布局容器及其 `Width/Height` 裁剪边界，内部子控件继续使用相对父容器坐标。该规则优先于模板中“平级节点”的展开形式。只有 DSL 明确没有裁剪需求时才允许展开为同级节点，且必须保留等价裁剪边界。
 - 无 Viewbox、无缩放、无星号数学、无"三类固定不缩放"——`gen-iocontrol-xml.js` 全自动完成，禁止手工重写坐标。
-- 取数后先核对 `rootMetadata` 与已确认目标画布尺寸一致；不一致时先与用户确认页面区域，不能继续生成。
+- 取数后先核对完整 DSL 根节点 `dsl.nodes[0].layoutStyle.width/height` 与已确认目标画布尺寸一致。不一致或根节点尺寸缺失时先与用户确认页面区域，不能继续生成。
 
 ## 4. ControlType 摘要（完整表见 mtslg-iocontrol-map.json）
 
@@ -130,7 +130,7 @@
 
 ### 7.0 最终交付门禁
 
-用户要求项目部署、运行时重载或可运行页面时，目标是最终可运行页面，不是临时稿或“先能显示再补组件”的中间结果。用户只要求独立结构映射 XML 时，可以没有目标项目，但必须先完成正式组件映射，并按映射生成真实控件结构；不能因为运行时配置缺失而退化为无类型容器。
+用户要求项目部署、运行时重载或可运行页面时，目标是完整的 IOContorl 项目交付，不是临时稿或“先能显示再补组件”的中间结果。用户只要求独立结构映射 XML 时，也使用同一条正式映射链；没有目标项目则先创建完整 IOContorl 项目脚手架，再按映射生成真实控件结构。有真实目标项目时，页面 XML、Icon、Layout、项目配置、mapping/provenance 和目标项目要求的宿主壳共同完成正式接入；不能因为运行时配置缺失而退化为无类型容器。
 
 - “按钮”“相机”“下拉框”“输入框”“容器”等名称只能作为线索；必须结合组件实例、变体、父子布局、位置和目标项目先例选择 `IconButton`、`Camera`、`ComboBox`、`NumberBox`、`GroupBox` 等真实组件。
 - 组件库没有明确匹配项时，保留该组件的真实 DSL 来源、坐标和 provenance，并在待绑定清单中标记“正式组件映射缺失”；不得用图片、SVG 背景、普通 `Button`、空 `Border` 或自绘结构替代。其他已映射组件继续生成。
@@ -138,10 +138,10 @@
 
 ### 7.1 公共前置
 
-1. 确认模式：项目运行时交付时读取目标项目提供的适配配置；独立结构映射稿可由用户明确的 IOContorl 输出目标选择 `mtslg-iocontrol`，不因缺少配置而改变正式组件映射。
-2. 取数：MasterGo 链接 → `getDesignSections` 总览（核对 `rootMetadata` 与适配记录的画布尺寸一致）→ 逐个拉取全部 section DSL。
+1. 确认模式：项目运行时交付时读取目标项目提供的适配配置；独立结构映射稿由用户明确的 IOContorl 输出目标选择 `mtslg-iocontrol`，没有目标项目时创建 `mtslg-iocontrol` 脚手架，不因缺少配置而改变正式组件映射。
+2. 取数：MasterGo 链接 → `getDsl(fileId, layerId, format=json)` 一次读取完整页面 DSL；以 `dsl.nodes[0]` 作为根节点，核对其 `layoutStyle.width/height` 与适配记录的画布尺寸一致。不得拆分请求或用局部响应拼接页面。
 3. 首次（或键有变动时）运行 `scan-mtslg-keys.ps1` 生成/刷新 `docs/mtslg-keys.json`。
-4. **建立公共栏边界表**：记录顶部/底部公共 section、左右区域职责、`ContentOriginX/Y`、内容区尺寸，以及每个被剥离节点的 section/node id；未完成前不得写 XML。
+4. **建立公共栏边界表**：记录顶部/底部公共区域、左右区域职责、`ContentOriginX/Y`、内容区尺寸，以及每个被剥离节点的 node id；未完成前不得写 XML。
 5. 如果目标项目存在多份样式/主题资源库，先按 `references/style-library-profiles.md` 确认 Profile ID、版本和加载优先级；结构映射稿只能写入已有映射表或已提供本地资源库中可核验的 Style/Icon，未确认的运行时键写入注释或 manifest，不得伪造。
 
 ### 7.2 路径 A：修改现有页面（当前主路径）
@@ -183,7 +183,7 @@
 - **首次项目验证项**：确认客户区尺寸与缩放、页面重载的焦点与时机、同名页面文件的加载优先级；结果写入项目适配记录，不回填为本手册规则。
 - 版本控制：改动前备份；提交、合并和推送由用户确认后执行。
 - 如果存在重复部署副本，必须由适配配置和运行宿主确认唯一生效目录。
-- 布局分组（无控件语义的 Group）：可以在 mapping manifest 中保留原始层级，但最终可加载的 IOContorl XML 不得输出运行时不识别的无 `ControlType` 容器；应展平到最近有效父容器并重算子坐标，或使用映射表中已确认的容器 ControlType。根组件 `rootContainer.overflow=hidden` 时必须保留等价外层裁剪边界。
+- 布局分组（无控件语义的 Group）：可以在 mapping manifest 中保留原始层级，但最终可加载的 IOContorl XML 不得输出运行时不识别的无 `ControlType` 容器；应展平到最近有效父容器并重算子坐标，或使用映射表中已确认的容器 ControlType。完整 DSL 的对应根节点/容器节点 `overflow=hidden` 时必须保留等价外层裁剪边界。
 - 新产出不得新增缺少必需语言翻译或未通过键查证的 LangName。
 
 ## 10. 脚本索引（scripts/）
@@ -201,4 +201,3 @@
 | `cap-window.ps1` / `cap-window2.ps1` | 截图验证（运行宿主与输出路径由适配记录提供） | 双模式共用 |
 | `discover-mtslg-page-icon-map.js` | 从当前页面 mapping 的真实 PATH/SVG 发现候选，保留已确认资源键并输出 `candidates/unmapped` 审计 | 双模式共用 |
 | `gen-mtslg-page-icons.js` | 从发现结果和逐项确认的图标映射生成当前页面 Icon 文件；未确认候选不发射 | 双模式共用 |
-| `convert-to-responsive.js` | 响应式 HTML（可选产出） | 双模式共用 |

@@ -22,7 +22,7 @@ fs.writeFileSync(manifestPath, JSON.stringify({
   codeBehindPath: 'UI/F2-Teach/View/F2NewOperationView.xaml.cs',
   viewModelPath: 'UI/F2-Teach/ViewModel/F2NewOperationViewModel.cs',
   includeIcon: true,
-  iconPath: 'Resources/Icons/F2NewOperationIcon.xaml',
+  iconPath: 'Resources/Icons/F2NewOperationIcons.xaml',
   pageXmlPath: 'Common/Pages/F2NewOperationPage.xml'
 }, null, 2), 'utf8');
 
@@ -38,7 +38,7 @@ assert.ok(fs.existsSync(viewModelPath));
 
 const view = fs.readFileSync(viewPath, 'utf8');
 assert.match(view, /x:Class="Demo\.Pages\.F2_Teach\.View\.F2NewOperationView"/);
-assert.match(view, /Resources\/Icons\/F2NewOperationIcon\.xaml/);
+assert.match(view, /Resources\/Icons\/F2NewOperationIcons\.xaml/);
 assert.match(view, /XmlPagePath="F2NewOperationPage"/);
 assert.match(fs.readFileSync(codeBehindPath, 'utf8'), /partial class F2NewOperationView : UserControl/);
 assert.match(fs.readFileSync(viewModelPath, 'utf8'), /class F2NewOperationViewModel : IOScreen, IPage/);
@@ -48,7 +48,7 @@ let csproj = fs.readFileSync(csprojPath, 'utf8');
 assert.match(csproj, /<Compile Include="UI\\F2-Teach\\View\\F2NewOperationView\.xaml\.cs"\s*\/>/);
 assert.match(csproj, /<Compile Include="UI\\F2-Teach\\ViewModel\\F2NewOperationViewModel\.cs"\s*\/>/);
 assert.match(csproj, /<Page Include="UI\\F2-Teach\\View\\F2NewOperationView\.xaml">/);
-assert.match(csproj, /<Page Include="Resources\\Icons\\F2NewOperationIcon\.xaml">/);
+assert.match(csproj, /<Page Include="Resources\\Icons\\F2NewOperationIcons\.xaml">/);
 assert.match(csproj, /<Content Include="Common\\Pages\\F2NewOperationPage\.xml"\s*\/>/);
 
 result = spawnSync(process.execPath, [script, '--manifest', manifestPath], { encoding: 'utf8' });
@@ -72,6 +72,19 @@ const noIconViewPath = path.join(projectRoot, 'UI', 'F1-AutoCut', 'View', 'NoIco
 assert.doesNotMatch(fs.readFileSync(noIconViewPath, 'utf8'), /UserControl\.Resources|ResourceDictionary/);
 assert.doesNotMatch(fs.readFileSync(csprojPath, 'utf8'), /NoIconPageIcon\.xaml/);
 
+fs.writeFileSync(manifestPath, JSON.stringify({
+  projectRoot,
+  csproj: 'Demo.Pages.csproj',
+  area: 'F2-Teach',
+  pageName: 'F2NewOperation',
+  operation: 'modify-existing',
+  viewPath: 'UI/F2-Teach/View/F2NewOperationView.xaml',
+  codeBehindPath: 'UI/F2-Teach/View/F2NewOperationView.xaml.cs',
+  viewModelPath: 'UI/F2-Teach/ViewModel/F2NewOperationViewModel.cs',
+  includeIcon: true,
+  iconPath: 'Resources/Icons/F2NewOperationIcons.xaml',
+  pageXmlPath: 'Common/Pages/F2NewOperationPage.xml'
+}, null, 2), 'utf8');
 result = spawnSync(process.execPath, [script, '--manifest', manifestPath, '--overwrite'], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);
 assert.match(result.stdout, /\.bak-/);

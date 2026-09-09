@@ -11,8 +11,8 @@ const script = path.join(__dirname, "gen-mastergo-page-bundle.js");
 const scriptText = fs.readFileSync(script, "utf8");
 assert.match(
   scriptText,
-  /run\(LAYOUT_SCRIPT,\s*\["--manifest",\s*layoutInput\]\.concat\(args\.overwrite \? \["--overwrite"\] : \[\]\)\)/,
-  "bundle --overwrite 必须传给 Layout 生成器"
+  /run\(LAYOUT_SCRIPT,\s*\["--manifest",\s*layoutInput\]/,
+  "Bundle 必须通过 Layout 生成器做增量注册"
 );
 assert.match(scriptText, /run\(ICON_DISCOVERY_SCRIPT,/, "bundle 必须先执行页面 Icon 候选发现");
 assert.match(scriptText, /PathGeometry\|GeometryGroup.*MatrixTransform|MatrixTransform.*PathGeometry\|GeometryGroup/, "bundle 必须拒绝旧式 Icon 几何结构");
@@ -34,19 +34,60 @@ fs.writeFileSync(csproj, [
 
 const mapping = path.join(root, "mapping.json");
 fs.writeFileSync(mapping, JSON.stringify({
-  rootRef: "title",
+  rootRef: "body-text",
   sourceNodes: [{
-    ref: "title", parentRef: null, pageAbsX: 100, pageAbsY: 292,
+    ref: "body-text", parentRef: null, pageAbsX: 100, pageAbsY: 292,
     relativeX: 100, relativeY: 292, width: 80, height: 20, text: "测试页面"
   }],
   nodes: [{
-    ref: "title", xmlId: "title", id: "title", sourceRef: "title",
+    ref: "body-text", xmlId: "body-text", id: "body-text", sourceRef: "body-text",
     sourceParent: null, sourceText: "测试页面", valueSource: "dsl.text",
-    controlType: "TextBlock", absX: 100, absY: 292, w: 80, h: 20,
-    expectedLeft: 100, expectedTop: 100, expectedWidth: 80, expectedHeight: 20,
-    attrs: { Value: "测试页面" }
+    controlType: "TextBlock", absX: 100, absY: 292, w: 80, h: 40,
+    expectedLeft: 100, expectedTop: 100, expectedWidth: 80, expectedHeight: 40,
+    heightSource: "mtslg.textblock.fixed-40",
+    attrs: { Value: "测试页面", IOName: "" }
   }]
 }, null, 2), "utf8");
+
+const dslSnapshot = path.join(root, "dsl.snapshot.json");
+fs.writeFileSync(dslSnapshot, JSON.stringify({
+  schemaVersion: "mastergo-dsl-capture/1",
+  fileId: "test-file",
+  layerId: "body-text",
+  pageName: "mapping-test",
+  ui: "test",
+  dsl: {
+    styles: {},
+    nodes: [{
+      type: "INSTANCE",
+      id: "body-text",
+      name: "界面内操作组",
+      layoutStyle: { width: 342, height: 60, relativeX: 0, relativeY: 0 },
+      componentInfo: { properties: { "属性 1": "加减快捷键-无标题" } },
+      children: [{
+        type: "INSTANCE",
+        id: "body-text/inner",
+        name: "加减快捷键-无标题",
+        layoutStyle: { width: 342, height: 60, relativeX: 0, relativeY: 0 },
+        children: [
+          { type: "GROUP", id: "body-text/inner/plus5", name: "按钮", layoutStyle: { width: 60, height: 60, relativeX: 0, relativeY: 0 }, children: [{ type: "TEXT", id: "body-text/inner/plus5/text", name: "+5", layoutStyle: { width: 20, height: 20, relativeX: 10, relativeY: 10 }, text: [{ text: "+5" }] }] },
+          { type: "GROUP", id: "body-text/inner/minus5", name: "按钮", layoutStyle: { width: 60, height: 60, relativeX: 72, relativeY: 0 }, children: [{ type: "TEXT", id: "body-text/inner/minus5/text", name: "-5", layoutStyle: { width: 20, height: 20, relativeX: 10, relativeY: 10 }, text: [{ text: "-5" }] }] },
+          { type: "GROUP", id: "body-text/inner/plus1", name: "按钮", layoutStyle: { width: 60, height: 60, relativeX: 144, relativeY: 0 }, children: [{ type: "TEXT", id: "body-text/inner/plus1/text", name: "+1", layoutStyle: { width: 20, height: 20, relativeX: 10, relativeY: 10 }, text: [{ text: "+1" }] }] },
+          { type: "GROUP", id: "body-text/inner/minus1", name: "按钮", layoutStyle: { width: 60, height: 60, relativeX: 216, relativeY: 0 }, children: [{ type: "TEXT", id: "body-text/inner/minus1/text", name: "-1", layoutStyle: { width: 20, height: 20, relativeX: 10, relativeY: 10 }, text: [{ text: "-1" }] }] },
+          { type: "GROUP", id: "body-text/inner/value-group", name: "组 2525", layoutStyle: { width: 50, height: 48, relativeX: 0, relativeY: 0 }, children: [
+            { type: "TEXT", id: "body-text/inner/value-group/value", name: "9.0%", layoutStyle: { width: 40, height: 22, relativeX: 0, relativeY: 26 }, text: [{ text: "9.0%" }] },
+            { type: "TEXT", id: "body-text/inner/value-group/direction", name: "Dir", layoutStyle: { width: 21, height: 16, relativeX: 29, relativeY: 0 }, text: [{ text: "Dir" }] }
+          ] }
+        ]
+      }]
+    }]
+  },
+  components: [],
+  componentDocumentLinks: [],
+  rules: []
+}, null, 2), "utf8");
+const visibility = path.join(root, "visibility.json");
+fs.writeFileSync(visibility, JSON.stringify({ nodes: [] }, null, 2), "utf8");
 
 const svg = path.join(root, "extractSvg.json");
 fs.writeFileSync(svg, JSON.stringify({
@@ -69,9 +110,11 @@ fs.writeFileSync(manifest, JSON.stringify({
   pageTarget: "F2NewPage",
   pageLangName: "F2NewPageTitle",
   pageXmlPath: "Common/Pages/F2NewPagePage.xml",
-  iconPath: "Resources/Icons/F2NewPageIcon.xaml",
+  iconPath: "Resources/Icons/F2NewPageIcons.xaml",
   layoutPath: "Resources/Files/Layout.xml",
   mappingPath: mapping,
+  dslPath: dslSnapshot,
+  visibilityPath: visibility,
   svgPath: svg,
   iconMapPath: iconMap,
   menuItems: [{ name: "操作", icon: "ActionGeometry", topLeftContent: "F1", index: 1 }],
@@ -86,7 +129,7 @@ for (const relative of [
   "UI/F2-Teach/View/F2NewPageView.xaml.cs",
   "UI/F2-Teach/ViewModel/F2NewPageViewModel.cs",
   "Common/Pages/F2NewPagePage.xml",
-  "Resources/Icons/F2NewPageIcon.xaml",
+  "Resources/Icons/F2NewPageIcons.xaml",
   "Resources/Files/Layout.xml",
   "Generated/F2NewPage.mapping.json",
   "Generated/F2NewPage.icon-map.json",
@@ -94,18 +137,125 @@ for (const relative of [
 ]) {
   assert.ok(fs.existsSync(path.join(project, ...relative.split("/"))), relative);
 }
-assert.match(fs.readFileSync(path.join(project, "Resources/Icons/F2NewPageIcon.xaml"), "utf8"), /ActionGeometry/);
+assert.match(fs.readFileSync(path.join(project, "Resources/Icons/F2NewPageIcons.xaml"), "utf8"), /ActionGeometry/);
+assert.match(fs.readFileSync(path.join(project, "Common/Pages/F2NewPagePage.xml"), "utf8"), /Value="\+5"/);
+assert.doesNotMatch(fs.readFileSync(path.join(project, "Common/Pages/F2NewPagePage.xml"), "utf8"), /IOName="/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Files/Layout.xml"), "utf8"), /Index="1"/);
-assert.match(fs.readFileSync(csproj, "utf8"), /F2NewPagePage\.xml|F2NewPageIcon\.xaml/);
+assert.match(fs.readFileSync(csproj, "utf8"), /F2NewPagePage\.xml|F2NewPageIcons\.xaml/);
 const iconMapAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.icon-map.json"), "utf8"));
 assert.ok(Array.isArray(iconMapAudit.candidates));
 assert.ok(Array.isArray(iconMapAudit.unmapped));
 const bundleAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.bundle.manifest.json"), "utf8"));
+assert.strictEqual(bundleAudit.mappingTag, "新页面完整DSL映射");
 assert.deepStrictEqual(bundleAudit.layout, {
   status: "complete",
   evidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
   menuItemCount: 1
 });
+
+const emptyIconMap = path.join(root, "empty-icon-map.json");
+fs.writeFileSync(emptyIconMap, JSON.stringify({ icons: [] }, null, 2), "utf8");
+const noIconManifest = JSON.parse(fs.readFileSync(manifest, "utf8"));
+noIconManifest.pageName = "NoIconPage";
+noIconManifest.pageTarget = "NoIconPage";
+noIconManifest.pageLangName = "NoIconPageTitle";
+noIconManifest.viewPath = "UI/F2-Teach/View/NoIconPageView.xaml";
+noIconManifest.codeBehindPath = "UI/F2-Teach/View/NoIconPageView.xaml.cs";
+noIconManifest.viewModelPath = "UI/F2-Teach/ViewModel/NoIconPageViewModel.cs";
+noIconManifest.pageXmlPath = "Common/Pages/NoIconPagePage.xml";
+noIconManifest.iconPath = "Resources/Icons/NoIconPageIcons.xaml";
+noIconManifest.iconMapPath = emptyIconMap;
+noIconManifest.menuItems = [];
+noIconManifest.layoutStatus = "none";
+noIconManifest.layoutEvidence = { matchedBottomBarItems: 0, unresolvedBottomBarItems: 0 };
+const noIconManifestPath = path.join(root, "no-icon.json");
+fs.writeFileSync(noIconManifestPath, JSON.stringify(noIconManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", noIconManifestPath], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+assert.doesNotMatch(
+  fs.readFileSync(path.join(project, "Resources/Icons/NoIconPageIcons.xaml"), "utf8"),
+  /<Geometry\b/,
+  "没有实际 Icon 引用的页面允许生成空 ResourceDictionary"
+);
+
+const auditCollision = JSON.parse(JSON.stringify(noIconManifest));
+auditCollision.pageName = "AuditCollision";
+auditCollision.pageTarget = "AuditCollision";
+auditCollision.pageLangName = "AuditCollisionTitle";
+auditCollision.viewPath = "UI/F2-Teach/View/AuditCollisionView.xaml";
+auditCollision.codeBehindPath = "UI/F2-Teach/View/AuditCollisionView.xaml.cs";
+auditCollision.viewModelPath = "UI/F2-Teach/ViewModel/AuditCollisionViewModel.cs";
+auditCollision.pageXmlPath = "Common/Pages/AuditCollisionPage.xml";
+auditCollision.iconPath = "Resources/Icons/AuditCollisionIcons.xaml";
+const auditCollisionPath = path.join(root, "audit-collision.json");
+fs.mkdirSync(path.join(project, "Generated"), { recursive: true });
+fs.writeFileSync(path.join(project, "Generated/AuditCollision.mapping.json"), "{}", "utf8");
+fs.writeFileSync(auditCollisionPath, JSON.stringify(auditCollision, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", auditCollisionPath], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "已存在审计文件时不得在没有 --overwrite 的情况下覆盖");
+assert.match(result.stderr + result.stdout, /审计文件已存在|未覆盖/);
+assert.ok(!fs.existsSync(path.join(project, "Common/Pages/AuditCollisionPage.xml")));
+
+// 空项目脚手架：目标目录可以尚不存在，但必须生成完整文件结构；只做静态校验，不编译或加载 WPF。
+const scaffoldProject = path.join(root, "EmptyScaffold");
+const scaffoldManifest = path.join(root, "scaffold.json");
+fs.writeFileSync(scaffoldManifest, JSON.stringify({
+  projectRoot: scaffoldProject,
+  projectName: "EmptyScaffold",
+  scaffold: true,
+  pageName: "Scaffold",
+  area: "F2-Teach",
+  pageTarget: "ScaffoldPage",
+  pageLangName: "ScaffoldPageTitle",
+  pageXmlPath: "Common/Pages/ScaffoldPage.xml",
+  iconPath: "Resources/Icons/ScaffoldIcons.xaml",
+  layoutPath: "Resources/Files/Layout.xml",
+  mappingPath: mapping,
+  dslPath: dslSnapshot,
+  visibilityPath: visibility,
+  svgPath: svg,
+  iconMapPath: emptyIconMap,
+  menuItems: [],
+  layoutStatus: "none",
+  layoutEvidence: { matchedBottomBarItems: 0, unresolvedBottomBarItems: 0 }
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", scaffoldManifest], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+for (const relative of [
+  "EmptyScaffold.csproj",
+  "framework.config.json",
+  "UI/F2-Teach/View/ScaffoldView.xaml",
+  "UI/F2-Teach/View/ScaffoldView.xaml.cs",
+  "UI/F2-Teach/ViewModel/ScaffoldViewModel.cs",
+  "Common/Pages/ScaffoldPage.xml",
+  "Resources/Icons/ScaffoldIcons.xaml",
+  "Resources/Files/Layout.xml",
+  "Generated/Scaffold.mapping.json",
+  "Generated/Scaffold.icon-map.json",
+  "Generated/Scaffold.bundle.manifest.json"
+]) {
+  assert.ok(fs.existsSync(path.join(scaffoldProject, ...relative.split("/"))), relative);
+}
+const scaffoldConfig = JSON.parse(fs.readFileSync(path.join(scaffoldProject, "framework.config.json"), "utf8"));
+assert.strictEqual(scaffoldConfig.mode, "mtslg-iocontrol");
+assert.strictEqual(scaffoldConfig.scaffold, true);
+assert.strictEqual(scaffoldConfig.source_root, "");
+assert.strictEqual(scaffoldConfig.index_root, "");
+assert.deepStrictEqual(scaffoldConfig.resource_roots, []);
+assert.strictEqual(scaffoldConfig.key_catalog, "");
+const scaffoldAudit = JSON.parse(fs.readFileSync(
+  path.join(scaffoldProject, "Generated/Scaffold.bundle.manifest.json"), "utf8"
+));
+assert.strictEqual(scaffoldAudit.projectMode, "scaffold");
+assert.deepStrictEqual(scaffoldAudit.verification, {
+  static: "passed",
+  compile: "skipped",
+  wpfLoad: "skipped",
+  runtimeLoad: "skipped"
+});
+assert.ok(scaffoldAudit.generated.includes("EmptyScaffold.csproj"));
+assert.ok(scaffoldAudit.generated.includes("framework.config.json"));
+assert.ok(scaffoldAudit.generated.includes("UI/F2-Teach/View/ScaffoldView.xaml"));
 
 const incompleteManifest = JSON.parse(fs.readFileSync(manifest, "utf8"));
 incompleteManifest.pageName = "NoLayoutState";
@@ -114,7 +264,7 @@ incompleteManifest.viewPath = "UI/F2-Teach/View/NoLayoutStateView.xaml";
 incompleteManifest.codeBehindPath = "UI/F2-Teach/View/NoLayoutStateView.xaml.cs";
 incompleteManifest.viewModelPath = "UI/F2-Teach/ViewModel/NoLayoutStateViewModel.cs";
 incompleteManifest.pageXmlPath = "Common/Pages/NoLayoutStatePage.xml";
-incompleteManifest.iconPath = "Resources/Icons/NoLayoutStateIcon.xaml";
+incompleteManifest.iconPath = "Resources/Icons/NoLayoutStateIcons.xaml";
 incompleteManifest.menuItems = [];
 delete incompleteManifest.layoutStatus;
 delete incompleteManifest.layoutEvidence;
@@ -134,8 +284,8 @@ fs.writeFileSync(brokenManifest, JSON.stringify({
   csproj: "Broken.Pages.csproj",
   pageName: "BrokenPage",
   area: "F2-Teach",
-  pageXmlPath: "Common/Pages/BrokenPage.xml",
-  iconPath: "Resources/Icons/BrokenPageIcon.xaml",
+  pageXmlPath: "Common/Pages/BrokenPagePage.xml",
+  iconPath: "Resources/Icons/BrokenPageIcons.xaml",
   layoutPath: "Resources/Files/Layout.xml",
   mappingPath: mapping,
   svgPath: svg,
@@ -145,6 +295,7 @@ fs.writeFileSync(brokenManifest, JSON.stringify({
 }, null, 2), "utf8");
 result = spawnSync(process.execPath, [script, "--manifest", brokenManifest], { encoding: "utf8" });
 assert.notStrictEqual(result.status, 0);
+assert.match(result.stderr + result.stdout, /新建页面必须提供当前页面的 dslPath 和 visibilityPath/);
 assert.ok(!fs.existsSync(path.join(brokenProject, "Common/Pages/BrokenPage.xml")));
 assert.ok(!fs.existsSync(path.join(brokenProject, "Resources/Files/Layout.xml")));
 

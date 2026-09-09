@@ -162,8 +162,11 @@ function loadManifest(manifestPath) {
     fail("RootNamespace 无效: " + rootNamespace);
   }
 
-  const pageName = manifest.pageName;
+  const pageName = manifest.name || manifest.pageName;
   if (!isIdentifier(pageName)) fail("pageName 必须是有效 C# 标识符: " + pageName);
+  if (manifest.name && manifest.pageName && manifest.name !== manifest.pageName) {
+    fail("manifest.name 与 manifest.pageName 必须一致");
+  }
   const viewName = manifest.viewName || pageName + "View";
   const viewModelName = manifest.viewModelName || pageName + "ViewModel";
   const xmlPageName = manifest.xmlPageName || pageName + "Page";
@@ -177,9 +180,23 @@ function loadManifest(manifestPath) {
     fail("area 无效: " + manifest.area);
   }
   const namespaceArea = area.split("/").map(namespaceSegment).join(".");
+  if (manifest.operation !== "modify-existing") {
+    const expectedPaths = {
+      iconPath: "Resources/Icons/" + pageName + "Icons.xaml",
+      pageXmlPath: "Common/Pages/" + pageName + "Page.xml",
+      viewPath: "UI/" + area + "/View/" + pageName + "View.xaml",
+      codeBehindPath: "UI/" + area + "/View/" + pageName + "View.xaml.cs",
+      viewModelPath: "UI/" + area + "/ViewModel/" + pageName + "ViewModel.cs"
+    };
+    Object.keys(expectedPaths).forEach(function (field) {
+      if (manifest[field] && manifest[field].replace(/\\/g, "/") !== expectedPaths[field]) {
+        fail("新建页面的 " + field + " 必须使用约定路径: " + expectedPaths[field]);
+      }
+    });
+  }
   const includeIcon = Boolean(manifest.includeIcon || manifest.iconPath);
   const iconPath = includeIcon
-    ? safeRelativePath(manifest.iconPath || "Resources/Icons/" + pageName + "Icon.xaml", "iconPath")
+    ? safeRelativePath(manifest.iconPath || "Resources/Icons/" + pageName + "Icons.xaml", "iconPath")
     : null;
   const pageXmlPath = safeRelativePath(
     manifest.pageXmlPath || "Common/Pages/" + xmlPageName + ".xml", "pageXmlPath");
@@ -196,6 +213,7 @@ function loadManifest(manifestPath) {
   files.push({ kind: "Content", relative: pageXmlPath });
   return {
     projectRoot, csprojPath, csprojText, rootNamespace, area, namespaceArea,
+    operation: manifest.operation || "new",
     pageName, viewName, viewModelName, xmlPageName, iconPath, pageXmlPath,
     viewRelative, codeBehindRelative, viewModelRelative,
     designWidth: manifest.designWidth || 1280, designHeight: manifest.designHeight || 1024,
@@ -328,8 +346,8 @@ function main() {
     return projectPath(config.projectRoot, relative, "输出文件");
   });
   const existing = outputPaths.filter(fs.existsSync);
-  if (existing.length && !args.overwrite) {
-    fail("目标文件已存在，未覆盖: " + existing.join(", "));
+  if (existing.length && (!args.overwrite || !["modify-existing", "replace-existing"].includes(config.operation))) {
+    fail("目标文件已存在，未覆盖: " + existing.join(", ") + "；如需修改已有页面，必须显式使用 operation=replace-existing");
   }
   const backups = [];
   [...contents.entries()].forEach(function (entry) {

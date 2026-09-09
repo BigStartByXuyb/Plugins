@@ -328,9 +328,20 @@
     }
   },
   "mainMenuTemplates": {
-    "match": { "property": "component" },
+    "match": { "property": "属性 1" },
     "variants": {
-      "主菜单": { "controlType": "IconButton", "style": "MainButtonStyle", "iconPolicy": "single-path", "slots": [{ "slot": "button", "controlType": "IconButton", "style": "MainButtonStyle", "iconPolicy": "single-path", "valueSource": "dsl.text" }] }
+      "主菜单button": {
+        "controlType": "IconButton",
+        "style": "MainButtonStyle",
+        "iconPolicy": "single-path",
+        "slots": [{ "slot": "button", "controlType": "IconButton", "style": "MainButtonStyle", "iconPolicy": "single-path" }]
+      },
+      "主菜单button-文字": {
+        "controlType": "IconButton",
+        "style": "MainButtonStyle",
+        "iconPolicy": "none",
+        "slots": [{ "slot": "button", "controlType": "IconButton", "style": "MainButtonStyle", "iconPolicy": "none" }]
+      }
     }
   },
   "tableTemplates": {

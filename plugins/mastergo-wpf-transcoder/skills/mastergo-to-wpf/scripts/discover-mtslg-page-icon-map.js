@@ -85,9 +85,8 @@ function main() {
       sourceRef: node.ref,
       svgName: node.svgName || (svg && svg.name) || null,
       nodeName: node.name || null,
-      sectionIndex: node.sectionIndex === undefined ? null : node.sectionIndex,
-      status: confirmedIcon ? "confirmed" : "unmapped",
-      reason: confirmedIcon ? "confirmed-page-map" : (svg ? "missing-approved-resource-name" : "no-exact-extractSvg-entry")
+      status: confirmedIcon ? (confirmedIcon.status === "provisional" ? "provisional" : "confirmed") : "unmapped",
+      reason: confirmedIcon ? (confirmedIcon.status === "provisional" ? "provisional-page-map" : "confirmed-page-map") : (svg ? "missing-page-resource-name" : "no-exact-extractSvg-entry")
     };
     if (confirmedIcon) {
       candidate.name = confirmedIcon.name;

@@ -16,9 +16,11 @@ const LAYOUT_SCRIPT = path.join(SCRIPT_DIR, "gen-mtslg-layout.js");
 const HOST_SCRIPT = path.join(SCRIPT_DIR, "gen-mw-wpf-page.js");
 const PROVENANCE_SCRIPT = path.join(SCRIPT_DIR, "validate-iocontrol-provenance.js");
 const COORDS_SCRIPT = path.join(SCRIPT_DIR, "check-iocontrol-coords.js");
+const MAPPING_SCRIPT = path.join(SCRIPT_DIR, "gen-mtslg-mapping-from-dsl.js");
 const TEMPLATE_RESOLVER_SCRIPT = path.join(SCRIPT_DIR, "resolve-mtslg-template-mapping.js");
 const ICON_DISCOVERY_SCRIPT = path.join(SCRIPT_DIR, "discover-mtslg-page-icon-map.js");
 const DEFAULT_TEMPLATE_MAP = path.resolve(SCRIPT_DIR, "..", "references", "adapters", "mtslg-iocontrol", "mtslg-iocontrol-map.json");
+const NEW_PAGE_MAPPING_TAG = "新页面完整DSL映射";
 
 function fail(message) { throw new Error(message); }
 
@@ -38,6 +40,46 @@ function parseArgs(argv) {
     process.exit(2);
   }
   return { manifestPath, overwrite };
+}
+
+function normalizePageManifest(manifest) {
+  const name = manifest.name || manifest.pageName;
+  if (typeof name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    fail("manifest 必须提供合法页面 name（或兼容字段 pageName）");
+  }
+  if (manifest.name && manifest.pageName && manifest.name !== manifest.pageName) {
+    fail("manifest.name 与 manifest.pageName 必须一致");
+  }
+  if (typeof manifest.area !== "string" || !manifest.area.trim()) {
+    fail("新页面必须提供 area");
+  }
+
+  const existingMode = ["modify-existing", "replace-existing"].includes(manifest.operation);
+  const expected = {
+    pageXmlPath: "Common/Pages/" + name + "Page.xml",
+    iconPath: "Resources/Icons/" + name + "Icons.xaml",
+    viewPath: "UI/" + manifest.area.replace(/\\/g, "/") + "/View/" + name + "View.xaml",
+    codeBehindPath: "UI/" + manifest.area.replace(/\\/g, "/") + "/View/" + name + "View.xaml.cs",
+    viewModelPath: "UI/" + manifest.area.replace(/\\/g, "/") + "/ViewModel/" + name + "ViewModel.cs"
+  };
+  if (!existingMode) {
+    for (const field of Object.keys(expected)) {
+      if (manifest[field] && manifest[field].replace(/\\/g, "/") !== expected[field]) {
+        fail("新建页面的 " + field + " 必须使用约定路径: " + expected[field]);
+      }
+    }
+  }
+  manifest.name = name;
+  manifest.pageName = name;
+  manifest.viewName = manifest.viewName || name + "View";
+  manifest.viewModelName = manifest.viewModelName || name + "ViewModel";
+  manifest.xmlPageName = manifest.xmlPageName || name + "Page";
+  manifest.pageXmlPath = manifest.pageXmlPath || expected.pageXmlPath;
+  manifest.iconPath = manifest.iconPath || expected.iconPath;
+  manifest.viewPath = manifest.viewPath || expected.viewPath;
+  manifest.codeBehindPath = manifest.codeBehindPath || expected.codeBehindPath;
+  manifest.viewModelPath = manifest.viewModelPath || expected.viewModelPath;
+  return manifest;
 }
 
 function readJson(filePath) {
@@ -62,8 +104,102 @@ function resolveInput(manifestDir, projectRoot, value, field) {
   return resolvePath(projectRoot, value, field);
 }
 
+function xmlAttr(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function projectRelative(projectRoot, filePath) {
   return path.relative(projectRoot, filePath).replace(/\\/g, "/");
+}
+
+function scaffoldName(value, fallback) {
+  const candidate = String(value || fallback || "Project").replace(/[^A-Za-z0-9_.-]/g, "_");
+  return /^[A-Za-z_]/.test(candidate) ? candidate : "Project_" + candidate;
+}
+
+function scaffoldCsproj(rootNamespace, assemblyName) {
+  return [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">',
+    '  <Import Project="$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props" Condition="Exists(\'$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props\')" />',
+    '  <PropertyGroup>',
+    '    <Configuration Condition=" \'$(Configuration)\' == \'\' ">Debug</Configuration>',
+    '    <Platform Condition=" \'$(Platform)\' == \'\' ">AnyCPU</Platform>',
+    '    <OutputType>Library</OutputType>',
+    '    <RootNamespace>' + xmlAttr(rootNamespace) + '</RootNamespace>',
+    '    <AssemblyName>' + xmlAttr(assemblyName) + '</AssemblyName>',
+    '    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>',
+    '    <FileAlignment>512</FileAlignment>',
+    '    <Deterministic>true</Deterministic>',
+    '  </PropertyGroup>',
+    '  <ItemGroup>',
+    '    <Reference Include="PresentationCore" />',
+    '    <Reference Include="PresentationFramework" />',
+    '    <Reference Include="System" />',
+    '    <Reference Include="System.Core" />',
+    '    <Reference Include="System.Xaml" />',
+    '    <Reference Include="WindowsBase" />',
+    '  </ItemGroup>',
+    '  <Import Project="$(MSBuildToolsPath)\\Microsoft.CSharp.targets" />',
+    '</Project>',
+    ''
+  ].join('\n');
+}
+
+function scaffoldFrameworkConfig(manifest) {
+  return JSON.stringify({
+    schemaVersion: "mastergo-project-config/1",
+    mode: "mtslg-iocontrol",
+    scaffold: true,
+    source_root: manifest.sourceRoot || "",
+    index_root: manifest.indexRoot || "",
+    pages_root: manifest.pagesRoot || "Common/Pages",
+    icons_root: manifest.iconsRoot || "Resources/Icons",
+    resource_roots: Array.isArray(manifest.resourceRoots) ? manifest.resourceRoots : [],
+    layout_file: manifest.layoutPath || "Resources/Files/Layout.xml",
+    key_catalog: manifest.keyCatalog || "",
+    generated_root: manifest.generatedRoot || "Generated",
+    runtime_bindings: "pending"
+  }, null, 2) + "\n";
+}
+
+function ensureScaffold(manifest) {
+  const scaffold = manifest.scaffold === true || manifest.projectMode === "scaffold";
+  if (typeof manifest.projectRoot !== "string" || !manifest.projectRoot.trim()) {
+    fail("projectRoot 必须提供；脚手架模式也必须明确指定要创建的目标目录");
+  }
+  const projectRoot = path.resolve(manifest.projectRoot);
+  if (!fs.existsSync(projectRoot)) {
+    if (!scaffold) fail("projectRoot 不存在: " + projectRoot);
+    fs.mkdirSync(projectRoot, { recursive: true });
+  }
+  if (!scaffold) return { projectRoot, scaffold: false, frameworkConfigPath: null };
+
+  const projectName = scaffoldName(manifest.projectName || path.basename(projectRoot), "MasterGoProject");
+  const rootNamespace = manifest.rootNamespace || projectName;
+  const csprojRelative = manifest.csproj || projectName + ".csproj";
+  const csprojPath = resolvePath(projectRoot, csprojRelative, "csproj");
+  if (!fs.existsSync(csprojPath)) {
+    fs.mkdirSync(path.dirname(csprojPath), { recursive: true });
+    fs.writeFileSync(csprojPath, scaffoldCsproj(rootNamespace, projectName), "utf8");
+  }
+  manifest.csproj = csprojRelative;
+  manifest.rootNamespace = rootNamespace;
+  const configRelative = manifest.frameworkConfigPath || "framework.config.json";
+  const frameworkConfigPath = resolvePath(projectRoot, configRelative, "frameworkConfigPath");
+  if (!fs.existsSync(frameworkConfigPath)) {
+    fs.mkdirSync(path.dirname(frameworkConfigPath), { recursive: true });
+    fs.writeFileSync(frameworkConfigPath, scaffoldFrameworkConfig(manifest), "utf8");
+  }
+  manifest.frameworkConfigPath = configRelative;
+  const dirs = [
+    "Common/Pages", "Resources/Icons", "Resources/Files", "Generated",
+    "UI/" + String(manifest.area || "F2-Manual") + "/View",
+    "UI/" + String(manifest.area || "F2-Manual") + "/ViewModel"
+  ];
+  dirs.forEach(relative => fs.mkdirSync(path.join(projectRoot, ...relative.split("/")), { recursive: true }));
+  return { projectRoot, scaffold: true, frameworkConfigPath };
 }
 
 function csprojIncludes(csprojText) {
@@ -129,12 +265,27 @@ function backupFile(filePath) {
 function copyOutput(source, target, overwrite, created, backups, allowExisting) {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   if (fs.existsSync(target)) {
-    if (!overwrite && !allowExisting) fail("目标文件已存在，未覆盖: " + target);
+    if (!overwrite && !allowExisting) fail("页面目标文件已存在，未覆盖: " + target + "；请停止并确认是否修改已有页面");
     backups.push(backupFile(target));
   } else {
     created.push(target);
   }
   fs.copyFileSync(source, target);
+}
+
+function copyLayoutOutput(source, target, overwrite, created, backups) {
+  // Layout 支持新增 Page 的增量注册；相同 pageTarget 的替换不由新页面
+  // Bundle 自动执行，避免把共享 Layout 当作普通页面文件覆盖。
+  copyOutput(source, target, overwrite, created, backups, true);
+}
+
+function writeAuditOutput(target, content, overwrite, backups) {
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  if (fs.existsSync(target)) {
+    if (!overwrite) fail("审计文件已存在，未覆盖: " + target);
+    backups.push(backupFile(target));
+  }
+  fs.writeFileSync(target, content, "utf8");
 }
 
 function snapshotFiles(filePaths) {
@@ -168,30 +319,72 @@ function requireFile(filePath, label) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function readGeometryKeys(iconText) {
+  const keys = new Set();
+  const duplicateKeys = new Set();
+  const geometryTag = /<Geometry\b([^>]*)>/gi;
+  let match;
+  while ((match = geometryTag.exec(iconText)) !== null) {
+    const keyMatch = match[1].match(/\bx:Key=["']([^"']+)["']/i);
+    if (!keyMatch) continue;
+    const key = keyMatch[1];
+    if (keys.has(key)) duplicateKeys.add(key);
+    keys.add(key);
+  }
+  return { keys, duplicateKeys };
+}
+
+function collectIconReferences(mapping, layoutMenuItems) {
+  const references = new Set();
+  (mapping.nodes || []).forEach(function (node) {
+    const icon = node && node.attrs && node.attrs.Icon;
+    if (typeof icon === "string" && icon.trim()) references.add(icon.trim());
+  });
+  (layoutMenuItems || []).forEach(function (item) {
+    const icon = item && item.icon;
+    if (typeof icon === "string" && icon.trim()) references.add(icon.trim());
+  });
+  return references;
+}
+
 function validateBundleOutputs(info) {
   const pageXml = requireFile(info.pageXmlPath, "页面 XML");
   if (!/<IOContorl\b/.test(pageXml) || !/<\/IOContorl>\s*$/.test(pageXml)) {
     fail("页面 XML 根节点不符合 IOContorl 格式: " + info.pageXmlPath);
   }
   const icon = requireFile(info.iconPath, "页面 Icon");
-  if (!/<ResourceDictionary\b/.test(icon) || !/<Geometry\b/.test(icon) || !/<\/ResourceDictionary>/.test(icon)) {
+  if (!/<ResourceDictionary\b/.test(icon) || !/<\/ResourceDictionary>/.test(icon)) {
     fail("页面 Icon 不是完整 ResourceDictionary: " + info.iconPath);
   }
   if (/<(?:PathGeometry|GeometryGroup)\b|<MatrixTransform\b/.test(icon)) {
     fail("页面 Icon 使用了不兼容的几何结构；必须只使用 Geometry 内联路径: " + info.iconPath);
   }
   const geometryResources = icon.match(/<Geometry\b[^>]*>[\s\S]*?<\/Geometry>/g) || [];
-  if (geometryResources.length === 0 || geometryResources.some(function (resource) {
+  if (geometryResources.some(function (resource) {
     return !/\bo:Freeze=["']True["']/i.test(resource) || !/\bx:Key=["'][^"']+["']/i.test(resource);
   })) {
     fail("页面 Icon 的 Geometry 缺少 o:Freeze=True 或 x:Key: " + info.iconPath);
+  }
+  const geometryInfo = readGeometryKeys(icon);
+  if (geometryInfo.duplicateKeys.size > 0) {
+    fail("页面 Icon 存在重复 Geometry 资源键: " + [...geometryInfo.duplicateKeys].join(", "));
+  }
+  const iconReferences = collectIconReferences(info.mapping, info.layoutMenuItems);
+  const missingReferences = [...iconReferences].filter(function (key) {
+    return !geometryInfo.keys.has(key);
+  });
+  if (missingReferences.length > 0) {
+    fail("页面实际引用了未生成的 Geometry: " + missingReferences.join(", "));
   }
   const iconMapAudit = readJson(info.iconMapAudit, "页面 Icon mapping 审计");
   if (!Array.isArray(iconMapAudit.icons) || !Array.isArray(iconMapAudit.candidates) || !Array.isArray(iconMapAudit.unmapped)) {
     fail("页面 Icon mapping 审计缺少 icons/candidates/unmapped 数组: " + info.iconMapAudit);
   }
   const layout = requireFile(info.layoutPath, "Layout.xml");
-  if (!/<Layout\b/.test(layout) || !new RegExp("<Page\\s+[^>]*Target=[\\\"']" +
+  if (!/<Layout\b/.test(layout)) {
+    fail("Layout.xml 格式无效: " + info.layoutPath);
+  }
+  if (info.layoutStatus !== "none" && !new RegExp("<Page\\s+[^>]*Target=[\\\"']" +
     String(info.pageTarget).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&") + "[\\\"']", "i").test(layout)) {
     fail("Layout.xml 缺少当前页面注册: " + info.pageTarget);
   }
@@ -199,8 +392,15 @@ function validateBundleOutputs(info) {
   if (!/<UserControl\b/.test(view) || !/<uidesign:PageDesign\b/.test(view)) {
     fail("View XAML 缺少 MaxWell PageDesign 宿主: " + info.hostPaths[0]);
   }
+  const ownIconPath = projectRelative(info.projectRoot, info.iconPath).replace(/\\/g, "/");
+  if (view.indexOf(ownIconPath) < 0) {
+    fail("View XAML 未引用当前页面自己的 Icon 文件: " + ownIconPath);
+  }
   requireFile(info.hostPaths[1], "View.xaml.cs");
   requireFile(info.hostPaths[2], "ViewModel");
+  if (info.scaffold) {
+    requireFile(info.frameworkConfigPath, "framework.config.json");
+  }
 
   run(PROVENANCE_SCRIPT, ["--xml", info.pageXmlPath, "--mapping", info.mappingAudit]);
   const mapping = info.mapping;
@@ -212,8 +412,12 @@ function validateBundleOutputs(info) {
         id: node.xmlId || node.id || node.ref,
         x: source.pageAbsX !== undefined ? source.pageAbsX : node.absX,
         y: source.pageAbsY !== undefined ? source.pageAbsY : node.absY,
-        w: source.width !== undefined ? source.width : node.w,
-        h: source.height !== undefined ? source.height : node.h,
+        w: node.expectedWidth !== undefined
+          ? node.expectedWidth
+          : (source.width !== undefined ? source.width : node.w),
+        h: node.expectedHeight !== undefined
+          ? node.expectedHeight
+          : (source.height !== undefined ? source.height : node.h),
         contentOriginX: mapping.contentOriginX === undefined ? 0 : mapping.contentOriginX,
         contentOriginY: 192
       };
@@ -235,6 +439,25 @@ function validateBundleOutputs(info) {
     if (!csproj.toLowerCase().includes(include.toLowerCase())) {
       fail("csproj 未注册生成文件: " + include);
     }
+  });
+}
+
+function bundleGeneratedPaths(info) {
+  const files = [
+    info.pageXmlPath,
+    info.iconPath,
+    info.hostPaths[0],
+    info.hostPaths[1],
+    info.hostPaths[2],
+    info.layoutPath,
+    info.mappingAudit,
+    info.iconMapAudit,
+    info.bundleAudit,
+    info.csprojPath
+  ];
+  if (info.scaffold) files.push(info.frameworkConfigPath);
+  return files.map(function (filePath) {
+    return projectRelative(info.projectRoot, filePath);
   });
 }
 
@@ -266,9 +489,10 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const manifestFile = path.resolve(args.manifestPath);
   const manifestDir = path.dirname(manifestFile);
-  const manifest = readJson(manifestFile);
-  const projectRoot = path.resolve(manifest.projectRoot);
-  if (!fs.existsSync(projectRoot)) fail("projectRoot 不存在: " + projectRoot);
+  const manifest = normalizePageManifest(readJson(manifestFile));
+  const existingMode = ["modify-existing", "replace-existing"].includes(manifest.operation);
+  const scaffoldInfo = ensureScaffold(manifest);
+  const projectRoot = scaffoldInfo.projectRoot;
   const csprojPath = resolvePath(projectRoot, manifest.csproj, "csproj");
   if (!fs.existsSync(csprojPath)) fail("csproj 不存在: " + csprojPath);
   const csprojText = fs.readFileSync(csprojPath, "utf8");
@@ -283,17 +507,49 @@ function main() {
   const templateMapPath = manifest.templateMapPath
     ? resolveInput(manifestDir, projectRoot, manifest.templateMapPath, "templateMapPath")
     : DEFAULT_TEMPLATE_MAP;
-  [mappingPath, svgPath, iconMapPath, templateMapPath].forEach(function (filePath) {
+  const autoMapping = Boolean(manifest.dslPath || manifest.visibilityPath);
+  // New pages always create their page-specific mapping from the current
+  // design snapshot. Existing-page merge/replace workflows may provide an
+  // explicit mapping because they retain existing runtime/business data.
+  if (!existingMode && (!manifest.dslPath || !manifest.visibilityPath)) {
+    fail("新建页面必须提供当前页面的 dslPath 和 visibilityPath；mapping 将在本次生成中创建");
+  }
+  [svgPath, iconMapPath, templateMapPath].concat(autoMapping ? [] : [mappingPath]).forEach(function (filePath) {
     if (!fs.existsSync(filePath)) fail("输入文件不存在: " + filePath);
   });
+  if (manifest.dslPath || manifest.visibilityPath) {
+    if (!manifest.dslPath || !manifest.visibilityPath) fail("启用 DSL 自动映射时必须同时提供 dslPath 和 visibilityPath");
+    const dslPath = resolveInput(manifestDir, projectRoot, manifest.dslPath, "dslPath");
+    const visibilityPath = resolveInput(manifestDir, projectRoot, manifest.visibilityPath, "visibilityPath");
+    if (!fs.existsSync(dslPath) || !fs.existsSync(visibilityPath)) fail("dslPath/visibilityPath 输入文件不存在");
+    run(MAPPING_SCRIPT, [
+      "--dsl", dslPath,
+      "--visibility", visibilityPath,
+      "--template-map", templateMapPath,
+      "--icon-map", iconMapPath,
+      "--out", mappingPath
+    ]);
+    const generatedMapping = readJson(mappingPath);
+    if (generatedMapping.mappingTag !== NEW_PAGE_MAPPING_TAG) {
+      fail("本次生成的 mapping 缺少算法 Tag：\"" + NEW_PAGE_MAPPING_TAG + "\"");
+    }
+  }
 
   const outputTargets = [pageXmlPath, iconPath,
     resolvePath(projectRoot, hostPaths.view, "viewPath"),
     resolvePath(projectRoot, hostPaths.codeBehind, "codeBehindPath"),
     resolvePath(projectRoot, hostPaths.viewModel, "viewModelPath")];
-  if (!args.overwrite) {
-    const blocked = outputTargets.filter(fs.existsSync);
-    if (blocked.length) fail("目标文件已存在，未覆盖: " + blocked.join(", "));
+  const generatedDir = path.join(projectRoot, "Generated");
+  const mappingAudit = path.join(generatedDir, manifest.pageName + ".mapping.json");
+  const iconMapAudit = path.join(generatedDir, manifest.pageName + ".icon-map.json");
+  const bundleAudit = path.join(generatedDir, manifest.pageName + ".bundle.manifest.json");
+  const auditTargets = [mappingAudit, iconMapAudit, bundleAudit];
+  const blocked = outputTargets.concat(auditTargets).filter(fs.existsSync);
+  if (!args.overwrite && blocked.length) {
+    fail("目标文件已存在，未覆盖: " + blocked.join(", ") + "；请停止并确认是否修改已有页面");
+  }
+  if (args.overwrite && !["modify-existing", "replace-existing"].includes(manifest.operation)) {
+    fail("--overwrite 仅允许用于用户明确确认的已有页面替换；请在 manifest 中设置 operation=replace-existing");
   }
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mastergo-page-bundle-"));
@@ -307,11 +563,8 @@ function main() {
   const created = [];
   const backups = [];
   const originalCsproj = fs.readFileSync(csprojPath, "utf8");
-  const generatedDir = path.join(projectRoot, "Generated");
-  const mappingAudit = path.join(generatedDir, manifest.pageName + ".mapping.json");
-  const iconMapAudit = path.join(generatedDir, manifest.pageName + ".icon-map.json");
-  const bundleAudit = path.join(generatedDir, manifest.pageName + ".bundle.manifest.json");
-  const snapshots = snapshotFiles(outputTargets.concat([layoutPath, mappingAudit, iconMapAudit, bundleAudit, csprojPath]));
+  const snapshots = snapshotFiles(outputTargets.concat([layoutPath, mappingAudit, iconMapAudit, bundleAudit, csprojPath])
+    .concat(scaffoldInfo.frameworkConfigPath ? [scaffoldInfo.frameworkConfigPath] : []));
 
   try {
     run(TEMPLATE_RESOLVER_SCRIPT, [
@@ -343,6 +596,7 @@ function main() {
     const layoutManifest = {
       layoutPath: tempLayout,
       pageTarget: manifest.pageTarget,
+      mappingTag: mapping.mappingTag || null,
       pageLangName: manifest.pageLangName,
       layoutStatus: manifest.layoutStatus,
       layoutEvidence: manifest.layoutEvidence,
@@ -354,6 +608,7 @@ function main() {
     const host = {
       projectRoot,
       csproj: path.relative(projectRoot, csprojPath),
+      operation: manifest.operation,
       rootNamespace: manifest.rootNamespace,
       area: manifest.area,
       pageName: manifest.pageName,
@@ -372,16 +627,18 @@ function main() {
 
     copyOutput(tempXml, pageXmlPath, args.overwrite, created, backups);
     copyOutput(tempIcon, iconPath, args.overwrite, created, backups);
-    copyOutput(tempLayout, layoutPath, args.overwrite, created, backups, true);
+    copyLayoutOutput(tempLayout, layoutPath, args.overwrite, created, backups);
 
     const changedCsproj = ensureLayoutContent(csprojPath, layoutPath);
     fs.mkdirSync(generatedDir, { recursive: true });
-    fs.copyFileSync(tempMapping, mappingAudit);
-    fs.copyFileSync(tempIconMap, iconMapAudit);
+    copyOutput(tempMapping, mappingAudit, args.overwrite, created, backups);
+    copyOutput(tempIconMap, iconMapAudit, args.overwrite, created, backups);
 
     validateBundleOutputs({
       projectRoot,
       csprojPath,
+      scaffold: scaffoldInfo.scaffold,
+      frameworkConfigPath: scaffoldInfo.frameworkConfigPath,
       pageXmlPath,
       iconPath,
       layoutPath,
@@ -390,40 +647,47 @@ function main() {
       mappingAudit,
       iconMapAudit,
       mapping,
+      layoutMenuItems: manifest.menuItems,
+      layoutStatus: manifest.layoutStatus,
       tempRoot
     });
 
-    fs.writeFileSync(bundleAudit, JSON.stringify({
+    const bundleInfo = {
+      projectRoot,
+      csprojPath,
+      scaffold: scaffoldInfo.scaffold,
+      frameworkConfigPath: scaffoldInfo.frameworkConfigPath,
+      pageXmlPath,
+      iconPath,
+      layoutPath,
+      hostPaths: outputTargets.slice(2),
+      mappingAudit,
+      iconMapAudit,
+      bundleAudit
+    };
+    writeAuditOutput(bundleAudit, JSON.stringify({
       adapter: "mtslg-iocontrol",
       hostShell: "maxwell-wpf",
+      projectMode: scaffoldInfo.scaffold ? "scaffold" : "target-project",
       contentOriginY: 192,
-      generated: [
-        projectRelative(projectRoot, pageXmlPath),
-        projectRelative(projectRoot, iconPath),
-        projectRelative(projectRoot, layoutPath),
-        projectRelative(projectRoot, mappingAudit),
-        projectRelative(projectRoot, iconMapAudit),
-        projectRelative(projectRoot, bundleAudit)
-      ],
+      generated: bundleGeneratedPaths(bundleInfo),
+      verification: scaffoldInfo.scaffold
+        ? { static: "passed", compile: "skipped", wpfLoad: "skipped", runtimeLoad: "skipped" }
+        : { static: "passed", compile: "not-run-by-bundle", wpfLoad: "not-run-by-bundle", runtimeLoad: "not-run-by-bundle" },
       csprojChanged: changedCsproj,
       pageTarget: manifest.pageTarget,
+      mappingTag: mapping.mappingTag || null,
       layout: {
         status: manifest.layoutStatus,
         evidence: manifest.layoutEvidence,
         menuItemCount: manifest.menuItems.length
       }
-    }, null, 2) + "\n", "utf8");
+    }, null, 2) + "\n", args.overwrite, backups);
     console.log(JSON.stringify({
       adapter: "mtslg-iocontrol",
       hostShell: "maxwell-wpf",
-      generated: [
-        projectRelative(projectRoot, pageXmlPath),
-        projectRelative(projectRoot, iconPath),
-        projectRelative(projectRoot, layoutPath),
-        projectRelative(projectRoot, mappingAudit),
-        projectRelative(projectRoot, iconMapAudit),
-        projectRelative(projectRoot, bundleAudit)
-      ],
+      projectMode: scaffoldInfo.scaffold ? "scaffold" : "target-project",
+      generated: bundleGeneratedPaths(bundleInfo),
       backups
     }, null, 2));
   } catch (error) {

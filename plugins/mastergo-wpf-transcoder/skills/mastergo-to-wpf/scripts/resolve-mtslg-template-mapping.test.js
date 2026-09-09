@@ -152,7 +152,7 @@ const documentedTemplateFamilies = {
   selectionInfoTemplates: ["单选-选中/未选择", "多选-选中/未选中"],
   selectionTemplates: ["单选-选中/未选择", "多选-选中/未选择"],
   infoGroupTemplates: ["信息分组-模块化"],
-  mainMenuTemplates: ["主菜单"],
+  mainMenuTemplates: ["主菜单button", "主菜单button-文字"],
   tableTemplates: ["Table"],
   textTemplates: ["独立文本"]
 };
@@ -187,11 +187,40 @@ const resolved = resolveTemplateMapping(
   makeMapping("加减快捷操作-有标题", slotsForWithTitle()),
   templateMap
 );
-assert.strictEqual(resolved.templateInstances.length, 1);
-assert.strictEqual(resolved.templateInstances[0].variant, "加减快捷操作-有标题");
+assert.strictEqual(resolved.resolvedTemplates.length, 1);
+assert.strictEqual(resolved.resolvedTemplates[0].variant, "加减快捷操作-有标题");
 assert.deepStrictEqual(
-  resolved.templateInstances[0].requiredSlots.map(slot => slot.slot),
+  resolved.resolvedTemplates[0].requiredSlots.map(slot => slot.slot),
   ["button_plus_5", "button_minus_5", "button_plus_1", "button_minus_1", "title", "value", "direction"]
+);
+
+const hiddenTitleMapping = makeMapping(
+  "加减快捷操作-有标题",
+  slotsForWithTitle().filter(slot => slot.slot !== "title")
+);
+hiddenTitleMapping.sourceNodes.push(source("text/title", "光源调整"));
+hiddenTitleMapping.componentInstances[0].omittedSlots = [
+  { slot: "title", sourceRef: "text/title", valueSourceRef: "text/title", omitReason: "hidden" }
+];
+const resolvedHiddenTitle = resolveTemplateMapping(hiddenTitleMapping, templateMap);
+assert.deepStrictEqual(
+  resolvedHiddenTitle.resolvedTemplates[0].omittedSlots.map(slot => slot.slot),
+  ["title"]
+);
+
+const extraTextMapping = makeMapping(
+  "加减快捷键-无标题",
+  slotsForWithTitle().filter(slot => slot.slot !== "title")
+);
+extraTextMapping.sourceNodes.push(source("text/extra", "额外可见文本"));
+extraTextMapping.nodes.push(node("text/extra", "额外可见文本", "TextBlock"));
+extraTextMapping.componentInstances[0].extraTextSlots = [
+  { slot: "extra", sourceRef: "text/extra", valueSourceRef: "text/extra" }
+];
+const resolvedExtraText = resolveTemplateMapping(extraTextMapping, templateMap);
+assert.deepStrictEqual(
+  resolvedExtraText.resolvedTemplates[0].extraTextSlots.map(slot => slot.slot),
+  ["extra"]
 );
 
 const inputMapping = makeMapping("输入框-整数-28", [
@@ -199,7 +228,7 @@ const inputMapping = makeMapping("输入框-整数-28", [
 ]);
 inputMapping.componentInstances[0].template = "inputTemplates";
 assert.strictEqual(
-  resolveTemplateMapping(inputMapping, templateMap).templateInstances[0].variant,
+  resolveTemplateMapping(inputMapping, templateMap).resolvedTemplates[0].variant,
   "输入框-整数-28"
 );
 
@@ -211,13 +240,21 @@ assert.throws(
 const singleSelectedMapping = makeMapping("单选-选中", [{ slot: "choice", sourceRef: "choice/selected", controlType: "RadioButton" }]);
 singleSelectedMapping.componentInstances[0].template = "selectionTemplates";
 const resolvedSingleSelected = resolveTemplateMapping(singleSelectedMapping, templateMap);
-assert.strictEqual(resolvedSingleSelected.templateInstances[0].variant, "单选-选中");
+assert.strictEqual(resolvedSingleSelected.resolvedTemplates[0].variant, "单选-选中");
 assert.strictEqual(resolvedSingleSelected.nodes[0].attrs.ControlType, "RadioButton");
 
 const multiUnselectedMapping = makeMapping("多选-未选择", [{ slot: "choice", sourceRef: "choice/unselected", controlType: "CheckBox" }]);
 multiUnselectedMapping.componentInstances[0].template = "selectionTemplates";
 const resolvedMultiUnselected = resolveTemplateMapping(multiUnselectedMapping, templateMap);
 assert.strictEqual(resolvedMultiUnselected.nodes[0].attrs.ControlType, "CheckBox");
+
+const legacyTemplateInstancesMapping = makeMapping("加减快捷操作-有标题", slotsForWithTitle());
+delete legacyTemplateInstancesMapping.componentInstances;
+legacyTemplateInstancesMapping.templateInstances = [{ template: "componentTemplates", variant: "加减快捷操作-有标题", instanceRef: "component" }];
+assert.throws(
+  () => resolveTemplateMapping(legacyTemplateInstancesMapping, templateMap),
+  /mapping 必须使用 componentInstances 字段/
+);
 
 const missingSlot = makeMapping("加减快捷操作-有标题", slotsForWithTitle().slice(0, -1));
 assert.throws(
@@ -240,16 +277,16 @@ const confirmedFastAxis = makeMapping("轴操作-快慢", [
   { slot: "scan", sourceRef: "text/scan", valueSourceRef: "text/scan", text: "SCAN", controlType: "TextBlock" }
 ]);
 const resolvedFastAxis = resolveTemplateMapping(confirmedFastAxis, templateMap);
-assert.strictEqual(resolvedFastAxis.templateInstances.length, 1);
-assert.strictEqual(resolvedFastAxis.templateInstances[0].variant, "轴操作-快慢");
+assert.strictEqual(resolvedFastAxis.resolvedTemplates.length, 1);
+assert.strictEqual(resolvedFastAxis.resolvedTemplates[0].variant, "轴操作-快慢");
 assert.strictEqual(resolvedFastAxis.nodes.length, 5);
 
 const resolvedRight = resolveTemplateMapping(
   makeRightSidebarMapping("stop", "right/stop", "STOP"),
   templateMap
 );
-assert.strictEqual(resolvedRight.templateInstances.length, 1);
-assert.strictEqual(resolvedRight.templateInstances[0].template, "rightSidebar");
+assert.strictEqual(resolvedRight.resolvedTemplates.length, 1);
+assert.strictEqual(resolvedRight.resolvedTemplates[0].template, "rightSidebar");
 assert.strictEqual(resolvedRight.nodes[0].attrs.Style, "RightButtonStyle");
 
 const resolvedRightIcon = resolveTemplateMapping(
@@ -281,11 +318,11 @@ const mainMenuMapping = makeRightSidebarMapping("enter", "main/menu", "传感器
 mainMenuMapping.componentInstances[0] = {
   template: "mainMenuTemplates",
   instanceRef: "main/menu",
-  variant: "主菜单",
+  properties: { "属性 1": "主菜单button" },
   requiredSlots: [{ slot: "button", sourceRef: "main/menu" }]
 };
 const resolvedMainMenu = resolveTemplateMapping(mainMenuMapping, templateMap);
-assert.strictEqual(resolvedMainMenu.templateInstances[0].variant, "主菜单");
+assert.strictEqual(resolvedMainMenu.resolvedTemplates[0].variant, "主菜单button");
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mtslg-template-resolver-"));
 const inputPath = path.join(tempDir, "input.json");

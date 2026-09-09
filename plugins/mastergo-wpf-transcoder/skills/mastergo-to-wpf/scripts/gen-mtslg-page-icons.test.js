@@ -33,9 +33,14 @@ assert.doesNotMatch(xaml, /sourceId=|sourceRef=|key=LoadGeometry/);
 assert.match(xaml, /    M1,1\r?\n    L2,2/);
 assert.doesNotMatch(xaml, /MGIcon_/);
 
+result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
+assert.notStrictEqual(result.status, 0);
+assert.match(result.stderr, /页面 Icon 文件已存在|禁止覆盖/);
+
 fs.writeFileSync(mapFile, JSON.stringify({ icons: [
   { sourceId: 'page/icon-a', name: 'MGIcon_123', comment: '测试', sourceRef: 'dsl/a' }
 ] }), 'utf8');
+if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
 result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
 assert.notStrictEqual(result.status, 0);
 assert.match(result.stderr, /must not use the layer-id prefix/);
@@ -46,6 +51,7 @@ fs.writeFileSync(svgFile, JSON.stringify({ svgs: [
 fs.writeFileSync(mapFile, JSON.stringify({ icons: [
   { sourceId: 'page/icon-transform', name: 'DownGeometry', comment: '向下', sourceRef: 'dsl/transform' }
 ] }), 'utf8');
+if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
 result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);
 const transformedXaml = fs.readFileSync(outFile, 'utf8');
@@ -61,10 +67,17 @@ fs.writeFileSync(mapFile, JSON.stringify({ icons: [
   { sourceId: 'page/icon-evenodd', name: 'EvenOddGeometry', comment: '奇偶', sourceRef: 'dsl/evenodd' },
   { sourceId: 'page/icon-nonzero', name: 'NonzeroGeometry', comment: '非零', sourceRef: 'dsl/nonzero' }
 ] }), 'utf8');
+if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
 result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);
 const fillRuleXaml = fs.readFileSync(outFile, 'utf8');
 assert.match(fillRuleXaml, /x:Key="EvenOddGeometry">\r?\n\s+F0/);
 assert.match(fillRuleXaml, /x:Key="NonzeroGeometry">\r?\n\s+F1/);
+
+fs.writeFileSync(mapFile, JSON.stringify({ icons: [] }), 'utf8');
+const emptyOut = path.join(dir, 'EmptyIcons.xaml');
+result = spawnSync(process.execPath, [script, svgFile, mapFile, emptyOut], { encoding: 'utf8' });
+assert.strictEqual(result.status, 0, result.stderr);
+assert.doesNotMatch(fs.readFileSync(emptyOut, 'utf8'), /<Geometry\b/);
 
 console.log('PASS semantic icon naming regression test');

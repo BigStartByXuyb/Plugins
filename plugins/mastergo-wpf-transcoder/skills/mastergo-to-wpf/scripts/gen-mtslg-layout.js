@@ -40,7 +40,7 @@ function xmlAttr(value) {
 
 function attrEntries(item) {
   return ATTR_FIELDS.filter(function (pair) {
-    return item[pair[1]] !== undefined && item[pair[1]] !== null && item[pair[1]] !== "";
+    return item[pair[1]] !== undefined && item[pair[1]] !== null;
   }).map(function (pair) {
     return [pair[0], item[pair[1]]];
   });
@@ -101,7 +101,8 @@ function renderPage(manifest) {
   validateLayoutManifest(manifest);
   const lines = [
     "  <Page Target=\"" + xmlAttr(target) + "\"" +
-      (manifest.pageLangName ? " LangName=\"" + xmlAttr(manifest.pageLangName) + "\"" : "") + ">",
+       (manifest.pageLangName !== undefined && manifest.pageLangName !== null
+         ? " LangName=\"" + xmlAttr(manifest.pageLangName) + "\"" : "") + ">",
     "    <Menu>"
   ];
   manifest.menuItems.forEach(function (item, index) {
@@ -114,6 +115,77 @@ function renderPage(manifest) {
   lines.push("    </Menu>");
   lines.push("  </Page>");
   return lines.join("\n");
+}
+
+function insertNewPage(existing, page, pageTarget) {
+  const pagesOpen = /<Pages\b[^>]*>/i.exec(existing);
+  if (pagesOpen) {
+    const pagesClose = existing.indexOf("</Pages>", pagesOpen.index + pagesOpen[0].length);
+    if (pagesClose < 0) fail("已有 Layout.xml 的 <Pages> 缺少 </Pages>: " + pageTarget);
+    const before = existing.slice(0, pagesClose).replace(/\s*$/, "");
+    return before + "\n" + page + "\n" + existing.slice(pagesClose);
+  }
+  const bodyOpen = /<Body\b[^>]*>/i.exec(existing);
+  if (bodyOpen) {
+    const bodyClose = existing.indexOf("</Body>", bodyOpen.index + bodyOpen[0].length);
+    if (bodyClose < 0) fail("已有 Layout.xml 的 <Body> 缺少 </Body>: " + pageTarget);
+    const bodyContent = existing.slice(bodyOpen.index + bodyOpen[0].length, bodyClose);
+    const toolBoundary = bodyContent.search(/<(?:LeftToolBox|ToolBox)\b/i);
+    const insertAt = toolBoundary >= 0 ? bodyOpen.index + bodyOpen[0].length + toolBoundary : bodyClose;
+    const before = existing.slice(0, insertAt).replace(/\s*$/, "");
+    const after = existing.slice(insertAt);
+    return before + "\n    <Pages>\n" + page.split("\n").map(line => "  " + line).join("\n") + "\n    </Pages>\n" + after.replace(/^\s*/, "");
+  }
+  const layoutClose = existing.lastIndexOf("</Layout>");
+  if (layoutClose < 0) fail("已有 Layout.xml 缺少 </Layout>");
+  const footerOpen = /<Footer\b/i.exec(existing);
+  const insertAt = footerOpen ? footerOpen.index : layoutClose;
+  const before = existing.slice(0, insertAt).replace(/\s*$/, "");
+  const after = existing.slice(insertAt).replace(/^\s*/, "");
+  return before + "\n  <Body>\n    <Pages>\n" + page.split("\n").map(line => "      " + line).join("\n") + "\n    </Pages>\n    <LeftToolBox />\n    <ToolBox />\n  </Body>\n" + after;
+}
+
+function renderNewLayout(manifest, page) {
+  const attrs = [];
+  if (manifest.windowHeight !== undefined) attrs.push("WindowHeight=\"" + xmlAttr(manifest.windowHeight) + "\"");
+  if (manifest.windowWidth !== undefined) attrs.push("WindowWidth=\"" + xmlAttr(manifest.windowWidth) + "\"");
+  if (manifest.version) attrs.push("Version=\"" + xmlAttr(manifest.version) + "\"");
+  const headerAttrs = manifest.headerTitle
+    ? " Title=\"" + xmlAttr(manifest.headerTitle) + "\""
+    : "";
+  const headerItems = Array.isArray(manifest.headerItems) ? manifest.headerItems.map(function (item) {
+    const itemAttrs = [];
+    if (item.id !== undefined && item.id !== null && item.id !== "") itemAttrs.push("Id=\"" + xmlAttr(item.id) + "\"");
+    if (item.target !== undefined && item.target !== null && item.target !== "") itemAttrs.push("Target=\"" + xmlAttr(item.target) + "\"");
+    return "    <HeaderItem " + itemAttrs.join(" ") + " />";
+  }) : [];
+  const pageLines = page.split("\n").map(function (line) { return "    " + line; });
+  const leftToolBox = manifest.leftToolBoxTarget
+    ? "    <LeftToolBox Target=\"" + xmlAttr(manifest.leftToolBoxTarget) + "\" />"
+    : "    <LeftToolBox />";
+  const toolBox = manifest.toolBoxTarget
+    ? "    <ToolBox Target=\"" + xmlAttr(manifest.toolBoxTarget) + "\" />"
+    : "    <ToolBox />";
+  const footer = manifest.footerTarget
+    ? "  <Footer Target=\"" + xmlAttr(manifest.footerTarget) + "\" />"
+    : "  <Footer />";
+  return [
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+    "<Layout" + (attrs.length ? " " + attrs.join(" ") : "") + ">",
+    "  <Header" + headerAttrs + ">",
+    ...headerItems,
+    "  </Header>",
+    "  <Body>",
+    "    <Pages>",
+    ...pageLines,
+    "    </Pages>",
+    leftToolBox,
+    toolBox,
+    "  </Body>",
+    footer,
+    "</Layout>",
+    ""
+  ].join("\n");
 }
 
 function backupFile(filePath) {
@@ -137,17 +209,14 @@ function main() {
   let backup = null;
 
   if (!fs.existsSync(layoutPath)) {
-    output = [
-      "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
-      "<Layout>",
-      "  <Header>",
-      "  </Header>",
-      page,
-      "</Layout>",
-      ""
-    ].join("\n");
+    output = renderNewLayout(manifest, page);
   } else {
     const existing = fs.readFileSync(layoutPath, "utf8");
+    if (manifest.layoutStatus === "none") {
+      // No Layout mapping for this page: preserve the existing host Layout
+      // instead of replacing an existing Page with an empty Menu.
+      output = existing;
+    } else {
     const targetPattern = new RegExp("<Page\\s+[^>]*Target=[\"']" +
       xmlAttr(manifest.pageTarget).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&") + "[\"']", "i");
     if (targetPattern.test(existing)) {
@@ -163,12 +232,9 @@ function main() {
       output = existing.replace(pagePattern, page);
       backup = backupFile(layoutPath);
     } else {
-      const close = existing.lastIndexOf("</Layout>");
-      if (close < 0) fail("已有 Layout.xml 缺少 </Layout>");
-      const before = existing.slice(0, close).replace(/\s*$/, "");
-      const between = existing.slice(before.length, close);
-      output = before + between + "\n" + page + "\n" + existing.slice(close);
+      output = insertNewPage(existing, page, manifest.pageTarget);
       backup = backupFile(layoutPath);
+    }
     }
   }
 
