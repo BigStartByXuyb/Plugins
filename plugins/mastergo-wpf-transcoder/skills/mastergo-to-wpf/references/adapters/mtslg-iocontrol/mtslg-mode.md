@@ -201,4 +201,3 @@
 | `cap-window.ps1` / `cap-window2.ps1` | 截图验证（运行宿主与输出路径由适配记录提供） | 双模式共用 |
 | `discover-mtslg-page-icon-map.js` | 从当前页面 mapping 的真实 PATH/SVG 发现候选，保留已确认资源键并输出 `candidates/unmapped` 审计 | 双模式共用 |
 | `gen-mtslg-page-icons.js` | 从发现结果和逐项确认的图标映射生成当前页面 Icon 文件；未确认候选不发射 | 双模式共用 |
-| `convert-to-responsive.js` | 响应式 HTML（可选产出） | 双模式共用 |

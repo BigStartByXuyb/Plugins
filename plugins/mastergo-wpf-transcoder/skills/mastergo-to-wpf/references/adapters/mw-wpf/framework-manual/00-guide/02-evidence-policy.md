@@ -42,7 +42,7 @@
 - **键清单不穷举**：手册写"文件职责 + 代表键 + 命名模式"；需要完整键清单时，直接 grep 源文件（如 `x:Key=`）或查 `{index_root}/files/*.json` 的 `resource_references`——穷举表必然随源码过时，手册不维护（对应 shadcn skill 的"查，不靠记"原则）。
 - **索引交叉**：`{index_root}/files/refence_ManualView.xaml.json` 的 `resource_references`（存在性核对用）。
 - **手册内部互链**：用相对路径（保持 markdown 可点击）。
-- **头部元数据**：每个条目文件头部 HTML 注释 `evidence=…; pending=[TD-xxx]; verified=日期; sources=[…]`，供脚本校验。
+- **头部元数据**：每个条目文件头部注释 `evidence=…; pending=[TD-xxx]; verified=日期; sources=[…]`，供脚本校验。
 
 **动态校验/更新指令**（`{manual_root}/tools/check-manual-paths.py`）：
 
