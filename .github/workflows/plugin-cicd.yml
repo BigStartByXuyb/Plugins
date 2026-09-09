@@ -15,9 +15,9 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: BigStartByXuyb/cicd/.github/workflows/plugin-marketplace.yml@875a8d4fad81f4d62e40d94401edad11956a7735
+    uses: BigStartByXuyb/cicd/.github/workflows/plugin-marketplace.yml@2f264cde83b0b959ad9e2584048af8d4e9eedcdc
     with:
-      ci_ref: 875a8d4fad81f4d62e40d94401edad11956a7735
+      ci_ref: 2f264cde83b0b959ad9e2584048af8d4e9eedcdc
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
