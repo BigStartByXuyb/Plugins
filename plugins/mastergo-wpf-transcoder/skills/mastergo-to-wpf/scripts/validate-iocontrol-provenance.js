@@ -4,7 +4,7 @@
  * Mapping format: { contentOriginY, sourceNodes: [{ ref, parentRef,
  * pageAbsX, pageAbsY, relativeX, relativeY, width, height, text }],
  * nodes: [{ xmlId, sourceRef, sourceText, valueSource,
- * expectedLeft, expectedTop, expectedWidth, expectedHeight }] }
+ * expectedLeft, expectedTop, expectedWidth, expectedHeight, heightSource }] }
  */
 'use strict';
 
@@ -154,8 +154,13 @@ function validate(xmlPath, manifestPath) {
     if (!sameNumber(n.expectedLeft, expectedSourceLeft) || !sameNumber(n.expectedTop, expectedSourceTop)) {
       errors.push('[' + n.xmlId + '] expectedLeft/Top 不是由 sourceNodes 父子坐标计算得到');
     }
-    if (!sameNumber(n.expectedWidth, src.width) || !sameNumber(n.expectedHeight, src.height)) {
-      errors.push('[' + n.xmlId + '] expectedWidth/Height 不是同一 sourceRef 的 bbox');
+    const fixedTextBlockHeight = n.heightSource === 'mtslg.textblock.fixed-40';
+    const expectedHeightSource = fixedTextBlockHeight ? 40 : src.height;
+    if (fixedTextBlockHeight && x.ControlType !== 'TextBlock') {
+      errors.push('[' + n.xmlId + '] fixed-40 高度规则只能用于 TextBlock');
+    }
+    if (!sameNumber(n.expectedWidth, src.width) || !sameNumber(n.expectedHeight, expectedHeightSource)) {
+      errors.push('[' + n.xmlId + '] expectedWidth/Height 不是同一 sourceRef 或正式模板规则计算得到');
     }
     if (typeof src.text === 'string' && typeof n.sourceText === 'string' && src.text !== n.sourceText) {
       errors.push('[' + n.xmlId + '] sourceText 与 sourceNodes.text 不一致');

@@ -44,6 +44,19 @@ fs.writeFileSync(flatManifestPath, JSON.stringify({ contentOriginY: 192, rootRef
 }] }));
 const flatResult = validate(flatXmlPath, flatManifestPath);
 if (!flatResult.ok) throw new Error('展平模板节点应按 layoutParent=null 使用页面绝对坐标: ' + flatResult.errors.join('; '));
+const fixed40XmlPath = path.join(dir, 'fixed40.xml');
+const fixed40ManifestPath = path.join(dir, 'fixed40.json');
+fs.writeFileSync(fixed40XmlPath, '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ID="FixedText" ControlType="TextBlock" Value="标题" FontSize="16" Left="10" Top="20" Width="50" Height="40" /></IOContorl>');
+fs.writeFileSync(fixed40ManifestPath, JSON.stringify({ contentOriginY: 192, sourceNodes: [
+  { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
+  { ref: 'text', parentRef: 'root', pageAbsX: 10, pageAbsY: 212, relativeX: 10, relativeY: 212, width: 50, height: 16, text: '标题' }
+], nodes: [{
+  xmlId: 'FixedText', sourceRef: 'text', sourceParent: 'root', sourceText: '标题', valueSource: 'dsl.text',
+  expectedLeft: 10, expectedTop: 20, expectedWidth: 50, expectedHeight: 40,
+  heightSource: 'mtslg.textblock.fixed-40'
+}] }));
+const fixed40Result = validate(fixed40XmlPath, fixed40ManifestPath);
+if (!fixed40Result.ok) throw new Error('TextBlock 固定 40 高度应通过 provenance 校验: ' + fixed40Result.errors.join('; '));
 const fixedManifestPath = path.join(dir, 'wrong-origin.json');
 const fixedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 fixedManifest.contentOriginY = 191;

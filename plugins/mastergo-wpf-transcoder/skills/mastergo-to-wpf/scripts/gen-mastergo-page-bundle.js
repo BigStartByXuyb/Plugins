@@ -364,8 +364,12 @@ function validateBundleOutputs(info) {
         id: node.xmlId || node.id || node.ref,
         x: source.pageAbsX !== undefined ? source.pageAbsX : node.absX,
         y: source.pageAbsY !== undefined ? source.pageAbsY : node.absY,
-        w: source.width !== undefined ? source.width : node.w,
-        h: source.height !== undefined ? source.height : node.h,
+        w: node.expectedWidth !== undefined
+          ? node.expectedWidth
+          : (source.width !== undefined ? source.width : node.w),
+        h: node.expectedHeight !== undefined
+          ? node.expectedHeight
+          : (source.height !== undefined ? source.height : node.h),
         contentOriginX: mapping.contentOriginX === undefined ? 0 : mapping.contentOriginX,
         contentOriginY: 192
       };
