@@ -18,6 +18,17 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 ## 开始前门禁
 
+## MasterGo MCP 优先门禁（默认）
+
+凡触发本 Skill 的 MasterGo 转换任务，第一步必须检查当前会话已暴露的工具和已配置的 MCP，优先查找 MasterGo MCP。优先级固定如下：
+
+1. 首选 MasterGo MCP 的 getDesignSections；按任务需要继续使用 getPageLayers、getDsl、getMeta 和 extractSvg。不同客户端可能为工具增加服务前缀，必须按当前会话实际暴露的完整工具名调用。
+2. 只要 MasterGo MCP 可调用，设计总览、DSL、图标、元数据和页面层级都必须通过 MCP 获取；不得先用浏览器页面、截图、网页搜索、Accessibility Tree 或视觉猜测替代 MCP。
+3. 如果当前会话没有可调用的 MasterGo MCP，先检查已配置的官方 MasterGo MCP 服务（包括 @mastergo/magic-mcp）是否可用；确认不可用后才允许使用浏览器或其他设计稿兜底，并在任务记录中写明 sourceAccess=fallback、检查结果和原因。
+4. 浏览器仅用于登录、视觉核对或 MCP 不可用时的明确兜底，不得因为设计链接可以打开就跳过 MCP 优先检查。使用 MCP 成功读取后，页面生成必须继续走本 Skill 的 DSL pipeline 和适配器 Bundle 流程。
+
+## 开始前门禁
+
 先判断交付目标：
 
 - **结构映射稿**：用户明确要求输出独立的 WPF/XAML/IOContorl 文件，但未提供目标项目时，按正式映射表生成结构、节点、槽位、来源和坐标；运行时绑定与资源键写入待确认清单，不得用猜测值补齐。

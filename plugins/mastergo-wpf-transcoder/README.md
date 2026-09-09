@@ -30,6 +30,8 @@ Layout 增量注册与 `--overwrite` 的语义：
 
 Agent 的完整工作流是：MasterGo MCP 总览 → DSL pipeline `Init/Write/Merge` → coverage complete → 组件映射 → page bundle。DSL pipeline 不负责猜测控件、资源键或运行时业务绑定。
 
+MasterGo 转换默认优先检查并调用 MasterGo MCP；浏览器、截图和其他设计稿兜底只允许在 MCP 确认不可用后使用，并须记录兜底原因。
+
 ## 真实项目接入
 
 项目运行时交付直接读取目标项目的 `framework.config.json`、`.csproj`、现有页面、Icon、Layout 和项目本地索引，确认框架 Profile、源码、资源键、页面宿主和运行目录。该事实读取适用于 `mw-wpf` 和 `mtslg-iocontrol` 两种适配器；没有目标项目时仍可生成正式静态结构和完整脚手架，但不能宣称编译、加载或运行时验证已完成。
