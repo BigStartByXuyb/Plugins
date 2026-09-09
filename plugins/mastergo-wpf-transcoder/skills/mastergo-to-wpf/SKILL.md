@@ -5,7 +5,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 # MasterGo 转 MW 代码
 
-本 Skill 负责 MasterGo 设计稿到目标项目代码的完整转换。必须区分“按正式映射表生成完整结构”与“接入目标项目并完成运行时交付”：没有目标项目时创建完整脚手架并生成同一套页面结构；只有运行时交付才必须先使用外部依赖 `mw-framework-index` 完成项目、框架、源码、索引、版本和页面宿主核对。该依赖不随本插件打包；缺少它时可以继续静态映射和脚手架生成，但必须停止运行时交付验证并明确标记未完成。
+本 Skill 负责 MasterGo 设计稿到目标项目代码的完整转换。`mw-wpf` 和 `mtslg-iocontrol` 是两条并列的完整适配器路线，不存在主路线与附属路线之分。没有目标项目时创建所选路线的完整项目脚手架；有真实目标项目时直接读取其 `framework.config.json`、`.csproj`、现有页面、资源、Layout 和项目本地索引，完成对应路线的正式接入和运行时交付。缺少目标项目事实时可以继续静态映射和脚手架生成，但必须停止运行时交付验证并明确标记未完成。
 
 ## 触发边界
 
@@ -22,7 +22,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 - **结构映射稿**：用户明确要求输出独立的 WPF/XAML/IOContorl 文件，但未提供目标项目时，按正式映射表生成结构、节点、槽位、来源和坐标；运行时绑定与资源键写入待确认清单，不得用猜测值补齐。
 - **项目运行时交付**：用户要求替换/部署/加载页面，或要求报告可运行、Ctrl+R、视觉一致时，才执行以下目标项目门禁：
-  1. 读取并确认 `mw-framework-index` 输出的项目路径绑定和框架 Profile。
+  1. 读取并确认目标项目 `framework.config.json`、`.csproj`、项目本地索引和已确认的路径绑定/框架 Profile；不得依赖某个未安装的专用扫描工具。
    2. 按“适配器选择门禁”确定 `mw-wpf` 或 `mtslg-iocontrol`；目标项目存在有效 `framework.config.json` 时以其 `mode` 为依据，缺失时默认 `mtslg-iocontrol`。
   3. 确认框架源码、索引、组件库、真实页面样例和输出目录。
    4. 按页面宿主确认公共外壳边界。IOContorl 顶部栏/底部栏默认不写入页面 XML；设计稿包含页面壳层且目标项目需要页面注册或菜单时，已有 `Layout.xml` 按其真实结构增量注册；目标项目声明了 `layout_file` 但文件不存在时，按 `feishu-layout-mapping.md` 的正式模板新建该文件。不得因缺少既有 Layout 阻塞已确认页面生成，也不得从其他项目复制 Layout 结构或运行时字段。WPF 是否生成公共栏取决于宿主是否负责。
@@ -55,6 +55,8 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 3. `mode` 不受支持、配置路径无效且用户又明确要求依赖该配置时，停止并询问；不得同时执行两条作业或生成混合产物。
 4. 在任务记录和交付物中写明 `Adapter: mw-wpf` 或 `Adapter: mtslg-iocontrol`。选定后只执行对应作业；另一作业的协议、资源、页面格式、样例和校验器不得混入。
 
+两条适配器都是完整项目路线：选定 `mtslg-iocontrol` 后，页面 XML、Icon、Layout、mapping/provenance、项目配置、正式输出目录和该项目要求的宿主壳共同构成完整 IOContorl 项目交付；不得把它描述成“只生成 XML”或“依赖 WPF 路线的附属产物”。
+
 ## 作业 A：MW 框架 WPF（`Adapter: mw-wpf`）
 
 新增独立 MW WPF 页面时，先按本作业读取项目适配与 MW WPF 参考文档，形成页面清单，再使用 scripts/gen-mw-wpf-page.js 生成固定的 View、View.xaml.cs、ViewModel 和 csproj 注册。清单可显式提供 `viewPath`、`codeBehindPath`、`viewModelPath`；未提供时按 `.csproj` 同区域 View/ViewModel 声明、项目目录证据、最后的 `Pages/` 兜底顺序解析，绝不为同一页面生成两套目录。若 MaxWell SSD 页面需要一个负责加载 MTSLG 页面 XML 的 WPF 宿主壳，必须改用作业 B 的 bundle 入口；作业 A 单独生成的 WPF 页面不得猜写 IOContorl 控件。页面控件、文本、坐标、Style、协议绑定、页面 XML 和 Icon 仍必须分别依据项目事实源、MasterGo DSL 与对应生成器完成。
@@ -68,7 +70,7 @@ description: 将明确要求的 MasterGo 设计稿转换为 MW WPF/XAML、C# Use
 
 ## 作业 B：MTSLG IOContorl（`Adapter: mtslg-iocontrol`）
 
-MaxWell SSD 新页面需要同时生成 MTSLG 页面和 WPF 宿主时，使用 `scripts/gen-mastergo-page-bundle.js` 作为总入口；适配器仍记录为 `mtslg-iocontrol`。bundle 生成的 WPF 文件仅是加载 MTSLG 页面 XML 的宿主壳，不是第二套 WPF 页面适配器，也不得在其中猜写 WPF 业务控件或把 WPF 私有协议写入 IOContorl XML。
+`mtslg-iocontrol` 路线需要生成完整页面项目时，使用 `scripts/gen-mastergo-page-bundle.js` 作为总入口；适配器仍记录为 `mtslg-iocontrol`。Bundle 生成的项目文件、页面 XML、Icon、Layout、mapping/provenance 和目标项目要求的 WPF 宿主壳共同组成这条完整路线的交付物。宿主壳只负责加载 MTSLG 页面 XML，不是第二套 WPF 业务页面适配器，也不得在其中猜写 WPF 业务控件或把 WPF 私有协议写入 IOContorl XML。
 
 1. 先读 `references/adapters/mtslg-iocontrol/mtslg-mode.md`；再读取 `feishu-component-library-mapping.md` 和 `mtslg-iocontrol-map.json`，核对正式组件映射、XML 属性白名单、现有 IOContorl 页面、Layout 与页面宿主。设计稿包含顶部栏、底部栏或快捷键，或本次需要创建/修改 Layout 注册时，必须再读 `feishu-layout-mapping.md`；未触发页面壳层或 Layout 注册时不读取该文件。不得读取 MW WPF 控件协议作为 XML 事实源。
 2. 生成真实 `IOContorl` XML、逐节点 mapping/provenance 和必要的 Layout 注册；`ControlType`、固定组件层级和槽位首先使用正式映射表。目标项目已确认的字段按事实填写；固定模板中存在但缺少可靠来源的 `IOName`、`IOCommand`、`LangName`、`IOEnable`、`IOState`、`PageName`、`UserRightId` 等保留属性并输出空字符串值，不删除整个节点；不在模板中的属性不新增。使用 `scripts/gen-iocontrol-xml.js` 发射 XML；先发现当前页面 PATH/SVG 候选，再由 `scripts/gen-mtslg-page-icons.js` 生成当前页面的 Icon 文件。Icon 资源名优先使用中文语义对应的英文键；无法形成可靠语义名时才使用当前页面内唯一的临时键。临时键必须写入 mapping/manifest，不能使用 `MGIcon_<layer-id>`，并必须保持页面内唯一。Layout 只引用该页面 Icon 文件中已生成的键。
@@ -190,7 +192,7 @@ AI 必须同时读取原始 DSL、`visibility.json` 和正式组件映射，按�
 
 ## 公共参考（仅在对应条件满足时读取）
 
-- 框架发现、路径绑定和索引：外部依赖 `mw-framework-index`；仅项目运行时交付使用，不随本插件打包。缺少该依赖时只能完成静态映射/脚手架，不能宣称运行时交付验证通过。
+- 框架发现、路径绑定和索引：直接读取目标项目的 `framework.config.json`、`.csproj`、项目本地 `docs/ai-index/`、源码和现有页面；适用于两种适配器。缺少目标项目事实时只能完成静态映射/脚手架，不能宣称运行时交付验证通过。
 - 项目首次适配：`references/project-adapter-initialization.md`；仅在有效 `framework.config.json`、组件目录或资源目录尚未确认时使用。它不选择适配器。
 - 跨适配器组件语义：`references/mastergo-component-mapping-rules.md`；仅用于两条作业共用的设计来源、组件身份与来源链规则。
 

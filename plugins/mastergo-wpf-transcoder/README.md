@@ -7,6 +7,13 @@
 - `skills/mastergo-to-wpf/` — 转码流程、组件映射参考、MTSLG 来源验证和坐标回归检查。
 - `skills/mastergo-iocontrol-document-format/` — 编写和审查 MasterGo → MTSLG IOContorl 映射文档的统一格式规范。
 
+本插件包含两条并列的完整项目路线：
+
+- `Adapter: mw-wpf`：生成真实 MW WPF 页面、XAML、C# 宿主和项目注册。
+- `Adapter: mtslg-iocontrol`：生成完整 MTSLG IOContorl 项目结构，包括页面 XML、页面 Icon、Layout、mapping/provenance、项目配置以及目标项目要求的宿主壳；它不是 WPF 路线的降级结果，也不是附属中间产物。
+
+两条路线都支持真实目标项目接入、正式输出目录和运行时验证；没有目标项目时，各自生成对应的完整项目脚手架，只跳过编译和运行时加载验证。
+
 完整页面转换包含三项强制工具：
 
 - `skills/mastergo-to-wpf/scripts/mastergo-dsl-pipeline.ps1` — 管理 MasterGo 总览、逐 section DSL 快照、覆盖校验和失败重试；只有覆盖报告为 `complete` 才能继续生成。
@@ -23,9 +30,9 @@ Layout 增量注册与 `--overwrite` 的语义：
 
 Agent 的完整工作流是：MasterGo MCP 总览 → DSL pipeline `Init/Write/Merge` → coverage complete → 组件映射 → page bundle。DSL pipeline 不负责猜测控件、资源键或运行时业务绑定。
 
-## 外部运行时依赖
+## 真实项目接入
 
-`mw-framework-index` 不随本插件打包，是项目运行时交付所需的外部依赖。它只用于确认真实目标项目的框架 Profile、源码、资源键、页面宿主和运行目录。没有该依赖或没有真实目标项目时，插件仍可执行正式组件映射、静态 XML/Icon/Layout 生成和完整脚手架生成，但不得宣称编译、加载或运行时交付已完成。
+项目运行时交付直接读取目标项目的 `framework.config.json`、`.csproj`、现有页面、Icon、Layout 和项目本地索引，确认框架 Profile、源码、资源键、页面宿主和运行目录。该事实读取适用于 `mw-wpf` 和 `mtslg-iocontrol` 两种适配器；没有目标项目时仍可生成正式静态结构和完整脚手架，但不能宣称编译、加载或运行时验证已完成。
 
 可见性脚本的输出是 AI 映射的事实输入，不是最终页面文件。AI 仍需结合原始 DSL、visibility audit、正式组件映射和目标运行时资料生成 mapping；mapping 再由 Bundle 生成 XML、Icon、Layout 和宿主文件。
 
