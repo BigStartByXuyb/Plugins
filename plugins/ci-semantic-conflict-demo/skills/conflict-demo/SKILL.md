@@ -5,6 +5,8 @@ description: 仅用于验证 CI 语义冲突审计的测试 Skill。
 
 # Semantic Conflict Demo
 
+<!-- Trigger a rerun against the Chinese semantic-audit contract. -->
+
 ## 输出契约
 
 1. 本 Skill 的输出必须始终是 JSON。
