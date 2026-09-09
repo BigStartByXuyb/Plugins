@@ -3,8 +3,16 @@ name: Plugin CI/CD
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, review_requested]
+    paths:
+      - 'plugins/**'
+      - '.claude-plugin/**'
+      - 'docs/plugin-semantic-audit.md'
   push:
     branches: [main]
+    paths:
+      - 'plugins/**'
+      - '.claude-plugin/**'
+      - 'docs/plugin-semantic-audit.md'
     tags: ['v*']
   workflow_dispatch:
 
