@@ -7,12 +7,14 @@ on:
       - 'plugins/**'
       - '.claude-plugin/**'
       - 'docs/plugin-semantic-audit.md'
+      - '.github/workflows/plugin-cicd.yml'
   push:
     branches: [main]
     paths:
       - 'plugins/**'
       - '.claude-plugin/**'
       - 'docs/plugin-semantic-audit.md'
+      - '.github/workflows/plugin-cicd.yml'
     tags: ['v*']
   workflow_dispatch:
 
