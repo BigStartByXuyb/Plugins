@@ -72,13 +72,20 @@ function validateLayoutManifest(manifest) {
   if (matched < 0 || unresolved < 0) {
     fail("layoutEvidence 中的组件数量不能为负数");
   }
+  // 右下角“右侧底部-常驻button”分组内的实例不计入 Menu（2026-09 规则）：
+  // matchedBottomBarItems 仍统计全部命中变体实例，常驻分组内的数量单独登记。
+  const residentRaw = evidence.residentGroupItems;
+  const resident = residentRaw === undefined || residentRaw === null ? 0 : Number(residentRaw);
+  if (!Number.isInteger(resident) || resident < 0) {
+    fail("layoutEvidence.residentGroupItems 必须是 0 或正整数（右下角常驻分组内不生成 MenuItem 的实例数）");
+  }
 
   if (status === "pending") {
     fail("Layout 映射仍为 pending，禁止生成 Layout.xml；请先处理未决底部栏组件");
   }
   if (status === "none") {
-    if (matched !== 0 || unresolved !== 0 || manifest.menuItems.length !== 0) {
-      fail("layoutStatus=none 时，Layout 证据和 menuItems 必须全部为空");
+    if (matched !== 0 || unresolved !== 0 || resident !== 0 || manifest.menuItems.length !== 0) {
+      fail("layoutStatus=none 时，Layout 证据（含 residentGroupItems）和 menuItems 必须全部为空");
     }
     return;
   }
@@ -89,9 +96,10 @@ function validateLayoutManifest(manifest) {
   if (unresolved !== 0) {
     fail("Layout 仍存在未决底部栏组件，不能标记为 complete");
   }
-  if (manifest.menuItems.length !== matched) {
+  if (manifest.menuItems.length + resident !== matched) {
     fail("Layout 映射数量不一致：matchedBottomBarItems=" + matched +
-      "，menuItems=" + manifest.menuItems.length);
+      "，menuItems=" + manifest.menuItems.length + "，residentGroupItems=" + resident +
+      "（右下角“右侧底部-常驻button”分组内的实例不生成 MenuItem）");
   }
 }
 
@@ -105,11 +113,15 @@ function renderPage(manifest) {
          ? " LangName=\"" + xmlAttr(manifest.pageLangName) + "\"" : "") + ">",
     "    <Menu>"
   ];
+  const seenIndexes = new Set();
   manifest.menuItems.forEach(function (item, index) {
     if (!item || typeof item !== "object") fail("menuItems[" + index + "] 无效");
     if (item.index === undefined || item.index === null || !Number.isInteger(Number(item.index))) {
       fail("menuItems[" + index + "].index 必须是当前页面已确认的整数顺序");
     }
+    const menuIndex = Number(item.index);
+    if (seenIndexes.has(menuIndex)) fail("menuItems 存在重复 Index: " + menuIndex);
+    seenIndexes.add(menuIndex);
     lines.push(renderMenuItem(item));
   });
   lines.push("    </Menu>");
@@ -249,6 +261,8 @@ function main() {
     layoutPath,
     pageTarget: manifest.pageTarget,
     menuItemCount: manifest.menuItems.length,
+    residentGroupItems: manifest.layoutEvidence && manifest.layoutEvidence.residentGroupItems
+      ? Number(manifest.layoutEvidence.residentGroupItems) : 0,
     created: !backup,
     backup
   }, null, 2));

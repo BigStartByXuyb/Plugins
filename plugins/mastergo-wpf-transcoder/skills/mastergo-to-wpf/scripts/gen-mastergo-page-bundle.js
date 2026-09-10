@@ -347,6 +347,57 @@ function collectIconReferences(mapping, layoutMenuItems) {
   return references;
 }
 
+// 右下角“右侧底部-常驻button”分组内的实例不生成 MenuItem（见 feishu-layout-mapping.md）。
+// 只匹配常驻分组本身（“右侧底部-常驻button”这类名字）；页面上的“背景常驻信息”等不在此列。
+const RESIDENT_GROUP_PATTERN = /常驻(button|按钮|分组)/i;
+
+function residentGroupRefs(mapping) {
+  return (mapping && Array.isArray(mapping.sourceNodes) ? mapping.sourceNodes : [])
+    .filter(function (node) {
+      return node && node.type === "INSTANCE" &&
+        typeof node.name === "string" && RESIDENT_GROUP_PATTERN.test(node.name);
+    })
+    .map(function (node) { return String(node.ref); });
+}
+
+function isUnderRef(ref, parentRefs) {
+  return parentRefs.some(function (parentRef) {
+    return ref === parentRef || ref.indexOf(parentRef + "/") === 0;
+  });
+}
+
+function countResidentGroupItems(mapping, parentRefs) {
+  if (parentRefs.length === 0) return 0;
+  return (mapping.sourceNodes || []).filter(function (node) {
+    if (!node || node.type !== "INSTANCE") return false;
+    if (typeof node.name === "string" && /背景|分割/.test(node.name)) return false;
+    return parentRefs.indexOf(String(node.parentRef)) >= 0;
+  }).length;
+}
+
+function validateResidentGroupEvidence(mapping, manifest) {
+  const parentRefs = residentGroupRefs(mapping);
+  const evidence = manifest.layoutEvidence || {};
+  const declared = evidence.residentGroupItems === undefined || evidence.residentGroupItems === null
+    ? 0
+    : Number(evidence.residentGroupItems);
+  const expected = countResidentGroupItems(mapping, parentRefs);
+  if (declared !== expected) {
+    fail("layoutEvidence.residentGroupItems=" + declared +
+      "，但 mapping 中右下角常驻分组内的底部栏实例数为 " + expected +
+      "（分组: " + (parentRefs.join(", ") || "无") + "）");
+  }
+  const offenders = (manifest.menuItems || []).filter(function (item) {
+    return item && typeof item.sourceRef === "string" &&
+      parentRefs.length > 0 && isUnderRef(item.sourceRef, parentRefs);
+  });
+  if (offenders.length > 0) {
+    fail("MenuItems 不得包含右下角常驻分组内的实例：" +
+      offenders.map(function (item) { return item.sourceRef || item.name || "(未命名)"; }).join(", ") +
+      "；请从 menuItems 移除并计入 layoutEvidence.residentGroupItems");
+  }
+}
+
 function validateBundleOutputs(info) {
   const pageXml = requireFile(info.pageXmlPath, "页面 XML");
   if (!/<IOContorl\b/.test(pageXml) || !/<\/IOContorl>\s*$/.test(pageXml)) {
@@ -600,6 +651,7 @@ function main() {
       layoutSource = fs.readFileSync(layoutPath, "utf8");
       fs.writeFileSync(tempLayout, layoutSource, "utf8");
     }
+    validateResidentGroupEvidence(mapping, manifest);
     const layoutManifest = {
       layoutPath: tempLayout,
       pageTarget: manifest.pageTarget,

@@ -140,4 +140,56 @@ assert.strictEqual((text.match(/<Page\s+Target="F2NewPage"/g) || []).length, 1);
 assert.match(text, /Name="第一项" Icon="FirstGeometry" TopLeftContent="F1" Index="1"/);
 assert.doesNotMatch(text, /Name="旧页面"/);
 
+// 右下角常驻分组（右侧底部-常驻button）内的实例不生成 MenuItem：
+// matchedBottomBarItems 仍统计全部命中变体，常驻分组内的数量单独登记进 residentGroupItems。
+const residentManifest = path.join(root, "resident-group.json");
+const residentLayout = path.join(root, "ResidentLayout.xml");
+fs.writeFileSync(residentManifest, JSON.stringify({
+  layoutPath: residentLayout,
+  pageTarget: "ResidentPage",
+  pageLangName: "",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 3, unresolvedBottomBarItems: 0, residentGroupItems: 1 },
+  menuItems: [
+    { name: "第一项", icon: "FirstGeometry", index: 0 },
+    { name: "第二项", icon: "SecondGeometry", index: 1 }
+  ]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", residentManifest], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+text = fs.readFileSync(residentLayout, "utf8");
+assert.strictEqual((text.match(/<MenuItem /g) || []).length, 2, "常驻分组内的实例不得生成 MenuItem");
+assert.match(text, /Name="第一项" Icon="FirstGeometry" Index="0"/);
+assert.match(text, /Name="第二项" Icon="SecondGeometry" Index="1"/);
+
+const residentMismatch = path.join(root, "resident-mismatch.json");
+fs.writeFileSync(residentMismatch, JSON.stringify({
+  layoutPath: path.join(root, "ResidentMismatch.xml"),
+  pageTarget: "ResidentMismatchPage",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 3, unresolvedBottomBarItems: 0, residentGroupItems: 0 },
+  menuItems: [
+    { name: "第一项", index: 0 },
+    { name: "第二项", index: 1 }
+  ]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", residentMismatch], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "menuItems + residentGroupItems 与 matchedBottomBarItems 不一致时必须失败");
+assert.match(result.stderr + result.stdout, /residentGroupItems/);
+
+const duplicateIndexManifest = path.join(root, "duplicate-index.json");
+fs.writeFileSync(duplicateIndexManifest, JSON.stringify({
+  layoutPath: path.join(root, "DuplicateIndex.xml"),
+  pageTarget: "DuplicateIndexPage",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 2, unresolvedBottomBarItems: 0 },
+  menuItems: [
+    { name: "第一项", index: 0 },
+    { name: "第二项", index: 0 }
+  ]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", duplicateIndexManifest], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "重复 Index 必须失败");
+assert.match(result.stderr + result.stdout, /重复 Index/);
+
 console.log("PASS MTSLG Layout generator regression test");

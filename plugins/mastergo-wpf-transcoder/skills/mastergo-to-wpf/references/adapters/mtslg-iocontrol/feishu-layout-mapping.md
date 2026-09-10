@@ -20,12 +20,14 @@
 
 #### 固定模板
 
-一个页面底部栏对应一个 Page 下的一个 Menu；每个命中变体实例对应一个 MenuItem。底部栏容器和右侧常驻分组本身不生成 MenuItem，其命中的子实例分别生成 MenuItem。
+一个页面底部栏对应一个 Page 下的一个 Menu；只有底部栏横排的命中变体实例生成 MenuItem。底部栏容器、右下角常驻分组（`右侧底部-常驻button`）以及分组内的全部子实例都不生成 MenuItem。
+
+常驻分组内的实例数量登记在 `layoutEvidence.residentGroupItems`，与 `matchedBottomBarItems` 的换算关系为 `matchedBottomBarItems = menuItems.length + residentGroupItems`；生成脚本会按此校验并在 `menuItems` 里出现常驻分组实例时直接失败。Index 只对实际生成的 MenuItem 按它们在底部栏中的排列顺序连续编号（不含常驻分组）。
 
 ```xml
 <Page Target="{target}" LangName="{page_lang_name}">
   <Menu>
-    <!-- 每个命中变体实例生成一个 MenuItem -->
+    <!-- 每个底部栏横排命中变体实例生成一个 MenuItem（右下角常驻分组除外） -->
   </Menu>
 </Page>
 ```
