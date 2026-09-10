@@ -65,6 +65,67 @@ try {
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $runDir 'status'))) '不得生成 section status 目录'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $runDir 'retry-manifest.json'))) '不得生成 section 重试清单'
 
+    $duplicateNode = [pscustomobject]@{
+        type = 'GROUP'
+        id = 'duplicate-node'
+        name = '相同图标'
+        layoutStyle = [pscustomobject]@{ width = 24; height = 24; relativeX = 0; relativeY = 0 }
+        path = @([pscustomobject]@{ data = 'M0,0L1,1' })
+    }
+    $duplicateInput = Join-Path $root 'exact-duplicate.json'
+    $duplicateRun = Join-Path $root 'exact-duplicate-run'
+    [pscustomobject]@{
+        dsl = [pscustomobject]@{
+            styles = [pscustomobject]@{}
+            nodes = @([pscustomobject]@{
+                type = 'INSTANCE'
+                id = 'duplicate-root'
+                layoutStyle = [pscustomobject]@{ width = 1280; height = 1024; relativeX = 0; relativeY = 0 }
+                children = @($duplicateNode, $duplicateNode)
+            })
+            components = @()
+        }
+    } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $duplicateInput -Encoding UTF8
+    Invoke-Capture @('-Action', 'Capture', '-InputFile', $duplicateInput, '-Out', $duplicateRun, '-FileId', 'file-duplicate', '-LayerId', 'duplicate-root', '-Ui', 'F2', '-RunId', 'duplicate-run')
+    $duplicateSnapshot = Get-Content -LiteralPath (Join-Path $duplicateRun 'dsl.snapshot.json') -Raw | ConvertFrom-Json -Depth 100
+    $duplicateCoverage = Get-Content -LiteralPath (Join-Path $duplicateRun 'coverage-report.json') -Raw | ConvertFrom-Json -Depth 100
+    Assert-True (@($duplicateSnapshot.dsl.nodes[0].children).Count -eq 1) '完全相同的重复节点必须折叠为一个'
+    Assert-True ($duplicateCoverage.status -eq 'complete') '完全相同的重复节点不应阻断捕获'
+    Assert-True (@($duplicateCoverage.collapsedDuplicateRefs).Count -eq 1) '完全相同的重复节点必须写入折叠审计'
+    Assert-True (@($duplicateCoverage.duplicateNodeRefs).Count -eq 0) '折叠重复节点不得进入冲突列表'
+
+    $conflictNode = [pscustomobject]@{
+        type = 'GROUP'
+        id = 'duplicate-node'
+        name = '不同内容'
+        layoutStyle = [pscustomobject]@{ width = 30; height = 24; relativeX = 0; relativeY = 0 }
+        path = @([pscustomobject]@{ data = 'M0,0L2,2' })
+    }
+    $conflictInput = Join-Path $root 'conflicting-duplicate.json'
+    $conflictRun = Join-Path $root 'conflicting-duplicate-run'
+    [pscustomobject]@{
+        dsl = [pscustomobject]@{
+            styles = [pscustomobject]@{}
+            nodes = @([pscustomobject]@{
+                type = 'INSTANCE'
+                id = 'conflict-root'
+                layoutStyle = [pscustomobject]@{ width = 1280; height = 1024; relativeX = 0; relativeY = 0 }
+                children = @($duplicateNode, $conflictNode)
+            })
+            components = @()
+        }
+    } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $conflictInput -Encoding UTF8
+    $conflictFailed = $false
+    try {
+        Invoke-Capture @('-Action', 'Capture', '-InputFile', $conflictInput, '-Out', $conflictRun, '-FileId', 'file-conflict', '-LayerId', 'conflict-root', '-Ui', 'F2', '-RunId', 'conflict-run')
+    }
+    catch {
+        $conflictFailed = $true
+    }
+    Assert-True $conflictFailed '内容不同的同 ID 节点必须阻断捕获'
+    $conflictCoverage = Get-Content -LiteralPath (Join-Path $conflictRun 'coverage-report.json') -Raw | ConvertFrom-Json -Depth 100
+    Assert-True (@($conflictCoverage.duplicateNodeRefs) -contains 'duplicate-node') '真正冲突的 ref 必须进入冲突列表'
+
     $skillText = Get-Content -LiteralPath $skill -Raw
     Assert-True ($skillText -match 'getDsl') 'Skill 必须强制使用一次性 getDsl'
     Assert-True ($skillText -match 'Capture') 'Skill 必须引用单次捕获流程'

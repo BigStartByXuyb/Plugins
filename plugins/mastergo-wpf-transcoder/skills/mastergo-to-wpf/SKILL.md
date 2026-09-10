@@ -177,6 +177,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 1. 从 MasterGo 链接解析 `fileId` 和 `layerId`，调用 `getDsl(fileId, layerId, format=json)` 一次读取完整 DSL，并将 MCP 文本响应保存为一个 JSON 输入文件。
 2. 执行 `mastergo-dsl-pipeline.ps1 -Action Capture -InputFile <getDsl.json> -Out <runDir> -FileId <fileId> -LayerId <layerId> -Ui <ui>`。脚本验证根节点、全部递归节点、唯一 ref 和父子链，并生成唯一的 `dsl.snapshot.json`、`manifest.json`、`coverage-report.json` 和 `timing.json`。
 3. 只有 `coverage-report.json.status=complete` 且 `duplicateNodeRefs=[]`、`unknownParentRefs=[]` 时，才允许进入组件映射、Icon 发现和 `gen-mastergo-page-bundle.js`。一次性 `getDsl` 没有独立的远端节点总数，`capturedNodeCount` 只表示本地递归解析到的节点数，不得把它当成远端完整性证明。
+   - 完全相同的同 ID、同父节点节点允许在 Capture 阶段折叠为一个，并写入 `collapsedDuplicateRefs` 审计；同 ID 但父节点、类型、内容或几何不同仍写入 `duplicateNodeRefs` 并阻断生成。
 4. 覆盖校验失败时，停止本次转换并报告重复 ref、缺失 id 或断裂父子链；不得改为分段读取或凭不完整数据生成 XML、Icon、Layout 或 WPF 宿主。
 5. 该流水线只负责一次性 DSL 快照的结构完整性和来源保留。当前 MTSLG 页面转换还必须在 `getDsl` 成功后按需调用 `extractSvg`，将响应保存为 `<runDir>/extractSvg.json`；Bundle 清单的 `svgPath` 必须指向该文件。没有可用运行时 Icon 时也必须提供合法的 `{ "svgs": [] }` 输入，不能省略 `svgPath`。随后再执行正式映射、`gen-iocontrol-xml.js`、`gen-mtslg-page-icons.js`、`gen-mtslg-layout.js` 和 `gen-mastergo-page-bundle.js`。
 
@@ -193,6 +194,7 @@ AI 必须同时读取原始 DSL、`visibility.json` 和正式组件映射，按�
 以下脚本不是每次都由 Bundle 自动调用，而是按场景触发：
 
 - `resolve-mastergo-visibility.js`：组件映射前强制运行；输出所有节点的有效可见性，供 AI 生成 mapping/textAudit。
+- 显隐事实只读取当前组件实例的 `componentInfo.properties`；仅当明确的显示槽位属性（如“显示文案”“显示icon”“显示主标题”“显示F”）为布尔 `false` 时隐藏对应槽位。节点自身的 `visible/visibility` 及其他泛化属性不参与当前页面显隐判定。
 - `scan-mtslg-keys.ps1`：只有存在目标 MTSLG 运行时目录、需要确认 Style/Icon/LangName/IOName/IOCommand 等键时运行；静态映射没有目标目录时不运行。
 - `classify-mastergo-groups.js`：DSL 中存在未明确语义的 GROUP、容器或组合层级时运行；已由正式组件模板命中的实例不重复运行。
 - `scan-icon-coords.js`：Icon XAML 已生成且包含 Geometry 时运行；页面没有 Geometry 时跳过。

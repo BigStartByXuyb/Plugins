@@ -5,9 +5,9 @@
  * Extract visibility facts from MasterGo DSL.
  *
  * This script does not generate IOContorl mapping. It produces an evidence
- * file for the mapper/AI: every discovered node gets its explicit visibility
- * field, effective visibility after ancestor inheritance, and the source of
- * that decision. Text and PATH nodes are also indexed separately.
+ * file for the mapper/AI: every discovered node gets the effective visibility
+ * of a component slot only when its owning component exposes a boolean
+ * display property. Text and PATH nodes are also indexed separately.
  */
 
 const fs = require("fs");
@@ -27,43 +27,6 @@ function parseBoolean(value) {
   const normalized = value.trim().toLowerCase();
   if (["true", "1", "visible", "shown", "show"].includes(normalized)) return true;
   if (["false", "0", "hidden", "hide", "collapsed"].includes(normalized)) return false;
-  return null;
-}
-
-function getPath(object, parts) {
-  let current = object;
-  for (const part of parts) {
-    if (!current || typeof current !== "object" || !Object.prototype.hasOwnProperty.call(current, part)) return undefined;
-    current = current[part];
-  }
-  return current;
-}
-
-const VISIBILITY_PATHS = [
-  ["visible"],
-  ["visibility"],
-  ["properties", "visible"],
-  ["properties", "visibility"],
-  ["variantProps", "visible"],
-  ["variantProps", "visibility"],
-  ["componentProperties", "visible"],
-  ["componentProperties", "visibility"],
-  ["overrides", "visible"],
-  ["overrides", "visibility"]
-];
-
-function explicitVisibility(node) {
-  for (const parts of VISIBILITY_PATHS) {
-    const raw = getPath(node, parts);
-    const parsed = parseBoolean(raw);
-    if (parsed !== null) {
-      return {
-        value: parsed,
-        property: parts.join("."),
-        raw
-      };
-    }
-  }
   return null;
 }
 
@@ -99,9 +62,7 @@ function normalizedPropertyKey(value) {
 
 function componentProperties(node) {
   const componentInfo = node && node.componentInfo && node.componentInfo.properties;
-  if (componentInfo && typeof componentInfo === "object") return componentInfo;
-  if (node && node.properties && typeof node.properties === "object") return node.properties;
-  return null;
+  return componentInfo && typeof componentInfo === "object" ? componentInfo : null;
 }
 
 function slotVisibility(controller, target, isDirectChild) {
@@ -167,13 +128,12 @@ function collectNodes(input) {
 
     visited.add(value);
     const ref = nodeRef(value, containerPath);
-    const explicit = explicitVisibility(value);
     let slotControl = null;
     for (let index = ancestors.length - 1; index >= 0; index -= 1) {
       slotControl = slotVisibility(ancestors[index].raw, value, parent && ancestors[index].record.ref === parent.ref);
       if (slotControl) break;
     }
-    const controller = explicit || slotControl;
+    const controller = slotControl;
     const record = {
       ref,
       parentRef: parent ? parent.ref : null,
@@ -236,4 +196,4 @@ if (require.main === module) {
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }
 
-module.exports = { collectNodes, explicitVisibility, parseBoolean };
+module.exports = { collectNodes, parseBoolean };

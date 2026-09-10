@@ -46,6 +46,64 @@ function Get-RunId {
     return "$(Get-Date -Format 'yyyyMMddHHmmss')-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
 }
 
+function Normalize-ExactDuplicateNodes {
+    param(
+        [object[]] $Nodes,
+        [string] $ParentRef,
+        [string] $ContainerPath,
+        [hashtable] $SeenByRef,
+        [System.Collections.Generic.List[object]] $Collapsed,
+        [System.Collections.Generic.HashSet[string]] $Conflicts
+    )
+
+    $normalized = [System.Collections.Generic.List[object]]::new()
+    $index = 0
+    foreach ($node in @($Nodes)) {
+        if ($null -eq $node) { $index++; continue }
+        if (-not ($node.PSObject.Properties.Name -contains 'id') -or -not [string] $node.id) {
+            throw '完整 DSL 存在缺少 id 的节点，拒绝生成快照'
+        }
+        $ref = [string] $node.id
+        $path = "$ContainerPath[$index]"
+        $signature = $node | ConvertTo-Json -Depth 100 -Compress
+        if ($SeenByRef.ContainsKey($ref)) {
+            $previous = $SeenByRef[$ref]
+            if ($previous.parentRef -eq $ParentRef -and $previous.signature -eq $signature) {
+                $Collapsed.Add([pscustomobject]@{
+                    ref = $ref
+                    parentRef = $ParentRef
+                    keptPath = $previous.path
+                    duplicatePath = $path
+                    reason = 'identical-node-duplicate'
+                }) | Out-Null
+                $index++
+                continue
+            }
+            $Conflicts.Add($ref) | Out-Null
+        }
+        else {
+            $SeenByRef[$ref] = [pscustomobject]@{
+                parentRef = $ParentRef
+                signature = $signature
+                path = $path
+            }
+        }
+        if ($node.PSObject.Properties.Name -contains 'children' -and $null -ne $node.children) {
+            $children = Normalize-ExactDuplicateNodes `
+                -Nodes @($node.children) `
+                -ParentRef $ref `
+                -ContainerPath "$path.children" `
+                -SeenByRef $SeenByRef `
+                -Collapsed $Collapsed `
+                -Conflicts $Conflicts
+            $node.children = @($children)
+        }
+        $normalized.Add($node) | Out-Null
+        $index++
+    }
+    return @($normalized)
+}
+
 function Get-NodeRecords {
     param(
         [object[]] $Nodes,
@@ -90,10 +148,22 @@ function Capture-Run {
         throw "根节点 layerId 不匹配：期望 $LayerId，实际 $rootId"
     }
 
+    $seenByRef = @{}
+    $collapsed = [System.Collections.Generic.List[object]]::new()
+    $duplicates = [System.Collections.Generic.HashSet[string]]::new()
+    $nodes = @(Normalize-ExactDuplicateNodes `
+        -Nodes $nodes `
+        -ParentRef $null `
+        -ContainerPath '$root[0]' `
+        -SeenByRef $seenByRef `
+        -Collapsed $collapsed `
+        -Conflicts $duplicates)
+    $payload.dsl.nodes = @($nodes)
+
     $records = [System.Collections.Generic.List[object]]::new()
     $seen = [System.Collections.Generic.HashSet[string]]::new()
-    $duplicates = [System.Collections.Generic.HashSet[string]]::new()
-    Get-NodeRecords -Nodes $nodes -Records $records -Seen $seen -Duplicates $duplicates -ParentRef $null
+    $recordDuplicates = [System.Collections.Generic.HashSet[string]]::new()
+    Get-NodeRecords -Nodes $nodes -Records $records -Seen $seen -Duplicates $recordDuplicates -ParentRef $null
     $unknownParents = [System.Collections.Generic.HashSet[string]]::new()
     foreach ($record in $records) {
         if ($record.parentRef -and -not $seen.Contains($record.parentRef)) {
@@ -148,6 +218,7 @@ function Capture-Run {
         capturedNodeCount = $nodeCount
         validationBasis = 'single-response-structural-validation'
         duplicateNodeRefs = @($duplicates | Sort-Object)
+        collapsedDuplicateRefs = @($collapsed)
         unknownParentRefs = @($unknownParents | Sort-Object)
         checkedAt = $completedAt.ToString('o')
     }
