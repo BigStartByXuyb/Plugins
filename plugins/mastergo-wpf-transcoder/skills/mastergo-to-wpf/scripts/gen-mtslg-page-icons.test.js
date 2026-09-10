@@ -109,4 +109,48 @@ assert.doesNotMatch(bodyOf('OverlapEvenOddGeometry'), /^\s*F[01]\s*$/m, '原规�
 assert.match(result.stdout, /保留 F1（渲染依赖 Nonzero）: OverlapNonzeroGeometry/);
 assert.match(result.stdout, /去重重复子路径: DupGeometry\(-1\)/);
 
+// DSL 补充来源：extractSvg 因几何完全相同的复用而缺条目时，从 DSL 合成；
+// bakeAncestorTransform 额外把组级 rotate/flip 烘焙进坐标（用于方向图标）。
+const dslSnapshotFile = path.join(dir, 'dsl.snapshot.json');
+const dslMapFile = path.join(dir, 'dsl-icon-map.json');
+const dslOut = path.join(dir, 'DslIcons.xaml');
+const emptySvgFile = path.join(dir, 'empty-extractSvg.json');
+fs.writeFileSync(emptySvgFile, JSON.stringify({ svgs: [] }), 'utf8');
+fs.writeFileSync(dslSnapshotFile, JSON.stringify({
+  dsl: {
+    nodes: [{
+      type: 'INSTANCE', id: 'page', name: '页面',
+      layoutStyle: { width: 1280, height: 1024, relativeX: 0, relativeY: 0 },
+      children: [{
+        type: 'GROUP', id: 'page/up', name: '组 1521',
+        layoutStyle: { width: 26, height: 28, relativeX: 0, relativeY: 0, flipV: true },
+        children: [{
+          type: 'PATH', id: 'page/up/path', name: '路径 119',
+          layoutStyle: { width: 26, height: 14, relativeX: 0, relativeY: 10 },
+          path: [{ data: 'M26,38L34,38L34,42L44,42L44,38L52,38L39.000001,28L26,38Z', transform: 'matrix(-1,0,0,-1,52,56)' }]
+        }]
+      }]
+    }]
+  }
+}, null, 2), 'utf8');
+fs.writeFileSync(dslMapFile, JSON.stringify({ icons: [
+  { sourceId: 'page/up/path', sourceRef: 'page/up/path', name: 'PlainDslGeometry', comment: '未烘焙', fromDsl: true },
+  { sourceId: 'page/up/path', sourceRef: 'page/up/path', name: 'BakedDslGeometry', comment: '已烘焙', fromDsl: true, bakeAncestorTransform: true }
+]}), 'utf8');
+result = spawnSync(process.execPath, [script, emptySvgFile, dslMapFile, dslOut, dslSnapshotFile], { encoding: 'utf8' });
+assert.strictEqual(result.status, 0, result.stderr);
+const dslXaml = fs.readFileSync(dslOut, 'utf8');
+const dslBody = key => dslXaml.match(new RegExp('x:Key="' + key + '">([\\s\\S]*?)</Geometry>'))[1];
+// 默认合成 = 「PATH 自身 transform」的结果并平移到原点（与 extractSvg 的原始几何等价，仅去掉偏移）
+assert.match(dslBody('PlainDslGeometry'), /M26,4 L18,4 L18,0 L8,0 L8,4 L0,4 L12\.999999,14/, '默认合成必须与 extractSvg 输出等价（不烘焙祖先变换）');
+assert.match(dslBody('PlainDslGeometry'), /12\.999999,14/, '默认合成的尖端在下方（未翻转）');
+assert.match(dslBody('BakedDslGeometry'), /M26,10 L18,10 L18,14 L8,14 L8,10 L0,10 L12\.999999,0/, '组级 flipV 必须烘焙进坐标');
+assert.match(dslBody('BakedDslGeometry'), /12\.999999,0/, '烘焙后尖端翻到上方');
+assert.doesNotMatch(dslXaml, /PathGeometry|MatrixTransform|GeometryGroup/);
+
+const noDslOut = path.join(dir, 'NoDslIcons.xaml');
+result = spawnSync(process.execPath, [script, emptySvgFile, dslMapFile, noDslOut], { encoding: 'utf8' });
+assert.notStrictEqual(result.status, 0, '缺少 DSL 快照时 fromDsl 条目必须失败');
+assert.match(result.stderr, /needs the DSL snapshot/);
+
 console.log('PASS semantic icon naming regression test');

@@ -64,6 +64,7 @@
 - **按钮族固定参数（IconButton / Button / StatusButton）**：`PageName`、`IOVisible`、`IOCommand` 三个运行时参数无论能否取到来源都恒写，取不到时写空字符串值（merge 时保留工程师已有真实值）；`IconWidth`/`IconHeight` 只在按钮确有图标槽位时发射，取**图标图形节点自身 bbox**（映射字段 `iconSize`，四舍五入取整），不是控件宽高；没有图标槽位时不生成 `Icon`、`IconWidth`、`IconHeight`。映射带 `Icon` 却没有 `iconSize` 时生成器直接失败，禁止猜图标尺寸。
 - **模板匹配键**：组件族匹配使用“组件集名 + 公开属性名 + 真实属性值”。设计稿里的图层名称只用于核对，不参与匹配；`rightSidebarTemplates.parentVariants` 这类“父节点语义”表已作废（右栏的 `右侧栏-左右结构`/`右侧栏-上下结构` 是独立组件名，不是父节点语义）。变体登记 `componentSet` 时，解析先用公开属性值命中变体，再用变体内部实例的组件名交叉核对，冲突以组件名（componentSet）为准并记录冲突。
 - **图标尺寸来源**：`IconWidth`/`IconHeight` 取页面图标映射中几何来源节点（`sourceRef`，缺失时回退 `sourceId`）的 bbox；右栏这类带图标槽位的按钮，图标来自 `实例` 属性指向的图标节点；空占位虚线框视为没有图标。
+- **图标几何补充来源（extractSvg 去重）**：`extractSvg` 只输出 PATH 自身的 `d` + `transform`，几何完全相同的复用实例会被去重（同一方向图标经组级 `rotate`/`flipV` 复用时只返回一条），因此会出现「按钮有图标槽位却没有 `Icon`」。补齐办法：`gen-mtslg-page-icons.js` 追加第 4 个参数（`dsl.snapshot.json`），图标映射条目加 `"fromDsl": true`（按 PATH 原始 `d` + 自身 matrix 合成，与 extractSvg 等价并平移到原点）；需要区分方向时再加 `"bakeAncestorTransform": true`，把祖先 `rotate`/`flipH`/`flipV` 烘焙进坐标。烘焙结果必须视觉复核；同一组图标在 DSL 里几何完全相同（如「向左」与「向右」）时属于设计侧缺图，标记待确认，不得自行镜像猜测。
 - **设计稿最上方示例标题默认剥离**：位于根节点或展示外壳、仅用于说明组件或工件示教的标题标记为 `design-artifact-title`，不写入页面 XML。业务内容容器内部且运行时需要的标题才保留。
 - **设计稿像素直传（归一后）**：`Left = pageAbsX − parentPageAbsX`，`Top = pageAbsY − parentPageAbsY`，Width/Height 原样；`TextBlock` 例外：`Height` 固定 `40`、`Width` 固定 `NaN`。目标画布尺寸必须与第 1 节适配记录一致；不允许从固定分辨率、截图缩放或其他页面推断。
 - 允许小数与负数；`NaN` 表示自适应（根节点四属性均为 `NaN`；叶子无宽高时省略属性）。具体数值必须来自当前实例的 MasterGo bbox。

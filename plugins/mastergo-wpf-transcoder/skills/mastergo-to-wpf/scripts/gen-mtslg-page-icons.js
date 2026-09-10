@@ -4,11 +4,14 @@
  *
  * Usage:
  *   node gen-mtslg-page-icons.js <extractSvg.json> <page-icon-map.json> <PageIcons.xaml>
+ *   node gen-mtslg-page-icons.js <extractSvg.json> <page-icon-map.json> <PageIcons.xaml> <dsl.snapshot.json>
  *
  * page-icon-map.json:
  * {
  *   "icons": [
- *     { "sourceId": "exact extractSvg entry id", "name": "ExitGeometry", "comment": "退出", "sourceRef": "MasterGo DSL ref" }
+ *     { "sourceId": "exact extractSvg entry id", "name": "ExitGeometry", "comment": "退出", "sourceRef": "MasterGo DSL ref" },
+ *     { "sourceId": "DSL PATH 节点 id", "sourceRef": "同一 PATH 节点 id", "name": "AxisDownGeometry", "comment": "向下",
+ *       "fromDsl": true, "bakeAncestorTransform": true }
  *   ]
  * }
  *
@@ -17,15 +20,24 @@
  * Duplicate names receive deterministic numeric suffixes (2, 3, ...). This tool
  * never derives a name from a layer ID, location, or geometry.
  *
+ * 补充来源（extractSvg 去重导致条目缺失时）：
+ *   extractSvg 只输出 PATH 自身的 d + transform，几何完全相同的复用实例会被去重
+ *   （例如同一图标被旋转/翻转复用），因此某些方向按钮拿不到条目。此时可传入
+ *   DSL 快照，并用 `fromDsl: true` 让脚本从 DSL 的 PATH 节点合成几何：
+ *     - 默认只合成「原始 d + PATH 自身 matrix」，与 extractSvg 的输出保持一致；
+ *     - `bakeAncestorTransform: true` 时，额外把祖先节点的 rotate / flipH / flipV
+ *       （绕各自盒子中心）烘焙进坐标，用于区分「只靠组级翻转/旋转区分」的方向图标。
+ *       该模式属于几何推断，必须配合视觉复核后再交付。
+ *
  * Geometry 默认只输出路径数据，不写 F0/F1 填充规则标记（框架解析器不使用该标记）。
  * 为保证去掉标记后外观不变，脚本会先对重复子路径安全去重，再用内置栅格化比较
  * EvenOdd 与 Nonzero 的渲染结果；只有两者确实不同时才补回 F1。详见 planGeometry。
  */
 const fs = require('fs');
 
-const [, , svgFile, mapFile, outFile] = process.argv;
+const [, , svgFile, mapFile, outFile, dslFile] = process.argv;
 if (!svgFile || !mapFile || !outFile) {
-  console.error('Usage: node gen-mtslg-page-icons.js <extractSvg.json> <page-icon-map.json> <PageIcons.xaml>');
+  console.error('Usage: node gen-mtslg-page-icons.js <extractSvg.json> <page-icon-map.json> <PageIcons.xaml> [dsl.snapshot.json]');
   process.exit(1);
 }
 
@@ -169,6 +181,99 @@ function transformPathData(data, matrixText, sourceId) {
     }
   }
   return output.join(' ');
+}
+
+// ---------- DSL 补充来源：extractSvg 去重导致条目缺失时的合成几何 ----------
+function multiplyMatrix(m1, m2) {
+  return [
+    m1[0] * m2[0] + m1[2] * m2[1],
+    m1[1] * m2[0] + m1[3] * m2[1],
+    m1[0] * m2[2] + m1[2] * m2[3],
+    m1[1] * m2[2] + m1[3] * m2[3],
+    m1[0] * m2[4] + m1[2] * m2[5] + m1[4],
+    m1[1] * m2[4] + m1[3] * m2[5] + m1[5],
+  ];
+}
+
+// 节点自带的 rotate / flipH / flipV（绕节点盒子中心），不含 relativeX/Y 平移：
+// 合成结果只用于确定图形朝向，平移由消费端按 IconWidth/IconHeight 适配。
+function nodeOrientationMatrix(node) {
+  const ls = (node && node.layoutStyle) || {};
+  const width = Number(ls.width) || 0;
+  const height = Number(ls.height) || 0;
+  const cx = width / 2;
+  const cy = height / 2;
+  const angle = (Number(ls.rotate) || 0) * Math.PI / 180;
+  const flipH = ls.flipH === true ? -1 : 1;
+  const flipV = ls.flipV === true ? -1 : 1;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  // T(c) · R(θ) · F · T(-c)，即 p -> c + R·F·(p - c)
+  return [
+    cos * flipH,
+    sin * flipH,
+    -sin * flipV,
+    cos * flipV,
+    cx - (cos * flipH * cx + -sin * flipV * cy),
+    cy - (sin * flipH * cx + cos * flipV * cy),
+  ];
+}
+
+function buildDslIndex(snapshot) {
+  const root = snapshot && snapshot.dsl && Array.isArray(snapshot.dsl.nodes) ? snapshot.dsl.nodes[0] : null;
+  if (!root) throw new Error('DSL snapshot has no dsl.nodes[0]');
+  const nodeById = new Map();
+  const parentById = new Map();
+  (function walk(node, parent) {
+    if (!node || typeof node.id !== 'string') return;
+    nodeById.set(node.id, node);
+    parentById.set(node.id, parent ? parent.id : null);
+    for (const child of node.children || []) walk(child, node);
+  })(root, null);
+  return { nodeById, parentById };
+}
+
+// 祖先 rotate/flip 合成矩阵（由外到内）。
+function ancestorOrientationMatrix(index, nodeId) {
+  const chain = [];
+  let current = index.parentById.get(nodeId) || null;
+  while (current) {
+    chain.push(current);
+    current = index.parentById.get(current) || null;
+  }
+  chain.reverse();
+  let matrix = [1, 0, 0, 1, 0, 0];
+  for (const id of chain) {
+    const node = index.nodeById.get(id);
+    const next = nodeOrientationMatrix(node);
+    if (next[0] === 1 && next[1] === 0 && next[2] === 0 && next[3] === 1 && next[4] === 0 && next[5] === 0) continue;
+    matrix = multiplyMatrix(matrix, next);
+  }
+  return matrix;
+}
+
+// 从 DSL 的 PATH 节点合成路径数据；bakeAncestor=true 时把祖先 rotate/flip 一并烘焙。
+function synthesizeFromDsl(index, icon, bakeAncestor) {
+  const node = index.nodeById.get(icon.sourceRef) || index.nodeById.get(icon.sourceId);
+  if (!node) throw new Error(`DSL node not found for icon ${icon.name}: ${icon.sourceRef || icon.sourceId}`);
+  if (node.type !== 'PATH' || !Array.isArray(node.path) || node.path.length === 0) {
+    throw new Error(`DSL node is not a PATH with path data: ${icon.name}`);
+  }
+  const ancestor = bakeAncestor ? ancestorOrientationMatrix(index, node.id) : [1, 0, 0, 1, 0, 0];
+  const paths = [];
+  for (const entry of node.path) {
+    const data = entry && typeof entry.data === 'string' ? entry.data.trim() : '';
+    if (!data) continue;
+    const matrix = entry.transform ? parseMatrix(entry.transform.replace(/^matrix\(([^)]*)\)$/i, '$1'), icon.name) : [1, 0, 0, 1, 0, 0];
+    const composed = multiplyMatrix(ancestor, matrix);
+    paths.push({
+      d: data,
+      fillRule: 'Nonzero',
+      matrix: composed.map(value => formatNumber(value)).join(','),
+    });
+  }
+  if (paths.length === 0) throw new Error(`DSL PATH has no usable path data: ${icon.name}`);
+  return paths;
 }
 
 // ---------- 填充规则决策：重复子路径去重 + 是否需要 F0/F1 标记 ----------
@@ -415,6 +520,7 @@ const svgData = readJson(svgFile, 'extractSvg JSON');
 const iconMap = readJson(mapFile, 'page icon map');
 if (!Array.isArray(svgData.svgs)) throw new Error('extractSvg JSON must contain svgs[]');
 if (!Array.isArray(iconMap.icons)) throw new Error('page icon map must contain icons[]');
+const dslIndex = dslFile ? buildDslIndex(readJson(dslFile, 'DSL snapshot JSON')) : null;
 if (fs.existsSync(outFile)) {
   throw new Error(`页面 Icon 文件已存在，禁止覆盖: ${outFile}；请为新页面使用独立的 {name}Icons.xaml 文件`);
 }
@@ -454,20 +560,48 @@ for (const icon of iconMap.icons) {
   }
   const key = resolveKey(icon.name);
   const svg = svgById.get(icon.sourceId);
-  if (!svg) throw new Error(`Icon sourceId is not an exact extractSvg entry id: ${icon.sourceId}`);
-  const paths = parsePaths(svg, icon.sourceId);
-  if (paths.some(path => path.transform && !path.matrix)) {
-    throw new Error(`Unsupported SVG transform (only matrix is supported): ${icon.sourceId}`);
+  const useDsl = Boolean(icon.fromDsl) || !svg;
+  let paths;
+  let geometrySource;
+  if (useDsl) {
+    if (!dslIndex) {
+      throw new Error(`Icon ${icon.name} needs the DSL snapshot (extractSvg 缺该条目): ${icon.sourceId}`);
+    }
+    paths = synthesizeFromDsl(dslIndex, icon, Boolean(icon.bakeAncestorTransform));
+    geometrySource = icon.bakeAncestorTransform ? 'dsl+ancestor-transform' : 'dsl';
+  } else {
+    paths = parsePaths(svg, icon.sourceId);
+    if (paths.some(path => path.transform && !path.matrix)) {
+      throw new Error(`Unsupported SVG transform (only matrix is supported): ${icon.sourceId}`);
+    }
+    geometrySource = 'extractSvg';
   }
-  const pathData = paths.map(path => path.matrix
+  let pathData = paths.map(path => path.matrix
     ? transformPathData(path.d, path.matrix, icon.sourceId)
     : path.d.trim());
+  // DSL 合成（含烘焙）的几何可能带偏移或负坐标，平移到原点后再发射，
+  // 避免消费端在 Stretch=None 时把图形裁掉。
+  if (geometrySource.indexOf('dsl') === 0) {
+    let minX = Infinity;
+    let minY = Infinity;
+    for (const chunk of pathData.flatMap(splitSubpaths)) {
+      for (const point of flattenSubpath(chunk)) {
+        if (point[0] < minX) minX = point[0];
+        if (point[1] < minY) minY = point[1];
+      }
+    }
+    if (Number.isFinite(minX) && Number.isFinite(minY) && (minX !== 0 || minY !== 0)) {
+      const translate = [1, 0, 0, 1, formatNumber(-minX), formatNumber(-minY)].join(',');
+      pathData = pathData.map(data => transformPathData(data, translate, icon.sourceId));
+    }
+  }
   const sourceRule = paths.some(path => path.fillRule === 'EvenOdd') && paths.some(path => path.fillRule === 'Nonzero')
     ? 'Mixed'
     : paths[0].fillRule;
   const plan = planGeometry(pathData, sourceRule);
   geometryReport.push({
     key,
+    geometrySource,
     sourceRule,
     keepFillRule: plan.keepFillRule,
     deduped: plan.deduped,

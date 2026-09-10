@@ -589,7 +589,11 @@ function main() {
       "--confirmed", iconMapPath,
       "--out", tempIconMap
     ]);
-    run(ICON_SCRIPT, [svgPath, tempIconMap, tempIcon]);
+    // 传入 DSL 快照：extractSvg 因几何完全相同的复用而漏条目时，图标生成器可从 DSL 合成补上。
+    const iconDslPath = manifest.dslPath
+      ? resolveInput(manifestDir, projectRoot, manifest.dslPath, "dslPath")
+      : null;
+    run(ICON_SCRIPT, [svgPath, tempIconMap, tempIcon].concat(iconDslPath ? [iconDslPath] : []));
 
     let layoutSource = null;
     if (fs.existsSync(layoutPath)) {
