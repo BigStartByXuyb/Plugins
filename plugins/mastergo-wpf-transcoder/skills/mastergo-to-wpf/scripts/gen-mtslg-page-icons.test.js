@@ -71,13 +71,42 @@ if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
 result = spawnSync(process.execPath, [script, svgFile, mapFile, outFile], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);
 const fillRuleXaml = fs.readFileSync(outFile, 'utf8');
-assert.match(fillRuleXaml, /x:Key="EvenOddGeometry">\r?\n\s+F0/);
-assert.match(fillRuleXaml, /x:Key="NonzeroGeometry">\r?\n\s+F1/);
+// 框架不使用 F0/F1 填充规则标记，固定不输出：Geometry 首行必须直接是路径数据
+assert.match(fillRuleXaml, /x:Key="EvenOddGeometry">\r?\n\s+M0,0 L1,0 Z/);
+assert.match(fillRuleXaml, /x:Key="NonzeroGeometry">\r?\n\s+M0,0 L1,0 Z/);
+assert.doesNotMatch(fillRuleXaml, /<Geometry[^>]*>\r?\n\s+F[01]\s/);
 
 fs.writeFileSync(mapFile, JSON.stringify({ icons: [] }), 'utf8');
 const emptyOut = path.join(dir, 'EmptyIcons.xaml');
 result = spawnSync(process.execPath, [script, svgFile, mapFile, emptyOut], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);
 assert.doesNotMatch(fs.readFileSync(emptyOut, 'utf8'), /<Geometry\b/);
+
+// 填充规则策略：重复子路径去重；只有真正依赖 Nonzero 的图标才补回 F1
+const policySvg = { svgs: [
+  { id: 'page/icon-dup', svg: '<svg><path fill-rule="nonzero" d="M0,0 L10,0 L10,10 L0,10 Z M0,0 L10,0 L10,10 L0,10 Z"/></svg>' },
+  { id: 'page/icon-overlap-nonzero', svg: '<svg><path fill-rule="nonzero" d="M0,0 L100,0 L100,100 L0,100 Z M30,30 L70,30 L70,70 L30,70 Z"/></svg>' },
+  { id: 'page/icon-overlap-evenodd', svg: '<svg><path fill-rule="evenodd" d="M0,0 L100,0 L100,100 L0,100 Z M30,30 L70,30 L70,70 L30,70 Z"/></svg>' }
+] };
+const policyMap = { icons: [
+  { sourceId: 'page/icon-dup', name: 'DupGeometry', comment: '重复', sourceRef: 'dsl/dup' },
+  { sourceId: 'page/icon-overlap-nonzero', name: 'OverlapNonzeroGeometry', comment: '重叠非零', sourceRef: 'dsl/ovn' },
+  { sourceId: 'page/icon-overlap-evenodd', name: 'OverlapEvenOddGeometry', comment: '重叠奇偶', sourceRef: 'dsl/ove' }
+] };
+const policySvgFile = path.join(dir, 'policy-svg.json');
+const policyMapFile = path.join(dir, 'policy-map.json');
+const policyOut = path.join(dir, 'PolicyIcons.xaml');
+fs.writeFileSync(policySvgFile, JSON.stringify(policySvg), 'utf8');
+fs.writeFileSync(policyMapFile, JSON.stringify(policyMap), 'utf8');
+result = spawnSync(process.execPath, [script, policySvgFile, policyMapFile, policyOut], { encoding: 'utf8' });
+assert.strictEqual(result.status, 0, result.stderr);
+const policyXaml = fs.readFileSync(policyOut, 'utf8');
+const bodyOf = key => policyXaml.match(new RegExp('x:Key="' + key + '">([\\s\\S]*?)</Geometry>'))[1];
+assert.strictEqual((bodyOf('DupGeometry').match(/\bM/g) || []).length, 1, '重复子路径必须去重');
+assert.doesNotMatch(bodyOf('DupGeometry'), /^\s*F[01]\s*$/m, '去重后不需要填充规则标记');
+assert.match(bodyOf('OverlapNonzeroGeometry'), /^\s*F1\s*$/m, '依赖 Nonzero 的图标必须补回 F1');
+assert.doesNotMatch(bodyOf('OverlapEvenOddGeometry'), /^\s*F[01]\s*$/m, '原规则为 EvenOdd 的图标不得写标记');
+assert.match(result.stdout, /保留 F1（渲染依赖 Nonzero）: OverlapNonzeroGeometry/);
+assert.match(result.stdout, /去重重复子路径: DupGeometry\(-1\)/);
 
 console.log('PASS semantic icon naming regression test');

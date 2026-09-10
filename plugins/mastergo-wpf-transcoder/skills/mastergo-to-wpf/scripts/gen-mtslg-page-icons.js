@@ -16,6 +16,10 @@
  * English resource name; `comment` is the Chinese display name written to XAML.
  * Duplicate names receive deterministic numeric suffixes (2, 3, ...). This tool
  * never derives a name from a layer ID, location, or geometry.
+ *
+ * Geometry 默认只输出路径数据，不写 F0/F1 填充规则标记（框架解析器不使用该标记）。
+ * 为保证去掉标记后外观不变，脚本会先对重复子路径安全去重，再用内置栅格化比较
+ * EvenOdd 与 Nonzero 的渲染结果；只有两者确实不同时才补回 F1。详见 planGeometry。
  */
 const fs = require('fs');
 
@@ -167,6 +171,246 @@ function transformPathData(data, matrixText, sourceId) {
   return output.join(' ');
 }
 
+// ---------- 填充规则决策：重复子路径去重 + 是否需要 F0/F1 标记 ----------
+// 框架解析器不使用 F0/F1 标记，因此默认不输出；只有当该图标在 EvenOdd 与
+// Nonzero 下渲染结果不同时，才补回 F1，保证外观与设计稿一致。
+// MasterGo 导出会把同一子路径重复输出（例如填充层+描边层合并），这种重复
+// 会被安全去重：去重前后按"原始规则"栅格化必须逐像素一致，否则保持原样。
+// 本模块不依赖 WPF，用自带栅格化比对两种填充规则。
+
+const CURVE_STEPS = 24;
+const SIGNATURE_SCALES = [160, 320];
+
+function splitSubpaths(data) {
+  const text = String(data);
+  const chunks = [];
+  let start = -1;
+  for (const match of text.matchAll(/[Mm]/g)) {
+    if (start >= 0) chunks.push(text.slice(start, match.index).trim());
+    start = match.index;
+  }
+  if (start >= 0) chunks.push(text.slice(start).trim());
+  return chunks.filter(Boolean);
+}
+
+function flattenSubpath(chunk) {
+  const tokens = String(chunk).match(/[A-Za-z]|-?\d*\.?\d+(?:[eE][-+]?\d+)?/g) || [];
+  const points = [];
+  let index = 0;
+  let command = null;
+  let cx = 0;
+  let cy = 0;
+  let startX = 0;
+  let startY = 0;
+  const next = () => Number(tokens[index++]);
+  while (index < tokens.length) {
+    if (/^[A-Za-z]$/.test(tokens[index])) {
+      command = tokens[index];
+      index += 1;
+    } else if (!command) {
+      throw new Error('path data starts without a command');
+    } else if (command === 'M') {
+      command = 'L';
+    } else if (command === 'm') {
+      command = 'l';
+    }
+    const upper = command.toUpperCase();
+    const relative = command !== upper;
+    if (upper === 'Z') {
+      points.push([startX, startY]);
+      cx = startX;
+      cy = startY;
+      continue;
+    }
+    if (upper === 'M' || upper === 'L') {
+      const x = next();
+      const y = next();
+      cx = relative ? cx + x : x;
+      cy = relative ? cy + y : y;
+      points.push([cx, cy]);
+      if (upper === 'M') {
+        startX = cx;
+        startY = cy;
+      }
+      continue;
+    }
+    if (upper === 'H' || upper === 'V') {
+      const value = next();
+      if (upper === 'H') cx = relative ? cx + value : value;
+      else cy = relative ? cy + value : value;
+      points.push([cx, cy]);
+      continue;
+    }
+    if (upper === 'C') {
+      const x1 = next();
+      const y1 = next();
+      const x2 = next();
+      const y2 = next();
+      const x = next();
+      const y = next();
+      const p1 = [relative ? cx + x1 : x1, relative ? cy + y1 : y1];
+      const p2 = [relative ? cx + x2 : x2, relative ? cy + y2 : y2];
+      const p3 = [relative ? cx + x : x, relative ? cy + y : y];
+      for (let k = 1; k <= CURVE_STEPS; k += 1) {
+        const t = k / CURVE_STEPS;
+        const mt = 1 - t;
+        points.push([
+          mt * mt * mt * cx + 3 * mt * mt * t * p1[0] + 3 * mt * t * t * p2[0] + t * t * t * p3[0],
+          mt * mt * mt * cy + 3 * mt * mt * t * p1[1] + 3 * mt * t * t * p2[1] + t * t * t * p3[1],
+        ]);
+      }
+      cx = p3[0];
+      cy = p3[1];
+      continue;
+    }
+    if (upper === 'Q') {
+      const x1 = next();
+      const y1 = next();
+      const x = next();
+      const y = next();
+      const p1 = [relative ? cx + x1 : x1, relative ? cy + y1 : y1];
+      const p2 = [relative ? cx + x : x, relative ? cy + y : y];
+      for (let k = 1; k <= CURVE_STEPS; k += 1) {
+        const t = k / CURVE_STEPS;
+        const mt = 1 - t;
+        points.push([
+          mt * mt * cx + 2 * mt * t * p1[0] + t * t * p2[0],
+          mt * mt * cy + 2 * mt * t * p1[1] + t * t * p2[1],
+        ]);
+      }
+      cx = p2[0];
+      cy = p2[1];
+      continue;
+    }
+    throw new Error('unsupported path command ' + command);
+  }
+  return points;
+}
+
+function rasterizeFill(polys, rule, cells) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const poly of polys) {
+    for (const point of poly) {
+      if (point[0] < minX) minX = point[0];
+      if (point[0] > maxX) maxX = point[0];
+      if (point[1] < minY) minY = point[1];
+      if (point[1] > maxY) maxY = point[1];
+    }
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return '';
+  const width = Math.max(maxX - minX, 1e-9);
+  const height = Math.max(maxY - minY, 1e-9);
+  const scale = cells / Math.max(width, height);
+  const W = Math.max(1, Math.ceil(width * scale));
+  const H = Math.max(1, Math.ceil(height * scale));
+  const edges = [];
+  for (const poly of polys) {
+    const scaled = poly.map(point => [(point[0] - minX) * scale, (point[1] - minY) * scale]);
+    if (scaled.length > 1) {
+      const first = scaled[0];
+      const last = scaled[scaled.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) scaled.push(first);
+    }
+    for (let i = 0; i + 1 < scaled.length; i += 1) {
+      const a = scaled[i];
+      const b = scaled[i + 1];
+      if (a[1] !== b[1]) edges.push([a[0], a[1], b[0], b[1]]);
+    }
+  }
+  const rows = [];
+  for (let py = 0; py < H; py += 1) {
+    const row = new Array(W).fill('0');
+    const y = py + 0.5;
+    const crossings = [];
+    for (const edge of edges) {
+      const [x0, y0, x1, y1] = edge;
+      if ((y0 <= y) !== (y1 <= y)) {
+        crossings.push([x0 + ((y - y0) * (x1 - x0)) / (y1 - y0), y1 > y0 ? 1 : -1]);
+      }
+    }
+    if (crossings.length) {
+      crossings.sort((a, b) => a[0] - b[0]);
+      let winding = 0;
+      let crossing = 0;
+      let prev = crossings[0][0];
+      for (const [x, direction] of crossings) {
+        const inside = rule === 'Nonzero' ? winding !== 0 : crossing % 2 === 1;
+        if (inside) {
+          const from = Math.max(0, Math.round(prev));
+          const to = Math.min(W, Math.round(x));
+          for (let column = from; column < to; column += 1) row[column] = '1';
+        }
+        crossing += 1;
+        winding += direction;
+        prev = x;
+      }
+    }
+    rows.push(row.join(''));
+  }
+  return rows.join('|');
+}
+
+function geometrySignature(chunks, rule) {
+  const polys = chunks.map(flattenSubpath);
+  return SIGNATURE_SCALES.map(cells => rasterizeFill(polys, rule, cells)).join('#');
+}
+
+// 返回最终写入 Geometry 的子路径块、是否需要保留 F1 标记与处理说明。
+function planGeometry(rawData, sourceRule) {
+  const chunks = rawData.reduce((all, data) => all.concat(splitSubpaths(data)), []);
+  if (chunks.length === 0) return { chunks, keepFillRule: false, deduped: 0, note: '没有解析出子路径' };
+  if (sourceRule === 'Mixed') {
+    return { chunks, keepFillRule: true, deduped: 0, note: '同一图标混用 fill-rule，保留 F1' };
+  }
+  const rule = sourceRule === 'EvenOdd' ? 'EvenOdd' : 'Nonzero';
+  const unique = [...new Set(chunks)];
+  let originalSignature;
+  let dedupSignature;
+  try {
+    originalSignature = geometrySignature(chunks, rule);
+    dedupSignature = unique.length === chunks.length ? originalSignature : geometrySignature(unique, rule);
+  } catch (error) {
+    return {
+      chunks,
+      keepFillRule: sourceRule !== 'EvenOdd',
+      deduped: 0,
+      note: '路径指令暂不支持比对（' + error.message + '），按原规则保守处理',
+    };
+  }
+  const deduped = dedupSignature === originalSignature ? unique : chunks;
+  const removed = chunks.length - deduped.length;
+  // 原始规则是 EvenOdd 时，WPF 默认就是 EvenOdd，永远不需要标记；
+  // 只有当原始规则是 Nonzero 且两种规则渲染确实不同时才补回 F1。
+  if (sourceRule === 'EvenOdd') {
+    return {
+      chunks: deduped,
+      keepFillRule: false,
+      deduped: removed,
+      note: removed > 0 ? '重复子路径已去重，原始规则即默认规则，省略标记' : '原始规则即默认规则(EvenOdd)，省略标记',
+    };
+  }
+  let evenSignature;
+  let nonZeroSignature;
+  try {
+    evenSignature = geometrySignature(deduped, 'EvenOdd');
+    nonZeroSignature = geometrySignature(deduped, 'Nonzero');
+  } catch (error) {
+    return { chunks: deduped, keepFillRule: true, deduped: chunks.length - deduped.length, note: '比对失败，保留 F1' };
+  }
+  const keepFillRule = evenSignature !== nonZeroSignature;
+  return {
+    chunks: deduped,
+    keepFillRule,
+    deduped: removed,
+    note: keepFillRule
+      ? 'EvenOdd 与 Nonzero 渲染不同，保留 F1'
+      : (removed > 0 ? '重复子路径已去重，两种规则一致，省略标记' : '两种规则渲染一致，省略标记'),
+  };
+}
+
 const svgData = readJson(svgFile, 'extractSvg JSON');
 const iconMap = readJson(mapFile, 'page icon map');
 if (!Array.isArray(svgData.svgs)) throw new Error('extractSvg JSON must contain svgs[]');
@@ -203,6 +447,7 @@ const output = [
   '                    xmlns:o="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options">'
 ];
 
+const geometryReport = [];
 for (const icon of iconMap.icons) {
   if (!icon || typeof icon.sourceId !== 'string' || typeof icon.name !== 'string' || typeof icon.comment !== 'string' || typeof icon.sourceRef !== 'string' || !icon.sourceId || !icon.name || !icon.comment || !icon.sourceRef) {
     throw new Error('Every icon requires non-empty sourceId, name, comment, and sourceRef');
@@ -211,22 +456,28 @@ for (const icon of iconMap.icons) {
   const svg = svgById.get(icon.sourceId);
   if (!svg) throw new Error(`Icon sourceId is not an exact extractSvg entry id: ${icon.sourceId}`);
   const paths = parsePaths(svg, icon.sourceId);
-  const fillRules = new Set(paths.map(path => path.fillRule));
-  if (fillRules.size > 1) {
-    throw new Error(`Mixed SVG fill rules are not supported in one Geometry resource: ${icon.sourceId}`);
-  }
-  const fillRule = paths[0].fillRule;
   if (paths.some(path => path.transform && !path.matrix)) {
     throw new Error(`Unsupported SVG transform (only matrix is supported): ${icon.sourceId}`);
   }
   const pathData = paths.map(path => path.matrix
     ? transformPathData(path.d, path.matrix, icon.sourceId)
     : path.d.trim());
+  const sourceRule = paths.some(path => path.fillRule === 'EvenOdd') && paths.some(path => path.fillRule === 'Nonzero')
+    ? 'Mixed'
+    : paths[0].fillRule;
+  const plan = planGeometry(pathData, sourceRule);
+  geometryReport.push({
+    key,
+    sourceRule,
+    keepFillRule: plan.keepFillRule,
+    deduped: plan.deduped,
+    note: plan.note,
+  });
   output.push(`  <!-- ${escapeXml(icon.comment)} -->`);
   output.push(`  <Geometry o:Freeze="True" x:Key="${escapeXml(key)}">`);
-  output.push(`    ${fillRule === 'EvenOdd' ? 'F0' : 'F1'}`);
-  for (const data of pathData) {
-    for (const line of data.split(/\r?\n/)) output.push(`    ${line.trim()}`);
+  if (plan.keepFillRule) output.push('    F1');
+  for (const chunk of plan.chunks) {
+    for (const line of chunk.split(/\r?\n/)) output.push(`    ${line.trim()}`);
   }
   output.push('  </Geometry>', '');
 }
@@ -235,3 +486,13 @@ output.push('</ResourceDictionary>', '');
 fs.mkdirSync(require('path').dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, output.join('\n'), 'utf8');
 console.log(`Generated ${keys.size} icon(s): ${outFile}`);
+const dedupedIcons = geometryReport.filter(item => item.deduped > 0);
+if (dedupedIcons.length > 0) {
+  console.log(`  去重重复子路径: ${dedupedIcons.map(item => `${item.key}(-${item.deduped})`).join(', ')}`);
+}
+const fillRuleIcons = geometryReport.filter(item => item.keepFillRule);
+if (fillRuleIcons.length > 0) {
+  console.log(`  保留 F1（渲染依赖 Nonzero）: ${fillRuleIcons.map(item => item.key).join(', ')}`);
+} else {
+  console.log('  全部图标已无需填充规则标记');
+}
