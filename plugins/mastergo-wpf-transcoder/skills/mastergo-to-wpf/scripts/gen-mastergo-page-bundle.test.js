@@ -117,7 +117,11 @@ fs.writeFileSync(manifest, JSON.stringify({
   visibilityPath: visibility,
   svgPath: svg,
   iconMapPath: iconMap,
-  menuItems: [{ name: "操作", icon: "ActionGeometry", topLeftContent: "F1", index: 1 }],
+  menuItems: [{
+    name: "操作", icon: "ActionGeometry",
+    iconSize: { width: 24, height: 24, sourceRef: "ref-action" },
+    topLeftContent: "F1", index: 1
+  }],
   layoutStatus: "complete",
   layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 }
 }, null, 2), "utf8");

@@ -9,9 +9,16 @@ const path = require("path");
 
 const ATTR_FIELDS = [
   ["Name", "name"], ["LangName", "langName"], ["Icon", "icon"],
+  ["IconWidth", "iconWidth"], ["IconHeight", "iconHeight"],
   ["TopLeftContent", "topLeftContent"], ["Index", "index"],
-  ["PageName", "pageName"], ["IOEnable", "ioEnable"], ["UserRightId", "userRightId"]
+  ["PageName", "pageName"], ["IOCommand", "ioCommand"], ["IOVisible", "ioVisible"],
+  ["IOEnable", "ioEnable"], ["UserRightId", "userRightId"]
 ];
+
+// MenuItem 常驻属性：与页面 XML 的按钮族（PageName/IOVisible/IOCommand 恒写）同一策略，
+// 取不到来源时写空字符串占位，避免重新生成时把宿主要求的字段丢掉。
+// 需要临时扩展时可由 manifest.menuItemAlwaysAttrs 追加。
+const MENU_ITEM_ALWAYS_ATTRS = ["LangName", "PageName", "IOCommand", "IOVisible"];
 
 function fail(message) { throw new Error(message); }
 
@@ -46,8 +53,48 @@ function attrEntries(item) {
   });
 }
 
-function renderMenuItem(item) {
-  const attrs = attrEntries(item).map(function (entry) {
+function menuItemAlwaysAttrs(manifest) {
+  const extra = Array.isArray(manifest.menuItemAlwaysAttrs)
+    ? manifest.menuItemAlwaysAttrs.map(function (value) { return String(value); })
+    : [];
+  return MENU_ITEM_ALWAYS_ATTRS.concat(extra.filter(function (value) {
+    return MENU_ITEM_ALWAYS_ATTRS.indexOf(value) < 0;
+  }));
+}
+
+function withAlwaysAttrs(item, alwaysAttrs) {
+  const copy = Object.assign({}, item);
+  alwaysAttrs.forEach(function (attrName) {
+    const field = ATTR_FIELDS.filter(function (pair) { return pair[0] === attrName; })[0];
+    if (!field) fail("menuItemAlwaysAttrs 不支持 MenuItem 属性: " + attrName);
+    if (copy[field[1]] === undefined || copy[field[1]] === null) copy[field[1]] = "";
+  });
+  return copy;
+}
+
+// 图标尺寸与页面 XML 按钮族同一规则：有 Icon 必须有 iconSize（图标图形节点 bbox），
+// 取整后写 IconWidth/IconHeight；没有图标槽位时不写这三项。
+function withIconSize(item) {
+  const copy = Object.assign({}, item);
+  const icon = typeof copy.icon === "string" ? copy.icon.trim() : "";
+  if (!icon) {
+    delete copy.iconWidth;
+    delete copy.iconHeight;
+    delete copy.iconSize;
+    return copy;
+  }
+  const size = copy.iconSize;
+  if (!size || !Number.isFinite(Number(size.width)) || !Number.isFinite(Number(size.height))) {
+    fail("MenuItem 带 Icon=\"" + icon + "\"（Index=" + copy.index +
+      "）但缺少 iconSize（图标图形节点 bbox）：请先在清单里补齐尺寸，禁止猜图标尺寸");
+  }
+  copy.iconWidth = Math.round(Number(size.width));
+  copy.iconHeight = Math.round(Number(size.height));
+  return copy;
+}
+
+function renderMenuItem(item, alwaysAttrs) {
+  const attrs = attrEntries(withIconSize(withAlwaysAttrs(item, alwaysAttrs))).map(function (entry) {
     return entry[0] + "=\"" + xmlAttr(entry[1]) + "\"";
   }).join(" ");
   return "      <MenuItem " + attrs + " />";
@@ -113,6 +160,7 @@ function renderPage(manifest) {
          ? " LangName=\"" + xmlAttr(manifest.pageLangName) + "\"" : "") + ">",
     "    <Menu>"
   ];
+  const alwaysAttrs = menuItemAlwaysAttrs(manifest);
   const seenIndexes = new Set();
   manifest.menuItems.forEach(function (item, index) {
     if (!item || typeof item !== "object") fail("menuItems[" + index + "] 无效");
@@ -120,9 +168,12 @@ function renderPage(manifest) {
       fail("menuItems[" + index + "].index 必须是当前页面已确认的整数顺序");
     }
     const menuIndex = Number(item.index);
+    if (menuIndex < 1) {
+      fail("menuItems[" + index + "].index 必须从 1 起（底部栏第几个按钮，含不生成 MenuItem 的按钮）");
+    }
     if (seenIndexes.has(menuIndex)) fail("menuItems 存在重复 Index: " + menuIndex);
     seenIndexes.add(menuIndex);
-    lines.push(renderMenuItem(item));
+    lines.push(renderMenuItem(item, alwaysAttrs));
   });
   lines.push("    </Menu>");
   lines.push("  </Page>");
@@ -261,6 +312,7 @@ function main() {
     layoutPath,
     pageTarget: manifest.pageTarget,
     menuItemCount: manifest.menuItems.length,
+    menuItemAlwaysAttrs: menuItemAlwaysAttrs(manifest),
     residentGroupItems: manifest.layoutEvidence && manifest.layoutEvidence.residentGroupItems
       ? Number(manifest.layoutEvidence.residentGroupItems) : 0,
     created: !backup,

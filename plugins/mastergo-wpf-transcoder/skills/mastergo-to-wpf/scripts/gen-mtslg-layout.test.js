@@ -19,8 +19,8 @@ fs.writeFileSync(manifest, JSON.stringify({
   layoutStatus: "complete",
   layoutEvidence: { matchedBottomBarItems: 2, unresolvedBottomBarItems: 0 },
   menuItems: [
-    { name: "第一项", icon: "FirstGeometry", topLeftContent: "F1", index: 1 },
-    { icon: "SecondGeometry", topLeftContent: "F2", index: 2 }
+    { name: "第一项", icon: "FirstGeometry", iconSize: { width: 35.4, height: 33.2, sourceRef: "ref-1" }, topLeftContent: "F1", index: 1 },
+    { icon: "SecondGeometry", iconSize: { width: 40, height: 40, sourceRef: "ref-2" }, topLeftContent: "F2", index: 2 }
   ]
 }, null, 2), "utf8");
 
@@ -29,9 +29,13 @@ assert.strictEqual(result.status, 0, result.stderr);
 let text = fs.readFileSync(layout, "utf8");
 assert.match(text, /<Page Target="F2NewPage" LangName="F2NewPageTitle">/);
 assert.match(text, /<Layout>[\s\S]*<Header>[\s\S]*<Body>[\s\S]*<Pages>[\s\S]*<Page Target="F2NewPage"[\s\S]*<\/Pages>[\s\S]*<LeftToolBox \/>[\s\S]*<ToolBox \/>[\s\S]*<\/Body>[\s\S]*<Footer \/>[\s\S]*<\/Layout>/);
-assert.match(text, /Name="第一项" Icon="FirstGeometry" TopLeftContent="F1" Index="1"/);
-assert.match(text, /Icon="SecondGeometry" TopLeftContent="F2" Index="2"/);
-assert.doesNotMatch(text, /PageName=|IOEnable=|UserRightId=/);
+// MenuItem 常驻属性：LangName / PageName / Value / IOCommand / IOVisible 恒写（来源缺失时为空字符串）；
+// 图标尺寸与页面 XML 按钮族同一规则：有 Icon 必须有 iconSize，取整后写 IconWidth/IconHeight。
+assert.match(text, /Name="第一项" LangName="" Icon="FirstGeometry" IconWidth="35" IconHeight="33" TopLeftContent="F1" Index="1" PageName="" IOCommand="" IOVisible=""/);
+assert.match(text, /LangName="" Icon="SecondGeometry" IconWidth="40" IconHeight="40" TopLeftContent="F2" Index="2" PageName="" IOCommand="" IOVisible=""/);
+assert.doesNotMatch(text, /IOEnable=|UserRightId=/);
+// MenuItem 不写 Value（菜单文本只放在 Name）
+assert.doesNotMatch(text, /Value=/);
 
 const emptyFieldsManifest = path.join(root, "empty-fields.json");
 const emptyFieldsLayout = path.join(root, "EmptyFieldsLayout.xml");
@@ -56,7 +60,7 @@ result = spawnSync(process.execPath, [script, "--manifest", emptyFieldsManifest]
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(emptyFieldsLayout, "utf8");
 assert.match(text, /<Page Target="EmptyFieldsPage" LangName="">/);
-assert.match(text, /Name="" LangName="" Icon="" TopLeftContent="" Index="1" PageName="" IOEnable="" UserRightId=""/);
+assert.match(text, /Name="" LangName="" Icon="" TopLeftContent="" Index="1" PageName="" IOCommand="" IOVisible="" IOEnable="" UserRightId=""/);
 
 const emptyCompleteManifest = path.join(root, "empty-complete.json");
 fs.writeFileSync(emptyCompleteManifest, JSON.stringify({
@@ -137,7 +141,7 @@ result = spawnSync(process.execPath, [script, "--manifest", manifest, "--overwri
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(layout, "utf8");
 assert.strictEqual((text.match(/<Page\s+Target="F2NewPage"/g) || []).length, 1);
-assert.match(text, /Name="第一项" Icon="FirstGeometry" TopLeftContent="F1" Index="1"/);
+assert.match(text, /Name="第一项" LangName="" Icon="FirstGeometry" IconWidth="35" IconHeight="33" TopLeftContent="F1" Index="1" PageName="" IOCommand="" IOVisible=""/);
 assert.doesNotMatch(text, /Name="旧页面"/);
 
 // 右下角常驻分组（右侧底部-常驻button）内的实例不生成 MenuItem：
@@ -151,16 +155,16 @@ fs.writeFileSync(residentManifest, JSON.stringify({
   layoutStatus: "complete",
   layoutEvidence: { matchedBottomBarItems: 3, unresolvedBottomBarItems: 0, residentGroupItems: 1 },
   menuItems: [
-    { name: "第一项", icon: "FirstGeometry", index: 0 },
-    { name: "第二项", icon: "SecondGeometry", index: 1 }
+    { name: "第一项", icon: "FirstGeometry", iconSize: { width: 35, height: 33, sourceRef: "ref-1" }, index: 1 },
+    { name: "第二项", icon: "SecondGeometry", iconSize: { width: 40, height: 40, sourceRef: "ref-2" }, index: 2 }
   ]
 }, null, 2), "utf8");
 result = spawnSync(process.execPath, [script, "--manifest", residentManifest], { encoding: "utf8" });
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(residentLayout, "utf8");
 assert.strictEqual((text.match(/<MenuItem /g) || []).length, 2, "常驻分组内的实例不得生成 MenuItem");
-assert.match(text, /Name="第一项" Icon="FirstGeometry" Index="0"/);
-assert.match(text, /Name="第二项" Icon="SecondGeometry" Index="1"/);
+assert.match(text, /Name="第一项" LangName="" Icon="FirstGeometry" IconWidth="35" IconHeight="33" Index="1" PageName="" IOCommand="" IOVisible=""/);
+assert.match(text, /Name="第二项" LangName="" Icon="SecondGeometry" IconWidth="40" IconHeight="40" Index="2" PageName="" IOCommand="" IOVisible=""/);
 
 const residentMismatch = path.join(root, "resident-mismatch.json");
 fs.writeFileSync(residentMismatch, JSON.stringify({
@@ -169,8 +173,8 @@ fs.writeFileSync(residentMismatch, JSON.stringify({
   layoutStatus: "complete",
   layoutEvidence: { matchedBottomBarItems: 3, unresolvedBottomBarItems: 0, residentGroupItems: 0 },
   menuItems: [
-    { name: "第一项", index: 0 },
-    { name: "第二项", index: 1 }
+    { name: "第一项", index: 1 },
+    { name: "第二项", index: 2 }
   ]
 }, null, 2), "utf8");
 result = spawnSync(process.execPath, [script, "--manifest", residentMismatch], { encoding: "utf8" });
@@ -184,12 +188,74 @@ fs.writeFileSync(duplicateIndexManifest, JSON.stringify({
   layoutStatus: "complete",
   layoutEvidence: { matchedBottomBarItems: 2, unresolvedBottomBarItems: 0 },
   menuItems: [
-    { name: "第一项", index: 0 },
-    { name: "第二项", index: 0 }
+    { name: "第一项", index: 1 },
+    { name: "第二项", index: 1 }
   ]
 }, null, 2), "utf8");
 result = spawnSync(process.execPath, [script, "--manifest", duplicateIndexManifest], { encoding: "utf8" });
 assert.notStrictEqual(result.status, 0, "重复 Index 必须失败");
 assert.match(result.stderr + result.stdout, /重复 Index/);
+
+// MenuItem 常驻属性：LangName / PageName / Value / IOCommand / IOVisible 恒写，来源缺失时写空字符串
+// （与页面 XML 按钮族同一策略）；Value 无显式来源时取该菜单项文本。
+const residentAttrsManifest = path.join(root, "menu-always-attrs.json");
+const residentAttrsLayout = path.join(root, "MenuAlwaysAttrsLayout.xml");
+fs.writeFileSync(residentAttrsManifest, JSON.stringify({
+  layoutPath: residentAttrsLayout,
+  pageTarget: "MenuAlwaysAttrsPage",
+  pageLangName: "",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
+  menuItems: [{ name: "激光设置", icon: "", index: 1 }]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", residentAttrsManifest], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+text = fs.readFileSync(residentAttrsLayout, "utf8");
+assert.match(text, /Name="激光设置" LangName="" Icon="" Index="1" PageName="" IOCommand="" IOVisible=""/);
+
+// 显式给出 LangName / PageName 时保留真实值。
+const explicitAttrsManifest = path.join(root, "menu-explicit-attrs.json");
+const explicitAttrsLayout = path.join(root, "MenuExplicitAttrsLayout.xml");
+fs.writeFileSync(explicitAttrsManifest, JSON.stringify({
+  layoutPath: explicitAttrsLayout,
+  pageTarget: "MenuExplicitAttrsPage",
+  pageLangName: "MenuExplicitAttrs",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
+  menuItems: [{ name: "激光设置", langName: "Menu.Laser", icon: "", index: 1, pageName: "LaserPage" }]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", explicitAttrsManifest], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+text = fs.readFileSync(explicitAttrsLayout, "utf8");
+assert.match(text, /Name="激光设置" LangName="Menu\.Laser" Icon="" Index="1" PageName="LaserPage"/);
+
+// 可用 menuItemAlwaysAttrs 追加恒写字段（扩展性）。
+const extraAttrsManifest = path.join(root, "menu-extra-attrs.json");
+const extraAttrsLayout = path.join(root, "MenuExtraAttrsLayout.xml");
+fs.writeFileSync(extraAttrsManifest, JSON.stringify({
+  layoutPath: extraAttrsLayout,
+  pageTarget: "MenuExtraAttrsPage",
+  layoutStatus: "complete",
+  menuItemAlwaysAttrs: ["IOEnable"],
+  layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
+  menuItems: [{ name: "激光设置", icon: "", index: 1 }]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", extraAttrsManifest], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+text = fs.readFileSync(extraAttrsLayout, "utf8");
+assert.match(text, /LangName="" Icon="" Index="1" PageName="" IOCommand="" IOVisible="" IOEnable=""/);
+
+// 有 Icon 但没有 iconSize 必须失败（禁止猜图标尺寸），与页面 XML 按钮族同一门禁。
+const missingIconSizeManifest = path.join(root, "menu-missing-icon-size.json");
+fs.writeFileSync(missingIconSizeManifest, JSON.stringify({
+  layoutPath: path.join(root, "MenuMissingIconSize.xml"),
+  pageTarget: "MenuMissingIconSizePage",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
+  menuItems: [{ name: "激光设置", icon: "LaserSettingsGeometry", index: 1 }]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", missingIconSizeManifest], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "有 Icon 却没有 iconSize 时必须失败");
+assert.match(result.stderr + result.stdout, /iconSize/);
 
 console.log("PASS MTSLG Layout generator regression test");
