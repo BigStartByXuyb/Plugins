@@ -10,6 +10,10 @@
 
 const fs = require('fs');
 
+// 按钮族固定参数（与 gen-iocontrol-xml.js 保持一致）
+const BUTTON_FAMILY_CONTROL_TYPES = ['IconButton', 'Button', 'StatusButton'];
+const BUTTON_ALWAYS_ATTRS = ['PageName', 'IOVisible', 'IOCommand'];
+
 function attrsFromTag(tag) {
   const attrs = {};
   const re = /([A-Za-z][\w]*)\s*=\s*"([^"]*)"/g;
@@ -30,6 +34,10 @@ function sameNumber(actual, expected, tolerance) {
   const e = num(expected);
   return a !== null && e !== null && a !== 'NaN' && e !== 'NaN' &&
     Math.abs(a - e) <= (tolerance || 0.0001);
+}
+
+function isNanValue(value) {
+  return value === 'NaN' || (typeof value === 'number' && Number.isNaN(value));
 }
 
 function validateTextAudit(manifest, entries) {
@@ -169,8 +177,22 @@ function validate(xmlPath, manifestPath) {
     if (fixedTextBlockHeight && x.ControlType !== 'TextBlock') {
       errors.push('[' + n.xmlId + '] fixed-40 高度规则只能用于 TextBlock');
     }
-    if (!sameNumber(n.expectedWidth, src.width) || !sameNumber(n.expectedHeight, expectedHeightSource)) {
-      errors.push('[' + n.xmlId + '] expectedWidth/Height 不是同一 sourceRef 或正式模板规则计算得到');
+    // TextBlock：Width 固定 NaN（自适应），bbox 宽度只作为 dslWidth 来源保留。
+    if (x.ControlType === 'TextBlock') {
+      if (!isNanValue(n.expectedWidth)) {
+        errors.push('[' + n.xmlId + '] TextBlock 的 expectedWidth 必须固定为 NaN');
+      }
+      if (n.widthSource !== undefined && n.widthSource !== 'mtslg.textblock.fixed-nan') {
+        errors.push('[' + n.xmlId + '] TextBlock 的 widthSource 必须是 mtslg.textblock.fixed-nan');
+      }
+      if (n.dslWidth !== undefined && !sameNumber(n.dslWidth, src.width)) {
+        errors.push('[' + n.xmlId + '] TextBlock 的 dslWidth 与 sourceNodes bbox 不一致');
+      }
+    } else if (!sameNumber(n.expectedWidth, src.width)) {
+      errors.push('[' + n.xmlId + '] expectedWidth 不是同一 sourceRef 的 bbox');
+    }
+    if (!sameNumber(n.expectedHeight, expectedHeightSource)) {
+      errors.push('[' + n.xmlId + '] expectedHeight 不是同一 sourceRef 或正式模板规则计算得到');
     }
     if (typeof src.text === 'string' && typeof n.sourceText === 'string' && src.text !== n.sourceText) {
       errors.push('[' + n.xmlId + '] sourceText 与 sourceNodes.text 不一致');
@@ -184,7 +206,39 @@ function validate(xmlPath, manifestPath) {
     for (const pair of [['expectedLeft', 'Left'], ['expectedTop', 'Top'], ['expectedWidth', 'Width'], ['expectedHeight', 'Height']]) {
       const field = pair[0], attr = pair[1];
       if (n[field] === undefined) { errors.push('[' + n.xmlId + '] 缺少 ' + field); continue; }
+      if (attr === 'Width' && x.ControlType === 'TextBlock') {
+        if (!isNanValue(x[attr])) errors.push('[' + n.xmlId + '] TextBlock 的 Width 必须固定为 NaN');
+        continue;
+      }
       if (!sameNumber(x[attr], n[field])) errors.push('[' + n.xmlId + '] ' + attr + '=' + (x[attr] || '') + ' != expected=' + n[field]);
+    }
+    const controlType = x.ControlType || n.controlType || (n.attrs && n.attrs.ControlType);
+    if (BUTTON_FAMILY_CONTROL_TYPES.includes(controlType)) {
+      for (const attr of BUTTON_ALWAYS_ATTRS) {
+        if (x[attr] === undefined) errors.push('[' + n.xmlId + '] 按钮族缺少必写属性 ' + attr);
+      }
+      const mappingIcon = n.attrs && n.attrs.Icon;
+      const hasIcon = (typeof mappingIcon === 'string' && mappingIcon.trim() !== '') ||
+        (typeof x.Icon === 'string' && x.Icon.trim() !== '');
+      if (hasIcon) {
+        const size = n.iconSize;
+        if (!size || typeof size !== 'object') {
+          errors.push('[' + n.xmlId + '] 按钮族带 Icon 但映射缺少 iconSize（图标图形节点 bbox）');
+        } else {
+          const iconSource = sourceMap.get(size.sourceRef);
+          if (!iconSource) {
+            errors.push('[' + n.xmlId + '] iconSize.sourceRef 不存在于 sourceNodes: ' + size.sourceRef);
+          } else if (!sameNumber(iconSource.width, size.width) || !sameNumber(iconSource.height, size.height)) {
+            errors.push('[' + n.xmlId + '] iconSize 与图标图形节点 bbox 不一致');
+          }
+          if (!sameNumber(x.IconWidth, Math.round(Number(size.width))) ||
+              !sameNumber(x.IconHeight, Math.round(Number(size.height)))) {
+            errors.push('[' + n.xmlId + '] IconWidth/IconHeight 必须等于图标图形节点 bbox 取整值');
+          }
+        }
+      } else if (x.IconWidth !== undefined || x.IconHeight !== undefined) {
+        errors.push('[' + n.xmlId + '] 无图标按钮不得出现 IconWidth/IconHeight');
+      }
     }
   }
 

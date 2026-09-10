@@ -10,6 +10,12 @@
     ]
   },
   "commonAttrs": ["ID", "ControlType", "IOEnable", "IOVisible", "Height", "Width", "Margin", "Left", "Top", "Style"],
+  "buttonFamily": {
+    "controlTypes": ["IconButton", "Button", "StatusButton"],
+    "alwaysWrittenAttrs": ["PageName", "IOVisible", "IOCommand"],
+    "iconSizeAttrs": ["IconWidth", "IconHeight"],
+    "iconSizeRule": "IconWidth/IconHeight 只在按钮带图标槽位时发射，取图标图形节点 bbox（映射字段 iconSize，四舍五入取整）；无图标槽位时 Icon/IconWidth/IconHeight 都不发射；带 Icon 却没有 iconSize 视为映射不完整，生成器直接失败"
+  },
   "geometryAttrs": ["Left", "Top", "Width", "Height"],
   "businessAttrs": [
     "IOName", "IOCommand", "IOParam", "IOState", "IOStyle", "IOGroup",
@@ -156,12 +162,10 @@
   },
   "rightSidebarTemplates": {
     "match": { "property": "按钮类型" },
-    "parentVariants": {
-      "右侧栏-左右结构": { "style": "RightButtonStyle" },
-      "右侧栏-上下结构": { "style": "UpDownRightButtonStyle" }
-    },
+    "componentSetPolicy": "按公开属性「按钮类型」的值命中变体；变体登记 componentSet 时用变体内部实例的组件名交叉核对，冲突以 componentSet 为准；componentSet=null 表示尚未从组件库登记，仅按属性值匹配。图层名不参与匹配。",
     "variants": {
       "F+文案": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": null,
         "iconPolicy": "single-path",
@@ -170,6 +174,7 @@
         ]
       },
       "文案 大button": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": null,
         "iconPolicy": "single-path",
@@ -178,6 +183,7 @@
         ]
       },
       "上下结构-icon+文案": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": "UpDownRightButtonStyle",
         "iconPolicy": "single-path",
@@ -186,6 +192,7 @@
         ]
       },
       "左右结构-icon+文案": {
+        "componentSet": "右侧栏-左右结构-icon+文案",
         "controlType": "IconButton",
         "style": "RightButtonStyle",
         "iconPolicy": "single-path",
@@ -194,6 +201,7 @@
         ]
       },
       "stop": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": "RightButtonStyle",
         "iconPolicy": "single-path",
@@ -202,6 +210,7 @@
         ]
       },
       "start": {
+        "componentSet": "start",
         "controlType": "IconButton",
         "style": "RightButtonStyle",
         "iconPolicy": "single-path",
@@ -210,6 +219,7 @@
         ]
       },
       "恢复切割": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": "RightButtonStyle",
         "iconPolicy": "single-path",
@@ -218,6 +228,7 @@
         ]
       },
       "删除料盒-1": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": null,
         "iconPolicy": "single-path",
@@ -226,6 +237,7 @@
         ]
       },
       "删除料盒-2": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": null,
         "iconPolicy": "single-path",
@@ -234,6 +246,7 @@
         ]
       },
       "文案-小button": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": null,
         "iconPolicy": "single-path",
@@ -242,6 +255,7 @@
         ]
       },
       "enter": {
+        "componentSet": "enter",
         "controlType": "IconButton",
         "style": "RightButtonStyle",
         "iconPolicy": "single-path",
@@ -251,6 +265,7 @@
         ]
       },
       "exit": {
+        "componentSet": "exit",
         "controlType": "IconButton",
         "style": "RightButtonStyle",
         "iconPolicy": "single-path",
@@ -260,12 +275,37 @@
         ]
       },
       "startstop": {
+        "componentSet": null,
         "controlType": "IconButton",
         "style": "UpDownRightButtonStyle",
         "iconPolicy": "single-path",
         "iconRequired": true,
         "slots": [
           { "slot": "button", "controlType": "IconButton", "style": "UpDownRightButtonStyle", "iconPolicy": "single-path", "iconRequired": true }
+        ]
+      }
+    }
+  },
+  "rightSidebarComponentTemplates": {
+    "match": { "componentSet": true },
+    "componentSetPolicy": "独立组件（团队组件库中可直接放置的按钮组件）按组件名命中；组件名取自实例自身的组件名，图层重命名不改变组件名。",
+    "variants": {
+      "右侧栏-左右结构-icon+文案": {
+        "componentSet": "右侧栏-左右结构-icon+文案",
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path" }
+        ]
+      },
+      "start": {
+        "componentSet": "start",
+        "controlType": "IconButton",
+        "style": "RightButtonStyle",
+        "iconPolicy": "single-path",
+        "slots": [
+          { "slot": "button", "controlType": "IconButton", "style": "RightButtonStyle", "iconPolicy": "single-path" }
         ]
       }
     }
@@ -313,10 +353,8 @@
   "selectionTemplates": {
     "match": { "property": "属性 1" },
     "variants": {
-      "单选-选中/未选择": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" }] },
       "单选-选中": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" }] },
       "单选-未选择": { "controlType": "RadioButton", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "RadioButton", "iconPolicy": "none", "valueSource": "dsl.text" }] },
-      "多选-选中/未选择": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
       "多选-选中": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] },
       "多选-未选择": { "controlType": "CheckBox", "style": null, "iconPolicy": "none", "slots": [{ "slot": "choice", "controlType": "CheckBox", "iconPolicy": "none", "valueSource": "dsl.text" }] }
     }
@@ -408,24 +446,24 @@
       "attrs": ["Value", "Orientation"]
     },
     "TextBlock": {
-      "description": "文本标签；Value=标签文本，IOName=从 IO 读标签名，IOState=状态文本驱动颜色，IsAutoRead 默认 false",
+      "description": "文本标签；Value=标签文本，IOName=从 IO 读标签名，IOState=状态文本驱动颜色，IsAutoRead 默认 false；Height 固定 40、Width 固定 NaN（宽度自适应，不用文本 bbox 宽度）",
       "nested": false,
       "attrs": ["Value", "IOName", "IOState", "IsAutoRead", "IOGroup", "Foreground", "FontSize", "LangName"]
     },
     "Button": {
       "description": "按钮；IOName 绑 IO 变量（Function/Event 消息），IOStyle=Write|Event（默认 Function），PageName=\"Jump:X\" 跳转",
       "nested": false,
-      "attrs": ["Value", "IOName", "IOStyle", "IOParam", "IsShowDialog", "DialogMessage", "PageName", "ParameterName", "IOGroup", "IsSave", "LangName"]
+      "attrs": ["Value", "IOName", "IOStyle", "IOParam", "IsShowDialog", "DialogMessage", "PageName", "ParameterName", "IOGroup", "IsSave", "LangName", "IOVisible", "IOCommand"]
     },
     "IconButton": {
-      "description": "图标按钮（继承 Button）；Icon=Geometry 键，TopLeftContent=F1..F12，IOState 状态色",
+      "description": "图标按钮（继承 Button）；Icon=Geometry 键，TopLeftContent=F1..F12，IOState 状态色。按钮族固定参数：所有 IconButton 无差别发射 PageName/IOVisible/IOCommand（无可靠来源时为空字符串占位）；IconWidth/IconHeight 只在带图标槽位时发射，取图标图形节点 bbox（映射字段 iconSize），无图标槽位时不发射",
       "nested": false,
-      "attrs": ["Icon", "IconHeight", "IconWidth", "TopLeftContent", "IsShowStatus", "IsNeedRedMark", "StatusBrush", "IOState", "IconColor", "IconText", "LangName"]
+      "attrs": ["Icon", "IconHeight", "IconWidth", "TopLeftContent", "PageName", "IOCommand", "IOVisible", "IsShowStatus", "IsNeedRedMark", "StatusBrush", "IOState", "IconColor", "IconText", "LangName"]
     },
     "StatusButton": {
       "description": "状态按钮（继承 Button）；IOState 条件表达式更新左侧状态色",
       "nested": false,
-      "attrs": ["IOState", "LangName"]
+      "attrs": ["IOState", "LangName", "IOName", "IOCommand", "PageName", "IOVisible"]
     },
     "Togglebutton": {
       "description": "切换按钮；IOState 控制选中态",

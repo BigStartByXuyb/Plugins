@@ -408,13 +408,16 @@ function validateBundleOutputs(info) {
     const sourceByRef = new Map((mapping.sourceNodes || []).map(function (node) { return [node.ref, node]; }));
     const coordNodes = mapping.nodes.map(function (node) {
       const source = sourceByRef.get(node.sourceRef || node.ref) || {};
+      const isTextBlock = (node.controlType || (node.attrs && node.attrs.ControlType)) === "TextBlock";
       return {
         id: node.xmlId || node.id || node.ref,
         x: source.pageAbsX !== undefined ? source.pageAbsX : node.absX,
         y: source.pageAbsY !== undefined ? source.pageAbsY : node.absY,
-        w: node.expectedWidth !== undefined
-          ? node.expectedWidth
-          : (source.width !== undefined ? source.width : node.w),
+        w: isTextBlock
+          ? "NaN"
+          : (node.expectedWidth !== undefined
+            ? node.expectedWidth
+            : (source.width !== undefined ? source.width : node.w)),
         h: node.expectedHeight !== undefined
           ? node.expectedHeight
           : (source.height !== undefined ? source.height : node.h),

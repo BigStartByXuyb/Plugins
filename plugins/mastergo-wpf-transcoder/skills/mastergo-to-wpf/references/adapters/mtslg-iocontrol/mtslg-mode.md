@@ -59,10 +59,13 @@
 - **先识别公共栏，再归一**：从宿主页面、Layout 配置和运行截图建立 `ContentRect`。顶部/底部公共栏默认由宿主负责、页面不生成；左右区域必须按目标框架职责逐侧判断，不能把左右节点一律当公共栏或一律当页面内容。
 - **页面坐标不是完整窗口坐标**：根级保留业务节点统一计算 `PageX = MasterGoX − contentOriginX`、`PageY = MasterGoY − 192`。业务页面固定使用 `contentOriginY=192`，公共栏和 `design-artifact-title` 的偏移只能在根级归一化时扣除一次，嵌套控件不重复扣除。不得按单个控件手调偏移。
 - **公共栏节点不重复生成**：顶部/底部公共背景、标题栏、状态栏、底部快捷键区和宿主已有控件必须在映射表标记“框架负责、页面不生成”；页面标题只有在 MasterGo 业务区确有独立标题节点且宿主不提供时才生成。
-- **组件文本高度与字号分开处理**：所有 MTSLG `TextBlock`（标签、数值、单位和独立文本）的 `Height` 固定为 `40`；不得使用外层组件高度、内部文字 bbox、独立文本 bbox 或 `FontSize` 改写该值。`FontSize` 仍从对应 MasterGo DSL 的字体属性读取并写入。输入框、选择框等非 TextBlock 控件按正式变体模板取自身高度。
+- **组件文本尺寸与字号分开处理**：所有 MTSLG `TextBlock`（标签、数值、单位和独立文本）的 `Height` 固定为 `40`、`Width` 固定为 `NaN`；不得使用外层组件高度、内部文字 bbox、独立文本 bbox、文本 bbox 宽度或 `FontSize` 改写这两个值（文本 bbox 宽度只作为 `dslWidth` 记入 mapping 溯源）。`FontSize` 仍从对应 MasterGo DSL 的字体属性读取并写入。输入框、选择框等非 TextBlock 控件按正式变体模板取自身宽高。
 - **文本来源与 `Value` 硬门禁**：每个 `TextBlock` 的 `Value` 必须回溯到唯一 MasterGo `layerId`/DSL `ref` 及其真实文本节点；不得依据 XML `ID`、控件名称、坐标方向、页面语义或相邻实例推断文本。生成前必须逐项核对“XML 节点 → layerId/ref → 父节点链 → 原始文本 → Value”；不一致即停止生成并标记待确认。
+- **按钮族固定参数（IconButton / Button / StatusButton）**：`PageName`、`IOVisible`、`IOCommand` 三个运行时参数无论能否取到来源都恒写，取不到时写空字符串值（merge 时保留工程师已有真实值）；`IconWidth`/`IconHeight` 只在按钮确有图标槽位时发射，取**图标图形节点自身 bbox**（映射字段 `iconSize`，四舍五入取整），不是控件宽高；没有图标槽位时不生成 `Icon`、`IconWidth`、`IconHeight`。映射带 `Icon` 却没有 `iconSize` 时生成器直接失败，禁止猜图标尺寸。
+- **模板匹配键**：组件族匹配使用“组件集名 + 公开属性名 + 真实属性值”。设计稿里的图层名称只用于核对，不参与匹配；`rightSidebarTemplates.parentVariants` 这类“父节点语义”表已作废（右栏的 `右侧栏-左右结构`/`右侧栏-上下结构` 是独立组件名，不是父节点语义）。变体登记 `componentSet` 时，解析先用公开属性值命中变体，再用变体内部实例的组件名交叉核对，冲突以组件名（componentSet）为准并记录冲突。
+- **图标尺寸来源**：`IconWidth`/`IconHeight` 取页面图标映射中几何来源节点（`sourceRef`，缺失时回退 `sourceId`）的 bbox；右栏这类带图标槽位的按钮，图标来自 `实例` 属性指向的图标节点；空占位虚线框视为没有图标。
 - **设计稿最上方示例标题默认剥离**：位于根节点或展示外壳、仅用于说明组件或工件示教的标题标记为 `design-artifact-title`，不写入页面 XML。业务内容容器内部且运行时需要的标题才保留。
-- **设计稿像素直传（归一后）**：`Left = pageAbsX − parentPageAbsX`，`Top = pageAbsY − parentPageAbsY`，Width/Height 原样。目标画布尺寸必须与第 1 节适配记录一致；不允许从固定分辨率、截图缩放或其他页面推断。
+- **设计稿像素直传（归一后）**：`Left = pageAbsX − parentPageAbsX`，`Top = pageAbsY − parentPageAbsY`，Width/Height 原样；`TextBlock` 例外：`Height` 固定 `40`、`Width` 固定 `NaN`。目标画布尺寸必须与第 1 节适配记录一致；不允许从固定分辨率、截图缩放或其他页面推断。
 - 允许小数与负数；`NaN` 表示自适应（根节点四属性均为 `NaN`；叶子无宽高时省略属性）。具体数值必须来自当前实例的 MasterGo bbox。
 - 子控件坐标相对**父容器左上角**；父容器与子控件的坐标关系必须由唯一 MasterGo 父子链和 bbox 计算。
 - 当完整 DSL 的根节点或对应容器节点的 `overflow` 属性为 `hidden` 时，必须保留外层布局容器及其 `Width/Height` 裁剪边界，内部子控件继续使用相对父容器坐标。该规则优先于模板中“平级节点”的展开形式。只有 DSL 明确没有裁剪需求时才允许展开为同级节点，且必须保留等价裁剪边界。
@@ -76,6 +79,8 @@
 | 容器 | View（页签，Value=标题/Index/Icon）、GroupBox（Header）、Border（Value=线宽）、ButtonGroup（内放 RadioButton 共用 IOName）、TabControl+TabItem |
 | 文本/输入 | TextBlock、TextBox（Keypad）、NumberBox（DecimalPlaces 默认 3）、IntNumberBox、CheckBox |
 | 按钮 | Button（PageName="Jump:X"/IOName/IOStyle）、IconButton（Icon=Geometry 键/TopLeftContent=F1..F12）、StatusButton（IOState 状态色）、Togglebutton、RadioButton |
+
+按钮族（IconButton / Button / StatusButton）另有固定参数：`PageName`/`IOVisible`/`IOCommand` 恒写（取不到写空字符串值），`IconWidth`/`IconHeight` 只在有图标槽位时按图标图形节点 bbox 发射；详见飞书组件库映射规范的“固定字段与可选字段规则”。
 | 选择 | ComboBox（选项=子 TextBlock；ItemsSourceFile/DisplayMemberPath/SelectedValuePath） |
 | 数据 | DataGrid（Value=数据文件名；列=子 TextBlock/ComboBox）、ProgressBar、RangeProgressBar、PowerControl（实时功率曲线） |
 | 视觉/设备 | Image（Value=绝对路径）、Camera（DesignPanelID）、AutoCutCamera、HighAngleCamera、LowAngleCamera、EMTCamera |
@@ -110,7 +115,7 @@
 1. **匹配**：映射节点 ↔ 现有节点，ID 优先；无 ID 时按 ControlType + Left/Top（容差 0.5）位置匹配。
 2. **几何更新**：Left/Top/Width/Height 按映射更新（这就是设计稿改动的落点）。
 3. **ControlType**：按映射更新，变化写冲突报告。
-4. **业务属性保护**：现有 XML 同名的属性一律保留现有值（值不同 → 冲突报告，不覆盖）；映射多出来的属性 → 追加（新增报告）。工程师手写的 IOName/IOCommand/IOState 等永远不会被设计稿冲掉。
+4. **业务属性保护**：现有 XML 同名的属性一律保留现有值（值不同 → 冲突报告，不覆盖）；映射多出来的属性 → 追加（新增报告）。工程师手写的 IOName/IOCommand/IOState 等永远不会被设计稿冲掉。**例外**：映射节点的 `valueSource=dsl.text` 时，`Value` 是设计文本，merge 强制按映射覆盖并写“设计文本覆盖（dsl.text）”报告——否则 provenance 校验（`Value` 必须等于 `sourceText`）会失败。
 5. **节点增删**：映射里的新节点渲染插入父容器闭合标签前；现有但映射未涉及的节点原样保留（报告列出）。
 6. **格式最小扰动**：未触及的节点与注释逐字节保留；被替换节点跟随原样式（单行/多行）。
 

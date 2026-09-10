@@ -32,7 +32,7 @@ if (!result.errors.some(x => /Width/.test(x))) throw new Error('缺少 Width 错
 if (!result.errors.some(x => /expectedLeft/.test(x))) throw new Error('缺少 sourceNodes 坐标重算错误');
 const flatXmlPath = path.join(dir, 'flat.xml');
 const flatManifestPath = path.join(dir, 'flat.json');
-fs.writeFileSync(flatXmlPath, '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ID="FlatChild" ControlType="TextBlock" Value="SCAN" Left="150" Top="158" Width="45" Height="40" /></IOContorl>');
+fs.writeFileSync(flatXmlPath, '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ID="FlatChild" ControlType="TextBlock" Value="SCAN" Left="150" Top="158" Width="NaN" Height="40" /></IOContorl>');
 fs.writeFileSync(flatManifestPath, JSON.stringify({ contentOriginY: 192, rootRef: 'root', sourceNodes: [
   { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
   { ref: 'component', parentRef: 'root', pageAbsX: 100, pageAbsY: 300, relativeX: 100, relativeY: 300, width: 384, height: 132 },
@@ -40,19 +40,19 @@ fs.writeFileSync(flatManifestPath, JSON.stringify({ contentOriginY: 192, rootRef
 ], nodes: [{
   xmlId: 'FlatChild', sourceRef: 'component/scan', sourceParent: 'component', layoutParent: null,
   sourceText: 'SCAN', valueSource: 'dsl.text', expectedLeft: 150, expectedTop: 158,
-  expectedWidth: 45, expectedHeight: 40, heightSource: 'mtslg.textblock.fixed-40'
+  expectedWidth: 'NaN', expectedHeight: 40, widthSource: 'mtslg.textblock.fixed-nan', dslWidth: 45, heightSource: 'mtslg.textblock.fixed-40'
 }] }));
 const flatResult = validate(flatXmlPath, flatManifestPath);
 if (!flatResult.ok) throw new Error('展平模板节点应按 layoutParent=null 使用页面绝对坐标: ' + flatResult.errors.join('; '));
 const fixed40XmlPath = path.join(dir, 'fixed40.xml');
 const fixed40ManifestPath = path.join(dir, 'fixed40.json');
-fs.writeFileSync(fixed40XmlPath, '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ID="FixedText" ControlType="TextBlock" Value="标题" FontSize="16" Left="10" Top="20" Width="50" Height="40" /></IOContorl>');
+fs.writeFileSync(fixed40XmlPath, '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ID="FixedText" ControlType="TextBlock" Value="标题" FontSize="16" Left="10" Top="20" Width="NaN" Height="40" /></IOContorl>');
 fs.writeFileSync(fixed40ManifestPath, JSON.stringify({ contentOriginY: 192, sourceNodes: [
   { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
   { ref: 'text', parentRef: 'root', pageAbsX: 10, pageAbsY: 212, relativeX: 10, relativeY: 212, width: 50, height: 16, text: '标题' }
 ], nodes: [{
   xmlId: 'FixedText', sourceRef: 'text', sourceParent: 'root', sourceText: '标题', valueSource: 'dsl.text',
-  expectedLeft: 10, expectedTop: 20, expectedWidth: 50, expectedHeight: 40,
+  expectedLeft: 10, expectedTop: 20, expectedWidth: 'NaN', expectedHeight: 40,
   heightSource: 'mtslg.textblock.fixed-40'
 }] }));
 const fixed40Result = validate(fixed40XmlPath, fixed40ManifestPath);
@@ -91,5 +91,85 @@ const missingVisibleOutput = JSON.parse(JSON.stringify(textAuditMapping));
 missingVisibleOutput.nodes = [];
 if (!validateTextAudit(missingVisibleOutput, missingVisibleOutput.nodes).some(x => /可见普通 TEXT/.test(x))) {
   throw new Error('可见普通 TEXT 缺少输出时必须失败');
+}
+
+// ---- 按钮族固定参数与图标尺寸 ----
+const buttonSourceNodes = [
+  { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
+  { ref: 'btn', parentRef: 'root', pageAbsX: 300, pageAbsY: 300, relativeX: 300, relativeY: 300, width: 170, height: 80 },
+  { ref: 'btn/icon', parentRef: 'btn', pageAbsX: 312, pageAbsY: 314, relativeX: 12, relativeY: 14, width: 97.0352783203125, height: 65.99 },
+  { ref: 'plain', parentRef: 'root', pageAbsX: 600, pageAbsY: 300, relativeX: 600, relativeY: 300, width: 60, height: 60 }
+];
+function buttonCase(tagAttrs, nodeExtra) {
+  const xml = '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ' +
+    Object.entries(tagAttrs).map(([k, v]) => k + '="' + v + '"').join(' ') + ' /></IOContorl>';
+  const manifest = {
+    contentOriginY: 192,
+    sourceNodes: buttonSourceNodes,
+    nodes: [Object.assign({
+      xmlId: 'BTN', sourceRef: 'btn', sourceParent: 'root', controlType: 'IconButton',
+      expectedLeft: 300, expectedTop: 108, expectedWidth: 170, expectedHeight: 80,
+      attrs: { ControlType: 'IconButton' }
+    }, nodeExtra || {})]
+  };
+  const xmlFile = path.join(dir, 'button-case.xml');
+  const manifestFile = path.join(dir, 'button-case.json');
+  fs.writeFileSync(xmlFile, xml);
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+  return validate(xmlFile, manifestFile);
+}
+const iconButtonAttrs = { ID: 'BTN', ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '', IconWidth: '97', IconHeight: '66', Left: '300', Top: '108', Width: '170', Height: '80' };
+const iconNodeAttrs = { attrs: { ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '' }, iconSize: { width: 97.0352783203125, height: 65.99, sourceRef: 'btn/icon' } };
+const goodButton = buttonCase(iconButtonAttrs, iconNodeAttrs);
+if (!goodButton.ok) throw new Error('合法按钮族节点应通过 provenance 校验: ' + goodButton.errors.join('; '));
+
+const missingAlwaysAttrs = Object.assign({}, iconButtonAttrs);
+delete missingAlwaysAttrs.IOVisible;
+const missingAlwaysNode = { attrs: { ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOCommand: '' }, iconSize: { width: 97.0352783203125, height: 65.99, sourceRef: 'btn/icon' } };
+const missingAlwaysResult = buttonCase(missingAlwaysAttrs, missingAlwaysNode);
+if (missingAlwaysResult.ok || !missingAlwaysResult.errors.some(x => /缺少必写属性 IOVisible/.test(x))) {
+  throw new Error('按钮族缺少 IOVisible 时必须失败');
+}
+
+const noIconSizeResult = buttonCase(iconButtonAttrs, { attrs: { ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '' } });
+if (noIconSizeResult.ok || !noIconSizeResult.errors.some(x => /缺少 iconSize/.test(x))) {
+  throw new Error('按钮带 Icon 却缺少 iconSize 时必须失败');
+}
+
+const badIconRefResult = buttonCase(iconButtonAttrs, { attrs: { ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '' }, iconSize: { width: 97.0352783203125, height: 65.99, sourceRef: 'btn/missing' } });
+if (badIconRefResult.ok || !badIconRefResult.errors.some(x => /iconSize.sourceRef 不存在/.test(x))) {
+  throw new Error('iconSize.sourceRef 不在 sourceNodes 时必须失败');
+}
+
+const badIconBoxResult = buttonCase(iconButtonAttrs, { attrs: { ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '' }, iconSize: { width: 40, height: 40, sourceRef: 'btn/icon' } });
+if (badIconBoxResult.ok || !badIconBoxResult.errors.some(x => /iconSize 与图标图形节点 bbox 不一致/.test(x))) {
+  throw new Error('iconSize 与图标图形节点 bbox 不一致时必须失败');
+}
+
+const plainButtonAttrs = { ID: 'BTN', ControlType: 'IconButton', PageName: '', IOVisible: '', IOCommand: '', IconWidth: '60', IconHeight: '60', Left: '600', Top: '108', Width: '60', Height: '60' };
+const plainButtonNode = { sourceRef: 'plain', expectedLeft: 600, expectedTop: 108, expectedWidth: 60, expectedHeight: 60, attrs: { ControlType: 'IconButton', PageName: '', IOVisible: '', IOCommand: '' } };
+const plainButtonResult = buttonCase(plainButtonAttrs, plainButtonNode);
+if (plainButtonResult.ok || !plainButtonResult.errors.some(x => /无图标按钮不得出现 IconWidth/.test(x))) {
+  throw new Error('无图标按钮出现 IconWidth/IconHeight 时必须失败');
+}
+
+// ---- TextBlock 固定宽度 NaN ----
+const numericTextXmlPath = path.join(dir, 'textblock-numeric-width.xml');
+const numericTextManifestPath = path.join(dir, 'textblock-numeric-width.json');
+fs.writeFileSync(numericTextXmlPath, '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN"><IOContorl ID="TextWidth" ControlType="TextBlock" Value="标签" Left="10" Top="220" Width="76" Height="40" /></IOContorl>');
+fs.writeFileSync(numericTextManifestPath, JSON.stringify({ contentOriginY: 192, rootRef: 'root', sourceNodes: [
+  { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
+  { ref: 'text', parentRef: 'root', pageAbsX: 10, pageAbsY: 412, relativeX: 10, relativeY: 412, width: 76, height: 22, text: '标签' }
+], nodes: [{
+  xmlId: 'TextWidth', sourceRef: 'text', sourceParent: 'root', sourceText: '标签', valueSource: 'dsl.text',
+  expectedLeft: 10, expectedTop: 220, expectedWidth: 76, expectedHeight: 40, heightSource: 'mtslg.textblock.fixed-40'
+}] }));
+const numericTextResult = validate(numericTextXmlPath, numericTextManifestPath);
+if (numericTextResult.ok) throw new Error('TextBlock 使用具体宽度时必须失败');
+if (!numericTextResult.errors.some(x => /TextBlock 的 Width 必须固定为 NaN/.test(x))) {
+  throw new Error('缺少 TextBlock Width 固定 NaN 错误: ' + numericTextResult.errors.join('; '));
+}
+if (!numericTextResult.errors.some(x => /TextBlock 的 expectedWidth 必须固定为 NaN/.test(x))) {
+  throw new Error('缺少 TextBlock expectedWidth 固定 NaN 错误');
 }
 console.log('PASS provenance regression test');

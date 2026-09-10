@@ -53,6 +53,16 @@ function instanceVariant(instance, matchProperty) {
   return null;
 }
 
+// 变体来源：属性型模板族按公开属性值；componentSet 族（独立组件直接放置）按组件名。
+function resolveInstanceVariant(instance, templates) {
+  const match = templates.match || {};
+  if (match.componentSet === true) {
+    const componentSet = instance.componentSet || instance.componentName;
+    return componentSet && templates.variants[componentSet] ? componentSet : null;
+  }
+  return instanceVariant(instance, match.property);
+}
+
 function sourceByRef(mapping) {
   return new Map((mapping.sourceNodes || []).map(source => [source.ref, source]));
 }
@@ -200,13 +210,19 @@ function resolveTemplateMapping(mapping, templateMap) {
     const templateName = instance.template || "componentTemplates";
     const templates = templatesForName(templateMap, templateName);
     if (!templates) fail("未登记的 MTSLG 模板族: " + templateName);
-    const variant = instanceVariant(instance, templates.match && templates.match.property);
-    if (!variant) fail("组件实例缺少真实属性 1: " + (instance.instanceRef || "(missing)"));
+    const variant = resolveInstanceVariant(instance, templates);
+    if (!variant) {
+      fail("组件实例缺少真实变体值（公开属性或组件名）: " + (instance.instanceRef || "(missing)"));
+    }
     if (templates.unconfirmedVariants && templates.unconfirmedVariants.includes(variant)) {
       fail("尚未确认的 MTSLG 模板变体: " + variant);
     }
     const spec = templates.variants[variant];
     if (!spec) fail("未登记的 MTSLG 模板变体: " + variant);
+    if (spec.componentSet && instance.componentSet && spec.componentSet !== instance.componentSet) {
+      fail("组件集与公开属性值不一致: 变体 " + variant + " 登记组件 " + spec.componentSet +
+        "，实例组件名 " + instance.componentSet);
+    }
     resolved.push(validateInstance(instance, spec, result, sourceMap, nodeMap, usedSources, variant));
   }
   result.resolvedTemplates = resolved;

@@ -13,7 +13,8 @@
  *     ...
  *   ]
  * 对照规则：XML.Left ≈ x - contentOriginX，XML.Top ≈ y - contentOriginY，XML.Width ≈ w，XML.Height ≈ h
- * （容差 --tolerance 默认 0.5）；NaN 对 NaN/缺失 算匹配。
+ * （容差 --tolerance 默认 0.5）；NaN 只与 NaN/缺失 算匹配，NaN 与具体数值算 MISMATCH。
+ * TextBlock 的 Width 固定为 NaN（自适应），节点表按 NaN 传入即可。
  *
  * 用法：
  *   node check-iocontrol-coords.js --xml <page.xml> --nodes <nodes.json> [--tolerance 0.5]
@@ -68,9 +69,9 @@ function num(v) {
   return Number.isNaN(n) ? null : n;
 }
 function close(a, b, tol) {
-  if (a === 'NaN' || b === 'NaN') return a === b || a === 'NaN' || b === 'NaN';
-  if (a === null && b === null) return true;        // 都未提供 → 匹配
-  if (a === null || b === null) return false;       // 一边有值一边没有
+  const aAbsent = a === 'NaN' || a === null;
+  const bAbsent = b === 'NaN' || b === null;
+  if (aAbsent || bAbsent) return aAbsent === bAbsent; // NaN 只对 NaN/缺失算匹配
   return Math.abs(a - b) <= tol;
 }
 

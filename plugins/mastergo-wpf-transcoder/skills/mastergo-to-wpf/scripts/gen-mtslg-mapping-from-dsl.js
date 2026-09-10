@@ -142,21 +142,104 @@ function iconFor(ref) {
   const pathRef = pathDescendants(ref)[0];
   return pathRef ? iconForPath(pathRef) : null;
 }
-function formalMatches(n) {
-  if (!n || !["INSTANCE", "COMPONENT"].includes(n.type)) return [];
+function iconEntryFor(ref) {
+  const pathRef = pathDescendants(ref)[0];
+  if (!pathRef) return null;
+  return iconEntries
+    .filter(icon => icon && typeof icon.sourceRef === "string" &&
+      (pathRef === icon.sourceRef || pathRef.startsWith(icon.sourceRef + "/") || icon.sourceRef.startsWith(pathRef + "/")))
+    .sort((a, b) => String(b.sourceRef).length - String(a.sourceRef).length)[0] || null;
+}
+// 图标图形节点 bbox：优先用图标映射的 sourceRef 节点，缺失时回退 sourceId 节点。
+function iconSizeFor(ref) {
+  const entry = iconEntryFor(ref);
+  if (!entry) return null;
+  for (const candidate of [entry.sourceRef, entry.sourceId]) {
+    if (!candidate) continue;
+    const item = nodeByRef.get(candidate);
+    const s = item && item.source;
+    if (!s) continue;
+    const width = Number(s.width);
+    const height = Number(s.height);
+    if (Number.isFinite(width) && Number.isFinite(height)) return { width, height, sourceRef: candidate };
+  }
+  return null;
+}
+
+// 变体内部实例的组件名（= 独立组件集/组件的名称，用于右栏等族的交叉核对）。
+function innerComponentName(n) {
+  const child = (n && Array.isArray(n.children) ? n.children : []).find(c => c && c.type === "INSTANCE");
+  return child ? String(child.name || "") : "";
+}
+
+// componentSet 索引：变体登记了 componentSet 时，允许按内部组件名直接命中。
+const componentSetIndex = new Map();
+for (const [family, spec] of Object.entries(templateMap)) {
+  if (!family.endsWith("Templates") || !spec?.variants) continue;
+  for (const [variant, entry] of Object.entries(spec.variants)) {
+    const componentSet = entry && entry.componentSet;
+    if (typeof componentSet !== "string" || !componentSet) continue;
+    if (!componentSetIndex.has(componentSet)) componentSetIndex.set(componentSet, []);
+    componentSetIndex.get(componentSet).push({ family, variant, spec: entry });
+  }
+}
+const templateConflicts = [];
+
+function propertyMatches(n) {
   const props = n.componentInfo?.properties || {};
   const matches = [];
   for (const [family, spec] of Object.entries(templateMap)) {
     if (!family.endsWith("Templates") || !spec?.match?.property || !spec.variants) continue;
     const value = Object.keys(props).find(key => normalize(key) === normalize(spec.match.property));
     const variant = value ? props[value] : null;
-    if (variant && spec.variants[variant]) matches.push({ family, variant, spec: spec.variants[variant], properties: props });
-    const nameVariant = String(n.name || "").replace(/^右侧栏-/, "");
-    if (!variant && family === "rightSidebarTemplates" && spec.variants[nameVariant]) {
-      matches.push({ family, variant: nameVariant, spec: spec.variants[nameVariant], properties: { "按钮类型": nameVariant } });
-    }
+    if (variant && spec.variants[variant]) matches.push({ family, variant, spec: spec.variants[variant], properties: props, matchKind: "property" });
   }
   return matches;
+}
+
+function formalMatches(n) {
+  if (!n || !["INSTANCE", "COMPONENT"].includes(n.type)) return [];
+  const props = n.componentInfo?.properties || {};
+  let componentSet = "";
+  let byComponent = [];
+  // 组件名来源：先看变体内部实例（聚合集合的变体），再看实例自身（独立组件直接放置）。
+  const candidateNames = [innerComponentName(n), typeof n.name === "string" ? n.name : ""].filter(Boolean);
+  for (const candidate of candidateNames) {
+    const hits = componentSetIndex.get(candidate);
+    if (hits && hits.length) { componentSet = candidate; byComponent = hits; break; }
+  }
+  if (byComponent.length > 0) {
+    // 同一组件名可能同时登记在“聚合变体族”和“独立组件族”：
+    // 实例带该族的公开属性（如 按钮类型）时按聚合族，否则按独立组件族。
+    const propertyFamilies = byComponent.filter(h => {
+      const spec = templateMap[h.family];
+      const matchProperty = spec && spec.match && spec.match.property;
+      return matchProperty && Object.keys(props).some(key => normalize(key) === normalize(matchProperty));
+    });
+    const componentOnlyFamilies = byComponent.filter(h => templateMap[h.family]?.match?.componentSet === true);
+    if (propertyFamilies.length > 0) byComponent = propertyFamilies;
+    else if (componentOnlyFamilies.length > 0) byComponent = componentOnlyFamilies;
+  }
+  const byProperty = propertyMatches(n);
+  if (byComponent.length > 0) {
+    const chosen = byComponent[0];
+    if (byProperty.length > 0 &&
+        !byProperty.some(m => m.family === chosen.family && m.variant === chosen.variant)) {
+      templateConflicts.push({
+        ref: n.id,
+        name: n.name || null,
+        componentSet,
+        propertyMatch: byProperty.map(m => `${m.family}#${m.variant}`).join(", "),
+        componentSetMatch: byComponent.map(m => `${m.family}#${m.variant}`).join(", "),
+        reason: "内部组件名与公开属性值指向不同模板，按内部组件名（componentSet）执行"
+      });
+    }
+    return byComponent.map(m => ({
+      family: m.family, variant: m.variant, spec: m.spec,
+      properties: props, matchKind: "componentSet", componentSet
+    }));
+  }
+  return byProperty;
 }
 function outerGroups(ref, minWidth = 55, minHeight = 40) {
   const candidates = descendants(ref).filter(id => {
@@ -197,12 +280,15 @@ function addNode(sourceRef, controlType, attrs, options = {}) {
     h: s.height,
     expectedLeft: s.pageAbsX - (parentSource ? parentSource.pageAbsX : 0),
     expectedTop: s.pageAbsY - (parentSource ? parentSource.pageAbsY : 0) - (parentSource ? 0 : 192),
-    expectedWidth: s.width,
+    expectedWidth: controlType === "TextBlock" ? "NaN" : s.width,
     expectedHeight: controlType === "TextBlock" ? 40 : s.height,
+    widthSource: controlType === "TextBlock" ? "mtslg.textblock.fixed-nan" : "dsl.bbox",
     heightSource: controlType === "TextBlock" ? "mtslg.textblock.fixed-40" : "dsl.bbox",
+    ...(controlType === "TextBlock" ? { dslWidth: s.width } : {}),
     id: xmlId,
     xmlId,
-    attrs: Object.assign({}, attrs)
+    attrs: Object.assign({}, attrs),
+    ...(options.iconSize ? { iconSize: options.iconSize } : {})
   };
   outputNodes.push(out);
   outputRefBySource.set(sourceRef, xmlId);
@@ -228,11 +314,16 @@ function addValueAudit(textRef, ownerRef) {
 function slot(name, ref, valueSourceRef) { return Object.assign({ slot: name, sourceRef: ref }, valueSourceRef ? { valueSourceRef } : {}); }
 function addInstance(match, instanceRef, requiredSlots, omittedSlots = []) {
   const properties = Object.assign({}, match.properties || source(instanceRef).properties);
-  if (match.family === "rightSidebarTemplates" && !properties["按钮类型"]) {
-    const nameVariant = String(source(instanceRef).name || "").replace(/^右侧栏-/, "");
-    properties["按钮类型"] = match.variant || nameVariant;
-  }
-  componentInstances.push({ template: match.family, instanceRef, properties, requiredSlots, ...(omittedSlots.length ? { omittedSlots } : {}) });
+  // 组件名用于右栏等族的交叉核对；图层重命名不影响 componentSet 的登记值。
+  const componentSet = match.componentSet || innerComponentName(node(instanceRef)) || undefined;
+  componentInstances.push({
+    template: match.family,
+    instanceRef,
+    properties,
+    ...(componentSet ? { componentSet } : {}),
+    requiredSlots,
+    ...(omittedSlots.length ? { omittedSlots } : {})
+  });
 }
 
 const matched = [];
@@ -249,24 +340,27 @@ const matchedRefs = new Set(matched.map(x => x.item.ref));
 for (const { item: inst, match } of matched) {
   const variant = match.variant;
   const spec = match.spec;
-  if (match.family === "rightSidebarTemplates" || match.family === "selectBoxTemplates" || match.family === "mainMenuTemplates") {
+  if (match.family === "rightSidebarTemplates" || match.family === "rightSidebarComponentTemplates" ||
+      match.family === "selectBoxTemplates" || match.family === "mainMenuTemplates") {
     const valueText = firstText(inst.ref, s => !/^F\d+$/.test(s.text));
     const attrs = {};
     if (spec.style) attrs.Style = spec.style;
     if (valueText) attrs.Value = valueText.text;
     const icon = spec.iconPolicy !== "none" ? iconFor(inst.ref) : null;
     if (icon) attrs.Icon = icon;
+    const iconSize = icon ? iconSizeFor(inst.ref) : null;
     const fText = firstText(inst.ref, s => /^F\d+$/.test(s.text));
     if (fText && inst.properties["显示F"] !== false) attrs.TopLeftContent = fText.text;
     const sourceSlotRefs = [valueText?.ref, fText?.ref].filter(Boolean);
     const owner = addNode(inst.ref, spec.controlType, attrs, {
       ...(valueText ? { valueSourceRef: valueText.ref } : {}),
+      ...(iconSize ? { iconSize } : {}),
       sourceSlotRefs,
       sourceSlotTexts: Object.fromEntries([valueText, fText].filter(Boolean).map(text => [text.ref, text.text]))
     });
     if (valueText) addValueAudit(valueText.ref, inst.ref);
     if (fText && attrs.TopLeftContent) addValueAudit(fText.ref, inst.ref);
-    addInstance({ family: match.family }, inst.ref, [slot(spec.slots[0]?.slot || "button", inst.ref)]);
+    addInstance({ family: match.family, componentSet: match.componentSet }, inst.ref, [slot(spec.slots[0]?.slot || "button", inst.ref)]);
     continue;
   }
   if (match.family === "inputTemplates") {
@@ -332,8 +426,9 @@ for (const { item: inst, match } of matched) {
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i].ref;
     const icon = iconFor(group);
+    const iconSize = icon ? iconSizeFor(group) : null;
     const attrs = icon ? { Icon: icon } : {};
-    addNode(group, "IconButton", attrs);
+    addNode(group, "IconButton", attrs, iconSize ? { iconSize } : {});
     required.push(slot(buttonSlots[i].slot, group));
   }
   for (const textSlot of textSlots) {
@@ -376,7 +471,15 @@ const mapping = {
   nodes: outputNodes,
   componentInstances,
   pending,
-  unmappedComponents: pending.map(x => x.sourceRef)
+  unmappedComponents: pending.map(x => x.sourceRef),
+  ...(templateConflicts.length ? { templateConflicts } : {})
 };
 fs.writeFileSync(outPath, JSON.stringify(mapping, null, 2) + "\n", "utf8");
-console.log(JSON.stringify({ sourceNodes: sourceNodes.length, nodes: outputNodes.length, textAudit: textAudit.length, componentInstances: componentInstances.length, out: outPath }, null, 2));
+console.log(JSON.stringify({ sourceNodes: sourceNodes.length, nodes: outputNodes.length, textAudit: textAudit.length, componentInstances: componentInstances.length, templateConflicts: templateConflicts.length, out: outPath }, null, 2));
+if (templateConflicts.length) {
+  console.error("模板匹配冲突（已按内部组件名执行）:");
+  for (const conflict of templateConflicts) {
+    console.error("  - [" + conflict.ref + "] " + conflict.reason +
+      "；公开属性命中 " + conflict.propertyMatch + "；内部组件命中 " + conflict.componentSetMatch);
+  }
+}

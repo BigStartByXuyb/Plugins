@@ -14,6 +14,8 @@ assert.deepStrictEqual(report.missing, [], "飞书正式模板不应缺失机器
 assert.ok(report.covered.length >= 30, "正式模板覆盖数量异常");
 assert.deepStrictEqual(report.ambiguous, [], "文档不应保留没有组件集/变体标题的孤立结构");
 assert.deepStrictEqual(report.unconfirmed, ["inputTemplates/密码输入框"], "密码框只保留待确认状态");
+assert.deepStrictEqual(report.duplicateMatchKeys, [],
+  "同一匹配属性名 + 属性值不得登记在两个模板族: " + JSON.stringify(report.duplicateMatchKeys));
 const doc = fs.readFileSync(docPath, "utf8");
 assert.ok(!doc.includes("RightUpDownButtonStyle"), "不得保留旧的 RightUpDownButtonStyle 兼容别名");
 assert.ok(!doc.includes("或其他实际变量值"), "按钮模板必须使用明确的 startstop 变体");

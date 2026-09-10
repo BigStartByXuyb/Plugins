@@ -13,11 +13,17 @@ function splitVariants(text) {
 function extractDocumentedRules(markdown) {
   const families = {
     componentTemplates: [],
-    rightSidebarTemplates: ["右侧栏-左右结构", "右侧栏-上下结构"],
+    // 右栏按钮族按公开属性「按钮类型」的真实值匹配（不是父节点语义）。
+    rightSidebarTemplates: [
+      "F+文案", "文案 大button", "上下结构-icon+文案", "左右结构-icon+文案",
+      "stop", "start", "恢复切割", "删除料盒-1", "删除料盒-2", "文案-小button",
+      "enter", "exit", "startstop"
+    ],
+    rightSidebarComponentTemplates: ["右侧栏-左右结构-icon+文案", "start"],
     inputTemplates: [],
     selectBoxTemplates: ["选择框-40", "选择框-36", "选择框-32", "选择框-28"],
     selectionInfoTemplates: ["单选-选中/未选择", "多选-选中/未选中"],
-    selectionTemplates: ["单选-选中/未选择", "多选-选中/未选择"],
+    selectionTemplates: ["单选-选中", "单选-未选择", "多选-选中", "多选-未选择"],
     infoGroupTemplates: ["信息分组-模块化"],
     // The mapping document names this component set "主菜单button" and
     // "主菜单button-文字".  Do not invent a separate "主菜单" variant.
@@ -64,19 +70,9 @@ function auditMappingCoverage(markdown, templateMap) {
   const missing = [];
   const covered = [];
   for (const [family, variants] of Object.entries(documented.families)) {
-    const actualFamily = family === "rightSidebarTemplates"
-      ? templateMap.rightSidebarTemplates
-      : templateMap[family];
-    if (!actualFamily || !actualFamily.variants && family !== "rightSidebarTemplates") {
+    const actualFamily = templateMap[family];
+    if (!actualFamily || !actualFamily.variants) {
       for (const variant of variants) missing.push(`${family}/${variant}`);
-      continue;
-    }
-    if (family === "rightSidebarTemplates") {
-      const parentVariants = actualFamily.parentVariants || {};
-      for (const variant of variants) {
-        if (parentVariants[variant]) covered.push(`${family}/${variant}`);
-        else missing.push(`${family}/${variant}`);
-      }
       continue;
     }
     for (const variant of variants) {
@@ -95,7 +91,31 @@ function auditMappingCoverage(markdown, templateMap) {
       }
     }
   }
-  return { documented: documented.families, covered, missing, unconfirmed, ambiguous: documented.ambiguous };
+  return {
+    documented: documented.families,
+    covered,
+    missing,
+    unconfirmed,
+    ambiguous: documented.ambiguous,
+    duplicateMatchKeys: findDuplicateMatchKeys(templateMap)
+  };
+}
+
+// 同一个「匹配属性名 + 属性值」不得登记在两个模板族（否则会互相抢模板）。
+function findDuplicateMatchKeys(templateMap) {
+  const index = new Map();
+  for (const [family, spec] of Object.entries(templateMap)) {
+    if (!family.endsWith("Templates") || !spec || !spec.variants) continue;
+    const property = (spec.match && spec.match.property) || "";
+    for (const variant of Object.keys(spec.variants)) {
+      const key = property + "||" + variant;
+      if (!index.has(key)) index.set(key, []);
+      index.get(key).push(family);
+    }
+  }
+  return [...index.entries()]
+    .filter(([, families]) => families.length > 1)
+    .map(([key, families]) => ({ matchKey: key, families }));
 }
 
 function main() {
@@ -115,4 +135,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { extractDocumentedRules, auditMappingCoverage };
+module.exports = { extractDocumentedRules, auditMappingCoverage, findDuplicateMatchKeys };

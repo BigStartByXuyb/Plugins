@@ -180,7 +180,8 @@ function loadManifest(manifestPath) {
     fail("area 无效: " + manifest.area);
   }
   const namespaceArea = area.split("/").map(namespaceSegment).join(".");
-  if (manifest.operation !== "modify-existing") {
+  // 只有真正的新建页面才强制约定路径；modify-existing / replace-existing 必须沿用项目已声明的真实路径。
+  if (!["modify-existing", "replace-existing"].includes(manifest.operation)) {
     const expectedPaths = {
       iconPath: "Resources/Icons/" + pageName + "Icons.xaml",
       pageXmlPath: "Common/Pages/" + pageName + "Page.xml",

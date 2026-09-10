@@ -29,11 +29,23 @@
  * 坐标规则：Left = absX - parentAbsX，Top = normalizedY(absY) - parentAbsY，设计稿像素 1:1 直传。
  * 页面坐标固定扣除顶部公共栏 126px，再扣除被剥离的示例标题 66px；总偏移 192px。
  *
+ * 按钮族固定参数（IconButton / Button / StatusButton 无差别发射）：
+ *   PageName / IOVisible / IOCommand —— 无差别恒写；映射没有可靠来源时写空字符串占位，
+ *   映射提供真实值时按真实值发射（merge 时保留现有真实值）。
+ *   IconWidth / IconHeight —— 只在按钮有图标时发射，机械取「图标图形节点」bbox（映射字段 iconSize，
+ *   四舍五入取整）；无图标槽位时 Icon / IconWidth / IconHeight 都不发射；
+ *   带 Icon 却没有 iconSize 视为映射不完整，直接失败，禁止猜图标尺寸。
+ *
+ * TextBlock 固定属性：Height 固定 40；Width 固定 "NaN"（不用设计稿文本 bbox 宽度），
+ * FontSize 仍取 DSL 字体事实。
+ *
  * merge 语义（改现有页面的强制模式）：
  *   1. 几何（Left/Top/Width/Height）按映射更新；
  *   2. ControlType 按映射更新（变化时写冲突报告）；
  *   3. 业务属性：现有 XML 已有同名的 → 一律保留现有值（值不同写冲突报告，不覆盖）；
  *      现有 XML 没有的 → 按映射新增（写新增报告）；
+ *      例外：映射节点的 valueSource=dsl.text 时，Value 是设计文本，merge 必须按 DSL 覆盖，
+ *      否则 provenance 校验（Value 必须等于 sourceText）会失败。
  *   4. 映射中不存在的现有节点 → 原样保留（写"现有但设计稿无"报告）；
  *   5. 全新节点 → 按映射渲染，插入其父节点闭合标签之前。
  *
@@ -71,6 +83,66 @@ const nodes = mapping.nodes || [];
 const TOP_PUBLIC_BAR_Y = 126;
 const TOP_ARTIFACT_TITLE_Y = 66;
 const contentOriginY = TOP_PUBLIC_BAR_Y + TOP_ARTIFACT_TITLE_Y;
+
+// ---------- 按钮族固定参数 ----------
+// 按钮族 ControlType 登记表；这些类型无差别补齐下面两组固定参数。
+const BUTTON_FAMILY_CONTROL_TYPES = new Set(['IconButton', 'Button', 'StatusButton']);
+const BUTTON_ALWAYS_ATTRS = ['PageName', 'IOVisible', 'IOCommand'];
+const BUTTON_ICON_SIZE_ATTRS = ['IconWidth', 'IconHeight'];
+
+function isButtonFamily(node) {
+  const type = node.controlType || (node.attrs && node.attrs.ControlType);
+  return BUTTON_FAMILY_CONTROL_TYPES.has(type);
+}
+
+function hasIconAttr(node) {
+  const icon = node.attrs && node.attrs.Icon;
+  return typeof icon === 'string' && icon.trim() !== '';
+}
+
+// 图标图形节点 bbox（映射字段 iconSize），取整后用于 IconWidth/IconHeight。
+function iconSizeOf(node) {
+  const size = node.iconSize;
+  if (!size || typeof size !== 'object') return null;
+  const width = Number(size.width);
+  const height = Number(size.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return { width: String(Math.round(width)), height: String(Math.round(height)) };
+}
+
+// 门禁：按钮族带 Icon 却没有 iconSize 时禁止生成（图标尺寸必须有真实来源）。
+function assertButtonFamilyIconSize(node) {
+  if (!isButtonFamily(node)) return;
+  if (hasIconAttr(node) && !iconSizeOf(node)) {
+    throw new Error('映射门禁失败: 按钮族节点 ' + node.ref +
+      ' 带 Icon 但缺少 iconSize（图标图形节点 bbox）；请重新生成 mapping，禁止猜图标尺寸');
+  }
+}
+
+// 就地补齐按钮族固定参数。
+function applyButtonFamilyAttrs(node, attrMap) {
+  if (!isButtonFamily(node)) return;
+  for (const key of BUTTON_ALWAYS_ATTRS) {
+    if (attrMap[key] === undefined || attrMap[key] === null) attrMap[key] = '';
+  }
+  const size = iconSizeOf(node);
+  if (size) {
+    attrMap.IconWidth = size.width;
+    attrMap.IconHeight = size.height;
+    return;
+  }
+  // 没有图标槽位：Icon / IconWidth / IconHeight 都不发射。
+  if (!hasIconAttr(node)) {
+    delete attrMap.Icon;
+    delete attrMap.IconWidth;
+    delete attrMap.IconHeight;
+  }
+}
+
+// 按钮族中由生成器按图标 bbox 计算的属性（merge 时按几何语义覆盖并报告）
+function buttonFamilyIconSizeAttrNames(node) {
+  return isButtonFamily(node) && iconSizeOf(node) ? BUTTON_ICON_SIZE_ATTRS.slice() : [];
+}
 
 function validateFreshMapping() {
   if (!Array.isArray(mapping.sourceNodes)) {
@@ -120,6 +192,7 @@ function validateFreshMapping() {
     if (typeof type !== 'string' || !type.trim()) {
       throw new Error('映射门禁失败: ' + n.ref + ' 缺少 ControlType；MTSLG 页面根节点之外禁止生成无类型布局容器');
     }
+    assertButtonFamilyIconSize(n);
     if (type === 'TextBlock') {
       if (typeof n.sourceRef !== 'string' || !n.sourceRef) {
         throw new Error('映射门禁失败: TextBlock ' + n.ref + ' 缺少 sourceRef');
@@ -163,9 +236,16 @@ function outputHeight(node) {
   return type === 'TextBlock' ? 40 : node.h;
 }
 
+// TextBlock 宽度固定为 NaN（自适应），不使用设计稿文本 bbox 宽度；其余控件仍用自身 bbox。
+function outputWidth(node) {
+  const type = node.controlType || (node.attrs && node.attrs.ControlType);
+  if (type === 'TextBlock') return 'NaN';
+  return node.w;
+}
+
 // 属性渲染顺序：对齐 HomeContentPage.xml 惯例（业务属性在前、几何在后）
 const ATTR_ORDER = [
-  'ID', 'ControlType', 'Style', 'Icon', 'LangName', 'PageName', 'TopLeftContent', 'Value',
+  'ID', 'ControlType', 'Style', 'Icon', 'IconWidth', 'IconHeight', 'LangName', 'PageName', 'TopLeftContent', 'Value',
   'Header', 'IOName', 'IOCommand', 'IOParam', 'IOStyle', 'IOState', 'IOEnable', 'IOVisible',
   'IOGroup', 'IsAutoRead', 'IsAutoWrite', 'IsAutoRefresh', 'IsWriteIO', 'IsSave',
   'IsShowDialog', 'DialogMessage', 'IsShowStatus', 'IsNeedRedMark', 'StatusBrush',
@@ -238,8 +318,9 @@ function renderFresh() {
     if (node.controlType) attrMap.ControlType = node.controlType;
     attrMap.Left = fmtNum(node.absX - parentAbsX);
     attrMap.Top = fmtNum(normalizedY(node.absY) - parentAbsY);
-    if (node.w !== undefined && node.w !== null) attrMap.Width = fmtNum(node.w);
+    if (outputWidth(node) !== undefined && outputWidth(node) !== null) attrMap.Width = fmtNum(outputWidth(node));
     if (outputHeight(node) !== undefined && outputHeight(node) !== null) attrMap.Height = fmtNum(outputHeight(node));
+    applyButtonFamilyAttrs(node, attrMap);
 
     const kids = childMap.get(node.ref) || [];
     if (node.comment) lines.push(`${indent}<!-- ${node.comment} -->`);
@@ -273,6 +354,10 @@ function parseXmlText(text) {
     const chunk = m[0];
     if (chunk.startsWith('<!--')) {
       tokens.push({ type: 'comment', raw: chunk });
+    } else if (chunk.startsWith('<?') || chunk.startsWith('<!')) {
+      // XML 声明 / 处理指令 / DOCTYPE 不是控件标签，原样保留；
+      // 否则 `<?xml ...?>` 会被当成一个没有 ControlType 的 IOContorl 节点。
+      tokens.push({ type: 'raw', raw: chunk });
     } else {
       // 行首缩进：该标签起始所在行，tag 之前的部分
       const lineStart = text.lastIndexOf('\n', m.index - 1) + 1;
@@ -330,7 +415,7 @@ function mergeMode() {
     throw new Error('现有 IOContorl 页面包含无 ControlType 的非根节点，禁止继续生成: ' + invalidUntyped.join(', '));
   }
 
-  const report = { conflicts: [], added: [], updated: [], newNodes: [], unmapped: [] };
+  const report = { conflicts: [], added: [], updated: [], textOverrides: [], newNodes: [], unmapped: [] };
   const matchedOpenIdx = new Set();
 
   // 现有节点索引：ID → tokenIdx
@@ -359,14 +444,16 @@ function mergeMode() {
     if (typeof type !== 'string' || !type.trim()) {
       throw new Error('映射门禁失败: ' + n.ref + ' 缺少 ControlType；MTSLG 页面根节点之外禁止生成无类型布局容器');
     }
+    assertButtonFamilyIconSize(n);
     const pa = resolveParentAbs(n);
     const attrMap = Object.assign({}, n.attrs || {});
     if (n.id) attrMap.ID = n.id;
     if (n.controlType) attrMap.ControlType = n.controlType;
     attrMap.Left = fmtNum(n.absX - pa.x);
     attrMap.Top = fmtNum(normalizedY(n.absY) - pa.y);
-    if (n.w !== undefined && n.w !== null) attrMap.Width = fmtNum(n.w);
+    if (outputWidth(n) !== undefined && outputWidth(n) !== null) attrMap.Width = fmtNum(outputWidth(n));
     if (outputHeight(n) !== undefined && outputHeight(n) !== null) attrMap.Height = fmtNum(outputHeight(n));
+    applyButtonFamilyAttrs(n, attrMap);
     rendered.set(n.ref, { n, attrMap, tokenIdx: null, matchKind: null });
   }
 
@@ -403,9 +490,13 @@ function mergeMode() {
     const t = tokens[tokenIdx];
     const finalAttrs = new Map();
     for (const a of t.attrs) finalAttrs.set(a.name, a.value);
-    for (const k of GEOM_ATTRS) {
+    // 按钮族的 IconWidth/IconHeight 属于生成器按图标 bbox 计算的属性，按几何语义覆盖。
+    const geometryKeys = GEOM_ATTRS.concat(buttonFamilyIconSizeAttrNames(n));
+    for (const k of geometryKeys) {
       if (attrMap[k] !== undefined && attrMap[k] !== null) {
-        if (finalAttrs.has(k) && finalAttrs.get(k) !== attrMap[k]) {
+        if (!finalAttrs.has(k)) {
+          report.added.push(`[${n.ref}] ${k}="${attrMap[k]}" 新增`);
+        } else if (finalAttrs.get(k) !== attrMap[k]) {
           report.updated.push(`[${n.ref}] ${k}: "${finalAttrs.get(k)}" -> "${attrMap[k]}" (匹配:${matchKind})`);
         }
         finalAttrs.set(k, attrMap[k]);
@@ -416,9 +507,16 @@ function mergeMode() {
       finalAttrs.set('ControlType', attrMap.ControlType);
     }
     for (const [k, v] of Object.entries(attrMap)) {
-      if (GEOM_ATTRS.includes(k) || k === 'ControlType' || k === 'ID') continue;
+      if (geometryKeys.includes(k) || k === 'ControlType' || k === 'ID') continue;
       if (finalAttrs.has(k)) {
-        if (n.force && n.force.includes(k)) {
+        // dsl.text 来源的 Value 是设计文本，provenance 要求它与 sourceText 一致，必须按映射覆盖。
+        const forcedByDslText = k === 'Value' && n.valueSource === 'dsl.text';
+        if (forcedByDslText) {
+          if (finalAttrs.get(k) !== v) {
+            report.textOverrides.push(`[${n.ref}] Value: 现有 "${finalAttrs.get(k)}" -> 设计文本 "${v}"（dsl.text 强制一致）`);
+          }
+          finalAttrs.set(k, v);
+        } else if (n.force && n.force.includes(k)) {
           if (finalAttrs.get(k) !== v) {
             report.conflicts.push(`[${n.ref}] ${k}: 现有 "${finalAttrs.get(k)}" -> 映射 "${v}"（force 强制覆盖）`);
           }
@@ -472,8 +570,9 @@ function mergeMode() {
       if (node.controlType) am.ControlType = node.controlType;
       am.Left = fmtNum(node.absX - pa2.x);
       am.Top = fmtNum(normalizedY(node.absY) - pa2.y);
-      if (node.w !== undefined && node.w !== null) am.Width = fmtNum(node.w);
+      if (outputWidth(node) !== undefined && outputWidth(node) !== null) am.Width = fmtNum(outputWidth(node));
       if (outputHeight(node) !== undefined && outputHeight(node) !== null) am.Height = fmtNum(outputHeight(node));
+      applyButtonFamilyAttrs(node, am);
       const kk = nodes.filter(x => (x.parent || null) === node.ref);
       const ind = '    '.repeat(d);
       const parts = [];
@@ -565,6 +664,7 @@ if (report) {
   };
   console.error('\n--- merge 报告 ---');
   list('冲突（保留现有值）', report.conflicts);
+  list('设计文本覆盖（dsl.text）', report.textOverrides);
   list('新增属性', report.added);
   list('几何/类型更新', report.updated);
   list('新增节点', report.newNodes);

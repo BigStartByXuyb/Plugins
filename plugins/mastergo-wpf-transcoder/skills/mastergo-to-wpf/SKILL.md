@@ -86,7 +86,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 
 ### MTSLG 页面入口分流（必须先判断）
 
-- **修改现有页面**：读取目标项目实际生效的 XML，使用 `gen-iocontrol-xml.js --merge <existing.xml> <mapping.json> --out <confirmed-output.xml>`；保留工程师已有的 IOName、IOCommand、IOEnable 等业务属性，并处理 merge 报告中的冲突。不得对现有页面使用 `--fresh`。
+- **修改现有页面**：读取目标项目实际生效的 XML，使用 `gen-iocontrol-xml.js --merge <existing.xml> <mapping.json> --out <confirmed-output.xml>`；保留工程师已有的 IOName、IOCommand、IOEnable 等业务属性，并处理 merge 报告中的冲突。映射节点 `valueSource=dsl.text` 时 `Value` 属设计文本，merge 会强制按映射覆盖（否则 provenance 校验必然失败），这类覆盖单独列在“设计文本覆盖（dsl.text）”报告里，需逐条确认。不得对现有页面使用 `--fresh`。
 - **新建页面**：使用 `gen-iocontrol-xml.js --fresh <mapping.json> --out <new-page.xml>`，随后按已确认的 Layout、语言键、Icon 和宿主路径完成注册。不得把不存在的页面伪装成 merge。
 - `gen-mastergo-page-bundle.js` 是页面项目生成的唯一正常入口；它的页面 XML 步骤是 `--fresh`，新建页面目标文件已存在时默认停止并报告冲突。只有用户明确要求替换已有页面、manifest 设置 `operation=replace-existing` 且显式传入 `--overwrite` 时，才允许整套替换并备份。现有页面的业务修改仍必须优先走 `--merge` 主路径；只有 Bundle 被错误或环境阻塞时，才可按阻塞步骤单独调用子脚本。
 - Bundle manifest 必须提供 `svgPath`，并指向 `getDsl` 成功后按需执行 `extractSvg` 保存的 JSON；没有运行时 Icon 时也提供合法的 `{ "svgs": [] }` 文件。
@@ -129,6 +129,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 - WPF 控件、Style、资源和协议以源码/真实页面为事实源；IOContorl 的组件结构和 `ControlType` 以正式映射表为事实源，目标项目运行时资料用于核对属性、资源键和绑定。
 - 组件实例优先于原始图层；未登记的业务组合必须标记待确认。
 - 未确认的运行时字段只能写入 mapping manifest 或 XML 注释，禁止把“待人工绑定”作为可见 `Value`、伪造 `IOName` 或伪造 `IOCommand`。
+- 按钮族（`IconButton` / `Button` / `StatusButton`）按固定参数发射：`PageName`、`IOVisible`、`IOCommand` 无论能否取到来源都恒写，取不到时写空字符串值；`IconWidth`/`IconHeight` 只在按钮确有图标槽位时发射，取**图标图形节点自身 bbox**（不是控件宽高），没有图标槽位时不发射 `Icon`/`IconWidth`/`IconHeight`；映射带 `Icon` 却没有图标尺寸来源时生成器直接失败。组件族匹配使用“组件集名 + 公开属性名 + 真实属性值”，图层名称只作核对、不参与匹配。
 - 设计稿中顶部栏、底部栏和其他公共外壳按宿主边界剥离；保留节点统一换算到内容区坐标，并记录被剥离节点。
 
 ### 组件内部内容与来源
@@ -141,7 +142,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 
 - 每个生成的 XML/XAML 文本控件必须绑定到唯一的 MasterGo `layerId`/DSL `ref`，并记录其真实 `sourceParent`、原始文本、文本槽位和最终输出属性；组件实例的 `ID`、语义名称、坐标方向或业务推测不能作为文本来源。
 - `Value` 只能使用对应 DSL 文本节点的真实文本或已确认的运行时绑定字段。禁止因为 XML `ID` 含有 `X`、`Y`、`Label`、`Value` 等词，或因为控件位于某个视觉位置，就推断、替换或重命名文本；例如 `RelativePositionXLabel` 不得自动生成 `Value="X"`。
-- MTSLG `TextBlock` 的 `Height` 固定为 `40`；`FontSize` 独立取字体事实，不能用文字 bbox、外层组件高度或行高改写该固定值。输入框、选择框等非 TextBlock 控件仍按其正式变体模板取自身高度。
+- MTSLG `TextBlock` 的 `Height` 固定为 `40`、`Width` 固定为 `NaN`（宽度自适应，不写文本 bbox 宽度；文本 bbox 宽度只作为 `dslWidth` 记入 mapping 溯源）；`FontSize` 独立取字体事实，不能用文字 bbox、外层组件高度或行高改写这两个固定值。输入框、选择框等非 TextBlock 控件仍按其正式变体模板取自身宽高。
 - 同一模板的每个实例必须分别读取文本覆盖和父子层级；相同 `componentId`、相同结构、相邻排列或截图文字不能互相借用。设计稿中的 `3:56338 → 镜头倍率` 与兄弟节点 `3:56367 → Y` 必须保持独立。
 - 生成前执行“XML 节点 → 唯一 layerId/ref → 父节点链 → 原始文本 → Value/绑定字段”反向核对；任一项缺失、重复或冲突时，停止生成并标记待确认，不得用语义名称或坐标补齐。
 

@@ -150,7 +150,7 @@ const documentedTemplateFamilies = {
     "输入框-文字-40", "输入框-文字-36", "输入框-文字-32"
   ],
   selectionInfoTemplates: ["单选-选中/未选择", "多选-选中/未选中"],
-  selectionTemplates: ["单选-选中/未选择", "多选-选中/未选择"],
+  selectionTemplates: ["单选-选中", "单选-未选择", "多选-选中", "多选-未选择"],
   infoGroupTemplates: ["信息分组-模块化"],
   mainMenuTemplates: ["主菜单button", "主菜单button-文字"],
   tableTemplates: ["Table"],
@@ -323,6 +323,33 @@ mainMenuMapping.componentInstances[0] = {
 };
 const resolvedMainMenu = resolveTemplateMapping(mainMenuMapping, templateMap);
 assert.strictEqual(resolvedMainMenu.resolvedTemplates[0].variant, "主菜单button");
+
+// 右栏独立组件（componentSet 族）：按组件名命中，不依赖图层名
+const standaloneMapping = makeRightSidebarMapping("左右结构-icon+文案", "right/standalone", "文案", "SaveGeometry");
+standaloneMapping.componentInstances[0] = {
+  template: "rightSidebarComponentTemplates",
+  instanceRef: "right/standalone",
+  componentSet: "右侧栏-左右结构-icon+文案",
+  properties: {},
+  requiredSlots: [{ slot: "button", sourceRef: "right/standalone" }]
+};
+const resolvedStandalone = resolveTemplateMapping(standaloneMapping, templateMap);
+assert.strictEqual(resolvedStandalone.resolvedTemplates[0].variant, "右侧栏-左右结构-icon+文案");
+assert.strictEqual(resolvedStandalone.nodes[0].attrs.Style, "RightButtonStyle");
+
+const standaloneMissingComponent = JSON.parse(JSON.stringify(standaloneMapping));
+delete standaloneMissingComponent.componentInstances[0].componentSet;
+assert.throws(
+  () => resolveTemplateMapping(standaloneMissingComponent, templateMap),
+  /缺少真实变体值/
+);
+
+const conflictComponentSet = makeRightSidebarMapping("左右结构-icon+文案", "right/conflict", "文案", "SaveGeometry");
+conflictComponentSet.componentInstances[0].componentSet = "start";
+assert.throws(
+  () => resolveTemplateMapping(conflictComponentSet, templateMap),
+  /组件集与公开属性值不一致/
+);
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mtslg-template-resolver-"));
 const inputPath = path.join(tempDir, "input.json");

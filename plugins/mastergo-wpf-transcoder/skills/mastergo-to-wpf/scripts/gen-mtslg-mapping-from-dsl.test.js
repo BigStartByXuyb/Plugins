@@ -107,4 +107,109 @@ assert.deepStrictEqual(
   ['9.0%', 'Dir']
 );
 assert.deepStrictEqual(mapping.pending, []);
+for (const textNode of mapping.nodes.filter(node => node.controlType === 'TextBlock')) {
+  assert.strictEqual(textNode.expectedWidth, 'NaN', 'TextBlock 的 expectedWidth 必须固定为 NaN');
+  assert.strictEqual(textNode.widthSource, 'mtslg.textblock.fixed-nan', 'TextBlock 必须记录 widthSource');
+  const source = mapping.sourceNodes.find(item => item.ref === textNode.sourceRef);
+  assert.ok(source && textNode.dslWidth === source.width, 'TextBlock 必须保留 dslWidth 作为 bbox 来源');
+}
+
+// ---- 右栏族：componentSet 命中、iconSize 机械取值 ----
+function rightSidebarDsl(rootName, properties, innerName, buttonType) {
+  const sidebarRef = 'side:root';
+  const innerRef = sidebarRef + '/inner';
+  const iconRef = innerRef + '/icon';
+  const textRef = innerRef + '/text';
+  return {
+    styles: {},
+    nodes: [{
+      type: 'INSTANCE',
+      id: sidebarRef,
+      name: rootName,
+      layoutStyle: { width: 170, height: 80, relativeX: 0, relativeY: 0 },
+      componentInfo: { properties: Object.assign({}, buttonType ? { '按钮类型': buttonType } : {}, properties || {}) },
+      children: [{
+        type: 'INSTANCE',
+        id: innerRef,
+        name: innerName,
+        layoutStyle: { width: 170, height: 80, relativeX: 0, relativeY: 0 },
+        componentInfo: {},
+        children: [
+          {
+            type: 'PATH',
+            id: iconRef,
+            name: 'icon区域',
+            layoutStyle: { width: 97.0352783203125, height: 65.99, relativeX: 12, relativeY: 14 },
+            children: []
+          },
+          {
+            type: 'TEXT',
+            id: textRef,
+            name: '固定文本框',
+            layoutStyle: { width: 75, height: 44, relativeX: 79, relativeY: 18 },
+            text: [{ text: '保存 激光- JF' }],
+            children: []
+          }
+        ]
+      }]
+    }],
+    components: []
+  };
+}
+
+function runMappingCase(name, dsl, icons) {
+  const caseDir = path.join(dir, name);
+  fs.mkdirSync(caseDir, { recursive: true });
+  const caseDsl = path.join(caseDir, 'dsl.snapshot.json');
+  const caseVisibility = path.join(caseDir, 'visibility.json');
+  const caseIconMap = path.join(caseDir, 'icon-map.json');
+  const caseOutput = path.join(caseDir, 'mapping.json');
+  fs.writeFileSync(caseDsl, JSON.stringify({
+    schemaVersion: 'mastergo-dsl-capture/1', fileId: 'test-file', layerId: dsl.nodes[0].id,
+    pageName: name, ui: 'test', dsl, componentDocumentLinks: [], rules: []
+  }, null, 2));
+  fs.writeFileSync(caseVisibility, JSON.stringify({ nodes: [] }, null, 2));
+  fs.writeFileSync(caseIconMap, JSON.stringify({ icons }, null, 2));
+  const caseResult = spawnSync(process.execPath, [script,
+    '--dsl', caseDsl, '--visibility', caseVisibility, '--template-map', templateMap,
+    '--icon-map', caseIconMap, '--out', caseOutput
+  ], { encoding: 'utf8' });
+  assert.strictEqual(caseResult.status, 0, caseResult.stderr || caseResult.stdout);
+  return JSON.parse(fs.readFileSync(caseOutput, 'utf8'));
+}
+
+const aggregate = runMappingCase(
+  'sidebar-aggregate',
+  rightSidebarDsl('右侧栏', {}, '右侧栏-左右结构-icon+文案', '左右结构-icon+文案'),
+  [{ sourceId: 'side:root/inner/icon', name: 'SaveGeometry', comment: '保存', sourceRef: 'side:root/inner/icon' }]
+);
+assert.strictEqual(aggregate.componentInstances.length, 1);
+assert.strictEqual(aggregate.componentInstances[0].template, 'rightSidebarTemplates');
+assert.strictEqual(aggregate.componentInstances[0].componentSet, '右侧栏-左右结构-icon+文案');
+const aggregateButton = aggregate.nodes.find(node => node.controlType === 'IconButton');
+assert.strictEqual(aggregateButton.attrs.Style, 'RightButtonStyle');
+assert.strictEqual(aggregateButton.attrs.Icon, 'SaveGeometry');
+assert.deepStrictEqual(aggregateButton.iconSize, { width: 97.0352783203125, height: 65.99, sourceRef: 'side:root/inner/icon' });
+assert.strictEqual(aggregate.templateConflicts, undefined, '一致的数据不应产生模板冲突');
+
+const standalone = runMappingCase(
+  'sidebar-standalone',
+  rightSidebarDsl('右侧栏-左右结构-icon+文案', { '显示icon': true, '显示文案': true }, '背景区域', null),
+  [{ sourceId: 'side:root/inner/icon', name: 'SaveGeometry', comment: '保存', sourceRef: 'side:root/inner/icon' }]
+);
+assert.strictEqual(standalone.componentInstances[0].template, 'rightSidebarComponentTemplates');
+assert.strictEqual(standalone.componentInstances[0].componentSet, '右侧栏-左右结构-icon+文案');
+assert.strictEqual(standalone.nodes.find(node => node.controlType === 'IconButton').attrs.Style, 'RightButtonStyle');
+
+const conflicted = runMappingCase(
+  'sidebar-conflict',
+  rightSidebarDsl('右侧栏', {}, 'exit', 'start'),
+  []
+);
+assert.strictEqual(conflicted.componentInstances[0].componentSet, 'exit');
+assert.ok(Array.isArray(conflicted.templateConflicts) && conflicted.templateConflicts.length === 1,
+  '组件名与属性值冲突时必须记录模板冲突');
+assert.match(conflicted.templateConflicts[0].reason, /按内部组件名/);
+
 console.log('PASS MTSLG DSL-to-mapping text-slot regression test');
+console.log('PASS MTSLG DSL-to-mapping button-family regression test');

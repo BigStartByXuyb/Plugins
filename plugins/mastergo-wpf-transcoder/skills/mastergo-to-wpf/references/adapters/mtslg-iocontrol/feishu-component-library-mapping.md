@@ -105,18 +105,18 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 ```
 <!-- 属性1=单选-选中/未选择：默认圆点 RadioButton，使用隐式 RadioButtonBaseStyle -->
 <IOContorl ID="{id_choice}" ControlType="RadioButton" Value="{checked}" IOName="{io_name}" IOCommand="{io_command}" IOEnable="{io_enable}" IOState="{io_state}" Left="{choice_left}" Top="{choice_top}" Width="{choice_width}" Height="{choice_height}" />
-<IOContorl ID="{id_text}" ControlType="TextBlock" Value="{info_value}" IOState="{text_state}" IOEnable="{text_enable}" Left="{text_left}" Top="{text_top}" Width="{text_width}" Height="40" FontSize="{text_font_size}" />
+<IOContorl ID="{id_text}" ControlType="TextBlock" Value="{info_value}" IOState="{text_state}" IOEnable="{text_enable}" Left="{text_left}" Top="{text_top}" Width="NaN" Height="40" FontSize="{text_font_size}" />
 
 <!-- 属性1=多选-选中/未选中：默认 CheckBox 样式 -->
 <IOContorl ID="{id_choice}" ControlType="CheckBox" Value="{checked}" IOName="{io_name}" IOCommand="{io_command}" IOEnable="{io_enable}" IOState="{io_state}" Left="{choice_left}" Top="{choice_top}" Width="{choice_width}" Height="{choice_height}" />
-<IOContorl ID="{id_text}" ControlType="TextBlock" Value="{info_value}" IOState="{text_state}" IOEnable="{text_enable}" Left="{text_left}" Top="{text_top}" Width="{text_width}" Height="40" FontSize="{text_font_size}" />
+<IOContorl ID="{id_text}" ControlType="TextBlock" Value="{info_value}" IOState="{text_state}" IOEnable="{text_enable}" Left="{text_left}" Top="{text_top}" Width="NaN" Height="40" FontSize="{text_font_size}" />
 ```
 
 # MasterGo 组件集：单选+多选 → MTSLG 映射关系
 
 ### 匹配规则
 
-组件集=单选+多选；属性 1 决定 ControlType 和状态：单选-选中/未选择→RadioButton，多选-选中/未选择→CheckBox。
+组件集=单选+多选；属性 1 决定 ControlType 和状态：`单选-选中`、`单选-未选择`→RadioButton，`多选-选中`、`多选-未选择`→CheckBox。这四个是设计稿中的真实属性值；`单选-选中/未选择`、`多选-选中/未选中` 这种带斜杠的写法属于《选择+信息》组件集，不得登记到本组件集，否则两个模板族会互相抢占。
 
 ### 固定模板：组件集=单选+多选
 
@@ -157,35 +157,54 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 信息分组内部的 TabControl/TabItem 只有在 MasterGo DSL 明确给出组件集、真实属性值、父子链和槽位来源后才展开；当前没有独立的正式变体模板，未确认时不生成占位 Tab 节点。
 
-# MasterGo 控件类型：IconButton → MTSLG 映射规则（按父节点分流）
+# MasterGo 控件类型：IconButton → MTSLG 映射规则
 
-## 父节点=右侧栏：IconButton 按钮族映射关系
+## 聚合集合=右侧栏：IconButton 按钮族映射关系
 
 ### 匹配规则
 
-- 父节点语义必须完整读取，区分“右侧栏-左右结构”和“右侧栏-上下结构”；不能只写“左右结构/上下结构”。
-- 父节点=右侧栏-上下结构，变量属性名=按钮类型，变量值=startstop（对应上下结构实例）→ Style 固定为 UpDownRightButtonStyle。
-- 父节点=右侧栏-左右结构，命中普通左右结构实例 → Style 固定为 RightButtonStyle；该结论只适用于右侧栏，不适用于中间区域。
+- 匹配键为“聚合集合名（右侧栏） + 公开属性名（按钮类型） + 真实属性值”，不使用图层名称，也没有“父节点语义”这一层；`右侧栏-左右结构` / `右侧栏-上下结构` 是组件库中独立组件的名称，不是父节点语义。
+- 真实属性值即团队组件库中该集合的变体值：F+文案、文案 大button、上下结构-icon+文案、左右结构-icon+文案、stop、start、恢复切割、删除料盒-1、删除料盒-2、文案-小button、enter、exit、startstop。
+- 每个变体内部实例指向的独立组件名登记在映射表的 `componentSet` 上；解析时先用属性值命中变体，再用内部组件名交叉核对，两者冲突时以组件名（componentSet）为准并记录冲突。
+- Style 由变体值决定（见下方对照表）；`null` 表示该变体刻意不写 Style，使用框架默认样式。
 
-### 固定模板：父节点=右侧栏-左右结构
+### 固定模板：聚合集合=右侧栏（全部按钮类型变体）
 
-固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton，Style 固定为 RightButtonStyle，节点数量、父子关系和槽位顺序固定。
-
-```xml
-<IOContorl ID="{id}" IOName="{io_name}" IOCommand="{io_command}" ControlType="IconButton" Style="RightButtonStyle" Icon="{icon}" IconHeight="{icon_height}" IconWidth="{icon_width}" TopLeftContent="{top_left_content}" IOEnable="{io_enable}" IOState="{io_state}" LangName="{lang_name}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
-```
-
-文案→Value；业务字段/动作→IOName/IOCommand；图标→Icon/IconHeight/IconWidth；F1/F2/F10→TopLeftContent；MasterGo 未提供或目标项目未确认的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。Icon 键可使用目标项目已确认键或当前页面唯一的临时 Geometry 键。
-
-### 固定模板：父节点=右侧栏-上下结构
-
-固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton，Style 固定为 UpDownRightButtonStyle，节点数量、父子关系和槽位顺序固定。
+固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton；节点数量、父子关系和槽位顺序固定；变体值只决定 Style。
 
 ```xml
-<IOContorl ID="{id}" IOName="{io_name}" IOCommand="{io_command}" ControlType="IconButton" Style="UpDownRightButtonStyle" Icon="{icon}" IconHeight="{icon_height}" IconWidth="{icon_width}" TopLeftContent="{top_left_content}" IOEnable="{io_enable}" IOState="{io_state}" LangName="{lang_name}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
+<IOContorl ID="{id}" ControlType="IconButton" Style="{style}" Icon="{icon}" IconWidth="{icon_width}" IconHeight="{icon_height}" PageName="{page_name}" IOName="{io_name}" IOCommand="{io_command}" IOEnable="{io_enable}" IOState="{io_state}" IOVisible="{io_visible}" LangName="{lang_name}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
 ```
 
-固定模板：按钮类型=startstop。文案→Value；业务字段/动作→IOName/IOCommand；图标→Icon/IconHeight/IconWidth；F1/F2/F10→TopLeftContent；MasterGo 未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
+Style 与内部组件对照（只对下表列出的真实值成立）：
+
+| 按钮类型变体值 | Style | 内部独立组件名（componentSet） |
+|-|-|-|
+| 左右结构-icon+文案 | RightButtonStyle | 右侧栏-左右结构-icon+文案 |
+| start | RightButtonStyle | start |
+| enter | RightButtonStyle | enter |
+| exit | RightButtonStyle | exit |
+| stop | RightButtonStyle | 待组件库登记 |
+| 恢复切割 | RightButtonStyle | 待组件库登记 |
+| 上下结构-icon+文案 | UpDownRightButtonStyle | 待组件库登记 |
+| startstop | UpDownRightButtonStyle | 待组件库登记 |
+| F+文案 | null（不写 Style） | 待组件库登记 |
+| 文案 大button | null（不写 Style） | 待组件库登记 |
+| 删除料盒-1 | null（不写 Style） | 待组件库登记 |
+| 删除料盒-2 | null（不写 Style） | 待组件库登记 |
+| 文案-小button | null（不写 Style） | 待组件库登记 |
+
+文案→Value；业务字段/动作→IOName/IOCommand；PageName/IOVisible/IOCommand 按“按钮族固定参数”一节恒写；图标→Icon，图标尺寸→IconWidth/IconHeight（取图标图形节点 bbox）；独立组件没有 F 键槽位，不生成 TopLeftContent。Icon 键可使用目标项目已确认键或当前页面唯一的临时 Geometry 键。
+
+### 固定模板：独立组件=右侧栏-左右结构-icon+文案 / start
+
+固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton，Style 固定为 RightButtonStyle；节点数量、父子关系和槽位顺序固定。独立组件被直接放置到页面（没有聚合集合的“按钮类型”属性）时，按组件名命中本模板。
+
+```xml
+<IOContorl ID="{id}" ControlType="IconButton" Style="RightButtonStyle" Icon="{icon}" IconWidth="{icon_width}" IconHeight="{icon_height}" PageName="{page_name}" IOName="{io_name}" IOCommand="{io_command}" IOEnable="{io_enable}" IOState="{io_state}" IOVisible="{io_visible}" LangName="{lang_name}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
+```
+
+`右侧栏-左右结构-icon+文案` 的公开属性为 实例（图标槽位）、显示icon、显示文案；`start` 没有公开属性。两者的坐标尺寸取当前实例真实 bbox，图标尺寸取图标图形节点 bbox；文案→Value。
 
 ## 界面内操作组：IconButton 映射关系
 
@@ -193,7 +212,7 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 - 匹配键使用组件实例公开属性“属性 1”及其真实属性值，不使用节点名称或外观语义推断。
 - 属性 1=加减快捷键-无标题、加减快捷键操作-2有标题、加减快捷操作-有标题时，按钮固定使用 ControlType=IconButton、Style=SmallButton。
-- 上述三个属性值对应的按钮均无图标；不得生成 Icon、IconWidth、IconHeight。
+- 上述三个属性值对应的按钮均无图标槽位：不生成 Icon、IconWidth、IconHeight；PageName、IOVisible、IOCommand 仍按“按钮族固定参数”一节恒写。
 - 其余真实属性值按各自固定模板命中：轴操作、轴操作-快慢、方向、图像移动-单侧、图像移动-双侧、缺口位置、拟合数据-双侧上下、拟合数据-前后、拟合数据-单侧上下、扫描；不得使用未定义的“其他”兜底模板。除三个加减快捷属性值外，其余按钮均使用默认 IconButton 并省略 Style；图标属性仅由对应 MasterGo 节点的真实图标槽位决定。
 
 ### 固定模板：属性 1=加减快捷键-无标题
@@ -205,11 +224,11 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 <IOContorl ID="{button_minus_5_id}" IOName="{button_minus_5_io_name}" IOCommand="{button_minus_5_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_minus_5_enable}" IOState="{button_minus_5_state}" LangName="{button_minus_5_lang}" Value="{button_minus_5_value}" Left="{button_minus_5_left}" Top="{button_minus_5_top}" Width="{button_minus_5_width}" Height="{button_minus_5_height}" />
 <IOContorl ID="{button_plus_1_id}" IOName="{button_plus_1_io_name}" IOCommand="{button_plus_1_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_plus_1_enable}" IOState="{button_plus_1_state}" LangName="{button_plus_1_lang}" Value="{button_plus_1_value}" Left="{button_plus_1_left}" Top="{button_plus_1_top}" Width="{button_plus_1_width}" Height="{button_plus_1_height}" />
 <IOContorl ID="{button_minus_1_id}" IOName="{button_minus_1_io_name}" IOCommand="{button_minus_1_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_minus_1_enable}" IOState="{button_minus_1_state}" LangName="{button_minus_1_lang}" Value="{button_minus_1_value}" Left="{button_minus_1_left}" Top="{button_minus_1_top}" Width="{button_minus_1_width}" Height="{button_minus_1_height}" />
-<IOContorl ID="{value_id}" ControlType="TextBlock" LangName="{value_lang}" Value="{display_value}" Left="{value_left}" Top="{value_top}" Width="{value_width}" Height="40" />
-<IOContorl ID="{direction_id}" ControlType="TextBlock" LangName="{direction_lang}" Value="{direction}" Left="{direction_left}" Top="{direction_top}" Width="{direction_width}" Height="40" />
+<IOContorl ID="{value_id}" ControlType="TextBlock" LangName="{value_lang}" Value="{display_value}" Left="{value_left}" Top="{value_top}" Width="NaN" Height="40" />
+<IOContorl ID="{direction_id}" ControlType="TextBlock" LangName="{direction_lang}" Value="{direction}" Left="{direction_left}" Top="{direction_top}" Width="NaN" Height="40" />
 ```
 
-按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的其他可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
+按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。无图标槽位，不生成 Icon、IconWidth、IconHeight；PageName、IOVisible、IOCommand 按“按钮族固定参数”一节恒写；MasterGo 未提供的其他可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=加减快捷键操作-2有标题
 
@@ -220,11 +239,11 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 <IOContorl ID="{button_minus_5_id}" IOName="{button_minus_5_io_name}" IOCommand="{button_minus_5_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_minus_5_enable}" IOState="{button_minus_5_state}" LangName="{button_minus_5_lang}" Value="{button_minus_5_value}" Left="{button_minus_5_left}" Top="{button_minus_5_top}" Width="{button_minus_5_width}" Height="{button_minus_5_height}" />
 <IOContorl ID="{button_plus_1_id}" IOName="{button_plus_1_io_name}" IOCommand="{button_plus_1_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_plus_1_enable}" IOState="{button_plus_1_state}" LangName="{button_plus_1_lang}" Value="{button_plus_1_value}" Left="{button_plus_1_left}" Top="{button_plus_1_top}" Width="{button_plus_1_width}" Height="{button_plus_1_height}" />
 <IOContorl ID="{button_minus_1_id}" IOName="{button_minus_1_io_name}" IOCommand="{button_minus_1_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_minus_1_enable}" IOState="{button_minus_1_state}" LangName="{button_minus_1_lang}" Value="{button_minus_1_value}" Left="{button_minus_1_left}" Top="{button_minus_1_top}" Width="{button_minus_1_width}" Height="{button_minus_1_height}" />
-<IOContorl ID="{title_id}" ControlType="TextBlock" LangName="{title_lang}" Value="{title}" Left="{title_left}" Top="{title_top}" Width="{title_width}" Height="40" />
-<IOContorl ID="{value_id}" ControlType="TextBlock" LangName="{value_lang}" Value="{display_value}" Left="{value_left}" Top="{value_top}" Width="{value_width}" Height="40" />
+<IOContorl ID="{title_id}" ControlType="TextBlock" LangName="{title_lang}" Value="{title}" Left="{title_left}" Top="{title_top}" Width="NaN" Height="40" />
+<IOContorl ID="{value_id}" ControlType="TextBlock" LangName="{value_lang}" Value="{display_value}" Left="{value_left}" Top="{value_top}" Width="NaN" Height="40" />
 ```
 
-四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题和数值文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
+四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题和数值文本分别从真实 TEXT 节点读取并填入对应 TextBlock.Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。无图标槽位，不生成 Icon、IconWidth、IconHeight；PageName、IOVisible、IOCommand 按“按钮族固定参数”一节恒写；MasterGo 未提供的可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 ### 固定模板：属性 1=加减快捷操作-有标题
 
@@ -235,12 +254,12 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 <IOContorl ID="{button_minus_5_id}" IOName="{button_minus_5_io_name}" IOCommand="{button_minus_5_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_minus_5_enable}" IOState="{button_minus_5_state}" LangName="{button_minus_5_lang}" Value="{button_minus_5_value}" Left="{button_minus_5_left}" Top="{button_minus_5_top}" Width="{button_minus_5_width}" Height="{button_minus_5_height}" />
 <IOContorl ID="{button_plus_1_id}" IOName="{button_plus_1_io_name}" IOCommand="{button_plus_1_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_plus_1_enable}" IOState="{button_plus_1_state}" LangName="{button_plus_1_lang}" Value="{button_plus_1_value}" Left="{button_plus_1_left}" Top="{button_plus_1_top}" Width="{button_plus_1_width}" Height="{button_plus_1_height}" />
 <IOContorl ID="{button_minus_1_id}" IOName="{button_minus_1_io_name}" IOCommand="{button_minus_1_io_command}" ControlType="IconButton" Style="SmallButton" IOEnable="{button_minus_1_enable}" IOState="{button_minus_1_state}" LangName="{button_minus_1_lang}" Value="{button_minus_1_value}" Left="{button_minus_1_left}" Top="{button_minus_1_top}" Width="{button_minus_1_width}" Height="{button_minus_1_height}" />
-<IOContorl ID="{title_id}" ControlType="TextBlock" LangName="{title_lang}" Value="{title}" Left="{title_left}" Top="{title_top}" Width="{title_width}" Height="40" />
-<IOContorl ID="{value_id}" ControlType="TextBlock" LangName="{value_lang}" Value="{display_value}" Left="{value_left}" Top="{value_top}" Width="{value_width}" Height="40" />
-<IOContorl ID="{direction_id}" ControlType="TextBlock" LangName="{direction_lang}" Value="{direction}" Left="{direction_left}" Top="{direction_top}" Width="{direction_width}" Height="40" />
+<IOContorl ID="{title_id}" ControlType="TextBlock" LangName="{title_lang}" Value="{title}" Left="{title_left}" Top="{title_top}" Width="NaN" Height="40" />
+<IOContorl ID="{value_id}" ControlType="TextBlock" LangName="{value_lang}" Value="{display_value}" Left="{value_left}" Top="{value_top}" Width="NaN" Height="40" />
+<IOContorl ID="{direction_id}" ControlType="TextBlock" LangName="{direction_lang}" Value="{direction}" Left="{direction_left}" Top="{direction_top}" Width="NaN" Height="40" />
 ```
 
-四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题、数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock 的 Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。不得生成 Icon、IconWidth、IconHeight；MasterGo 未提供的其他可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
+四个按钮文案（例如 +5、-5、+1、-1）分别从对应 TEXT 节点读取并填入 Value；标题、数值和方向文本分别从真实 TEXT 节点读取并填入对应 TextBlock 的 Value。按钮业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；文本位置和尺寸也从各自节点 bbox 读取。无图标槽位，不生成 Icon、IconWidth、IconHeight；PageName、IOVisible、IOCommand 按“按钮族固定参数”一节恒写；MasterGo 未提供的其他可选属性字段缺失时保留对应 XML 属性并输出空字符串值。
 
 该规则的真实子节点关系为：四个按钮子节点名称均为 `按钮`，按父节点链和组件内顺序区分；按钮内部 TEXT 节点写入对应 IconButton.Value。与按钮平级的主标题 TEXT 节点生成独立 TextBlock；组 2525 内的 TEXT 节点也分别生成独立 TextBlock。主标题可见性由实例属性控制，不影响按钮 Value 文本或组内独立文本。
 
@@ -255,7 +274,7 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 <IOContorl ID="{left_id}" IOName="{left_io_name}" IOCommand="{left_io_command}" ControlType="IconButton" Icon="{left_icon}" IconHeight="{left_icon_height}" IconWidth="{left_icon_width}" IOEnable="{left_enable}" IOState="{left_state}" Value="{left_value}" Left="{left_left}" Top="{left_top}" Width="{left_width}" Height="{left_height}" />
 <IOContorl ID="{right_id}" IOName="{right_io_name}" IOCommand="{right_io_command}" ControlType="IconButton" Icon="{right_icon}" IconHeight="{right_icon_height}" IconWidth="{right_icon_width}" IOEnable="{right_enable}" IOState="{right_state}" Value="{right_value}" Left="{right_left}" Top="{right_top}" Width="{right_width}" Height="{right_height}" />
 <IOContorl ID="{down_id}" IOName="{down_io_name}" IOCommand="{down_io_command}" ControlType="IconButton" Icon="{down_icon}" IconHeight="{down_icon_height}" IconWidth="{down_icon_width}" IOEnable="{down_enable}" IOState="{down_state}" Value="{down_value}" Left="{down_left}" Top="{down_top}" Width="{down_width}" Height="{down_height}" />
-<IOContorl ID="{scan_id}" ControlType="TextBlock" Value="{scan_text}" Left="{scan_left}" Top="{scan_top}" Width="{scan_width}" Height="40" />
+<IOContorl ID="{scan_id}" ControlType="TextBlock" Value="{scan_text}" Left="{scan_left}" Top="{scan_top}" Width="NaN" Height="40" />
 ```
 
 四个按钮的图标、文案、业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；SCAN 文本节点填入 TextBlock.Value。存在图标槽位时生成 Icon、IconHeight、IconWidth；未提供的可选字段字段缺失时保留对应 XML 属性并输出空字符串值。
@@ -368,7 +387,7 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 固定节点：一个 TextBlock IOContorl 和两个 IconButton IOContorl；文本与按钮的槽位顺序和父子关系固定，按钮 ControlType 固定为 IconButton，Style 属性省略，文本 ControlType 固定为 TextBlock。
 
 ```xml
-<IOContorl ID="{scan_title_id}" ControlType="TextBlock" Value="{scan_title}" Left="{scan_title_left}" Top="{scan_title_top}" Width="{scan_title_width}" Height="40" />
+<IOContorl ID="{scan_title_id}" ControlType="TextBlock" Value="{scan_title}" Left="{scan_title_left}" Top="{scan_title_top}" Width="NaN" Height="40" />
 <IOContorl ID="{left_id}" IOName="{left_io_name}" IOCommand="{left_io_command}" ControlType="IconButton" Icon="{left_icon}" IconHeight="{left_icon_height}" IconWidth="{left_icon_width}" IOEnable="{left_enable}" IOState="{left_state}" Value="{left_value}" Left="{left_left}" Top="{left_top}" Width="{left_width}" Height="{left_height}" />
 <IOContorl ID="{right_id}" IOName="{right_io_name}" IOCommand="{right_io_command}" ControlType="IconButton" Icon="{right_icon}" IconHeight="{right_icon_height}" IconWidth="{right_icon_width}" IOEnable="{right_enable}" IOState="{right_state}" Value="{right_value}" Left="{right_left}" Top="{right_top}" Width="{right_width}" Height="{right_height}" />
 ```
@@ -390,20 +409,20 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton，Style 固定为 MainButtonStyle。按钮文案固定写入 Value；显示F打开时，F 文本写入 TopLeftContent；显示icon打开时，图标写入 Icon。三个槽位都从当前实例的真实子节点读取，不能把组件内部槽位文本再独立生成一个 TextBlock。
 
 ```xml
-<IOContorl ID="{id}" ControlType="IconButton" Style="MainButtonStyle" Icon="{icon}" TopLeftContent="{top_left_content}" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
+<IOContorl ID="{id}" ControlType="IconButton" Style="MainButtonStyle" Icon="{icon}" IconWidth="{icon_width}" IconHeight="{icon_height}" PageName="{page_name}" TopLeftContent="{top_left_content}" Value="{value}" IOName="{io_name}" IOCommand="{io_command}" IOEnable="{io_enable}" IOState="{io_state}" IOVisible="{io_visible}" LangName="{lang_name}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
 ```
 
-按钮文案→Value；F 文本→TopLeftContent；图标 PATH/SVG→Icon；位置、尺寸和字体事实从当前实例对应节点读取。显示F关闭时不生成 TopLeftContent；显示icon关闭时不生成 Icon。固定模板没有声明的业务字段不新增。
+按钮文案→Value；F 文本→TopLeftContent；图标 PATH/SVG→Icon；图标尺寸→IconWidth/IconHeight（取图标图形节点 bbox）；跳转目标→PageName（`Jump:{target}`）。位置、尺寸和字体事实从当前实例对应节点读取。显示F关闭时不生成 TopLeftContent；显示icon关闭时不生成 Icon。PageName、IOVisible、IOCommand 按“按钮族固定参数”一节恒写；其余运行时字段（IOName/IOEnable/IOState/LangName）没有可靠来源时保留属性并输出空字符串值。
 
 ### 固定模板：属性 1=主菜单button-文字
 
 固定节点：一个 IconButton IOContorl；ControlType 固定为 IconButton，Style 固定为 MainButtonStyle；只有文案槽位，文案写入 Value，不生成 Icon 或 TopLeftContent。
 
 ```xml
-<IOContorl ID="{id}" ControlType="IconButton" Style="MainButtonStyle" Value="{value}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
+<IOContorl ID="{id}" ControlType="IconButton" Style="MainButtonStyle" PageName="{page_name}" Value="{value}" IOName="{io_name}" IOCommand="{io_command}" IOEnable="{io_enable}" IOState="{io_state}" IOVisible="{io_visible}" LangName="{lang_name}" Left="{left}" Top="{top}" Width="{width}" Height="{height}" />
 ```
 
-文案→Value；位置、尺寸和字体事实从当前实例的固定文本节点读取。该变体没有图标和 F 键槽位，不新增 Icon 或 TopLeftContent。
+文案→Value；跳转目标→PageName（`Jump:{target}`）；位置、尺寸和字体事实从当前实例的固定文本节点读取。该变体没有图标和 F 键槽位：不生成 Icon、IconWidth、IconHeight、TopLeftContent；PageName、IOVisible、IOCommand 按“按钮族固定参数”一节恒写，其余运行时字段没有可靠来源时保留空字符串值。
 
 # MasterGo 组件集：Table → MTSLG 映射关系
 
@@ -432,8 +451,9 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 # 固定字段与可选字段规则
 
+- **按钮族固定参数（IconButton / Button / StatusButton）**：`PageName`、`IOVisible`、`IOCommand` 三个运行时参数无论能否取到都恒写，取不到来源时写空字符串值；`IconWidth`/`IconHeight` 只在按钮确有图标槽位时发射，机械取**图标图形节点自身的 bbox**（不是控件宽高，也不是图标容器尺寸），四舍五入取整；按钮没有图标槽位时不生成 `Icon`、`IconWidth`、`IconHeight`这三项。映射缺少图标尺寸来源时生成器直接失败，禁止猜尺寸。
 - 固定：ControlType、节点数量、父子关系、槽位顺序。
-- 几何/显示字段：Value、Left、Top、Width、Height、FontSize、字体/颜色/Style；其中 DSL 提供字体样式时 FontSize 必填，Height 与 FontSize 独立取值；MTSLG TextBlock 的 Height 固定为 40；输入框和选择框外框的 Height 按 MasterGo 的 40/36/32/28 变体处理；Height 与 FontSize 必须分别读取。一般显示型子节点缺少 Value 时控件仍会生成，但文字内容为空；**DataGrid 根节点例外，其 Value 属性必填且最终值必须非空**。列子节点 Value 是否填写取决于 MasterGo 是否提供可靠的字段/标题来源，不属于 DataGrid 加载器的必填契约。Style 只有 MasterGo 明确提供且代码库存在对应资源键时才填写。只有当 MasterGo 层级明确存在父级容器并且该父级有样式选择器时，才由父级为子控件提供样式；不得根据外观或组件名称自行添加父级容器。
+- 几何/显示字段：Value、Left、Top、Width、Height、FontSize、字体/颜色/Style；其中 DSL 提供字体样式时 FontSize 必填，Height 与 FontSize 独立取值；MTSLG TextBlock 的 Height 固定为 40、**Width 固定为 `NaN`（自适应，不使用文本 bbox 宽度）**；输入框和选择框外框的 Height 按 MasterGo 的 40/36/32/28 变体处理；Height 与 FontSize 必须分别读取。一般显示型子节点缺少 Value 时控件仍会生成，但文字内容为空；**DataGrid 根节点例外，其 Value 属性必填且最终值必须非空**。列子节点 Value 是否填写取决于 MasterGo 是否提供可靠的字段/标题来源，不属于 DataGrid 加载器的必填契约。Style 只有 MasterGo 明确提供且代码库存在对应资源键时才填写。只有当 MasterGo 层级明确存在父级容器并且该父级有样式选择器时，才由父级为子控件提供样式；不得根据外观或组件名称自行添加父级容器。
 - 运行时：IOName、IOCommand、PageName、IOEnable、IOState、LangName。
 - ID 按 MX_GUID/Pin 规则生成，不复制 MasterGo layer ID。
 
@@ -442,15 +462,15 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 ## 文本属性固定映射
 
 ```
-<IOContorl ID="{id_text}" IOName="{io_name_text}" ControlType="TextBlock" IOState="{state_text}" IOEnable="{enable_text}" LangName="{lang_name_text}" Value="{text_value}" Left="{left}" Top="{top}" Width="{width}" Height="40" FontSize="{font_size}" />
+<IOContorl ID="{id_text}" IOName="{io_name_text}" ControlType="TextBlock" IOState="{state_text}" IOEnable="{enable_text}" LangName="{lang_name_text}" Value="{text_value}" Left="{left}" Top="{top}" Width="NaN" Height="40" FontSize="{font_size}" />
 ```
 
 - 独立文本节点统一映射为 `TextBlock`，不因所在组件或变体改变 ControlType。
 - 如果文本是输入框、选择框等控件内部内容，则保留为所属控件内容，不额外拆分为 TextBlock。
-- 文本的 Value、FontSize、Width 和坐标必须来自对应 MasterGo 节点；所有 MTSLG TextBlock 的 Height 固定为 40，不能从外层组件高度、文字 bbox 或组件语义改写。
+- 文本的 Value、FontSize 和坐标必须来自对应 MasterGo 节点；所有 MTSLG TextBlock 的 Height 固定为 40、Width 固定为 `NaN`，不能用外层组件高度、文字 bbox、组件语义或文本 bbox 宽度改写这两个值（文本 bbox 宽度只作为 `dslWidth` 来源记录在 mapping 中）。
 - 独立的标题、单位、说明文字和其他文本节点，统一映射为 `ControlType="TextBlock"`；如果文字是输入框、选择框等控件内部内容，则保留为所属控件内容，不额外拆分。
 - FontSize 只表示字体字号，Height 只表示控件布局边界；两者必须分别读取。所有 MTSLG TextBlock 使用固定 Height=40，禁止把外层组件高度、文字 bbox、字号或行高赋给 Height。
-- 每个输出控件的 Left、Top、Width 必须来自自身 MasterGo bbox；输入框和选择框外框的 Height 按已命中的 40/36/32/28 变体处理；固定模板、相邻控件或父容器不能代替真实尺寸。
+- 每个输出控件的 Left、Top 必须来自自身 MasterGo bbox，非 TextBlock 控件的 Width/Height 也来自自身 bbox；TextBlock 的 Width/Height 按固定规则发射（`Width="NaN"`、`Height="40"`）；输入框和选择框外框的 Height 按已命中的 40/36/32/28 变体处理；固定模板、相邻控件或父容器不能代替真实尺寸。
 - 最终坐标统一按内容区绝对坐标计算：`Left = pageAbsX - contentOriginX`，`Top = pageAbsY - 192`。公共外壳偏移只扣除一次；父子关系只用于确认真实结构和裁剪边界。
 - 组件映射文档只登记组件集、变体、ControlType 和固定结构；具体节点来源、尺寸、字体和坐标由 AI 转码规则逐节点核对。
 
@@ -463,7 +483,7 @@ MasterGo 组件库已存在真实变体 `密码输入框`，但当前 MT3.0 IOCo
 
 # 转码专项规则：文本尺寸与顶部示例标题
 
-**TextBlock 高度与字号：**FontSize 只表示字体字号，Height 只表示控件布局边界，两者必须分别读取。所有 MTSLG TextBlock（标签、数值、单位和独立文本）固定使用 `Height="40"`。输入框和选择框外框的 Height 仍按 40/36/32/28 变体处理，禁止把 FontSize、文字 bbox、外层组件高度或行高直接赋给 TextBlock Height。
+**TextBlock 尺寸与字号：**FontSize 只表示字体字号，Height/Width 只表示控件布局边界，三者必须分别读取。所有 MTSLG TextBlock（标签、数值、单位和独立文本）固定使用 `Height="40"` 与 `Width="NaN"`（宽度自适应，不写文本 bbox 宽度；文本 bbox 宽度仅作为 `dslWidth` 记入 mapping 溯源）。输入框和选择框外框的 Height 仍按 40/36/32/28 变体处理，禁止把 FontSize、文字 bbox、外层组件高度或行高直接赋给 TextBlock Height。
 
 **顶部示例标题：**位于页面根节点或展示外壳、仅用于组件展示/工件示教的最上方标题（例如“工件边缘示教（2.2.1.E）”）标记为 design-artifact-title，默认不生成到业务 XML。业务内容容器内部且运行时明确需要的标题才保留。
 

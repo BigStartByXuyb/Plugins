@@ -229,7 +229,9 @@ function main() {
       if (!pagePattern.test(existing)) {
         fail("Layout.xml 中相同 Target 的 Page 节点结构无效: " + manifest.pageTarget);
       }
-      output = existing.replace(pagePattern, page);
+      // 替换场景：pagePattern 从 "<Page" 开始匹配，原行首缩进会保留，
+      // 因此这里去掉 page 首行自带的缩进，避免出现 4 空格的双重缩进。
+      output = existing.replace(pagePattern, page.replace(/^[ \t]{0,2}/, ""));
       backup = backupFile(layoutPath);
     } else {
       output = insertNewPage(existing, page, manifest.pageTarget);
