@@ -10,9 +10,31 @@
 
 const fs = require('fs');
 
-// 按钮族固定参数（与 gen-iocontrol-xml.js 保持一致）
-const BUTTON_FAMILY_CONTROL_TYPES = ['IconButton', 'Button', 'StatusButton'];
-const BUTTON_ALWAYS_ATTRS = ['PageName', 'IOVisible', 'IOCommand'];
+// 按钮族固定参数：真值来源为模板表 mtslg-iocontrol-map.json 的 buttonFamily；
+// 传入 --map 时读取该表，未传入或表缺字段时退回内置默认（与表内容一致）。
+const DEFAULT_BUTTON_FAMILY_RULES = {
+  controlTypes: ['IconButton', 'Button', 'StatusButton'],
+  alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand'],
+};
+
+function loadButtonFamilyRules(mapPath) {
+  if (!mapPath) return DEFAULT_BUTTON_FAMILY_RULES;
+  let templateMap;
+  try { templateMap = JSON.parse(fs.readFileSync(mapPath, 'utf8')); }
+  catch (error) { throw new Error('读取模板表失败: ' + mapPath + ' - ' + error.message); }
+  const spec = templateMap.buttonFamily;
+  if (!spec || typeof spec !== 'object') return DEFAULT_BUTTON_FAMILY_RULES;
+  return {
+    controlTypes: Array.isArray(spec.controlTypes) && spec.controlTypes.length
+      ? spec.controlTypes.map(String) : DEFAULT_BUTTON_FAMILY_RULES.controlTypes,
+    alwaysWrittenAttrs: Array.isArray(spec.alwaysWrittenAttrs)
+      ? spec.alwaysWrittenAttrs.map(String) : DEFAULT_BUTTON_FAMILY_RULES.alwaysWrittenAttrs,
+  };
+}
+
+let BUTTON_FAMILY_RULES = DEFAULT_BUTTON_FAMILY_RULES;
+let BUTTON_FAMILY_CONTROL_TYPES = BUTTON_FAMILY_RULES.controlTypes;
+let BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
 
 function attrsFromTag(tag) {
   const attrs = {};
@@ -253,7 +275,13 @@ if (require.main === module) {
   const get = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
   const xml = get('--xml');
   const manifest = get('--mapping');
-  if (!xml || !manifest) { console.error('用法: node validate-iocontrol-provenance.js --xml <page.xml> --mapping <mapping.json>'); process.exit(2); }
+  if (!xml || !manifest) { console.error('用法: node validate-iocontrol-provenance.js --xml <page.xml> --mapping <mapping.json> [--map mtslg-iocontrol-map.json]'); process.exit(2); }
+  const mapPath = get('--map');
+  if (mapPath) {
+    BUTTON_FAMILY_RULES = loadButtonFamilyRules(mapPath);
+    BUTTON_FAMILY_CONTROL_TYPES = BUTTON_FAMILY_RULES.controlTypes;
+    BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
+  }
   const result = validate(xml, manifest);
   if (!result.ok) { console.error(result.errors.join('\n')); process.exit(1); }
   console.log('PASS: provenance and geometry validation');

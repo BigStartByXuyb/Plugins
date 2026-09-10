@@ -172,4 +172,41 @@ if (!numericTextResult.errors.some(x => /TextBlock 的 Width 必须固定为 NaN
 if (!numericTextResult.errors.some(x => /TextBlock 的 expectedWidth 必须固定为 NaN/.test(x))) {
   throw new Error('缺少 TextBlock expectedWidth 固定 NaN 错误');
 }
+// 按钮族规则改为读模板表（--map）：表里要求额外属性时，校验必须跟着变严
+const assert = require('assert');
+const { spawnSync } = require('child_process');
+const cliScript = path.join(__dirname, 'validate-iocontrol-provenance.js');
+const cliXmlPath = path.join(dir, 'button-cli.xml');
+const cliMappingPath = path.join(dir, 'button-cli-mapping.json');
+const cliTemplateMapPath = path.join(dir, 'button-cli-template-map.json');
+fs.writeFileSync(cliXmlPath, [
+  '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN">',
+  '  <IOContorl ID="BTN" ControlType="IconButton" PageName="" IOVisible="" IOCommand="" Left="10" Top="10" Width="20" Height="20" />',
+  '</IOContorl>'
+].join('\n'));
+fs.writeFileSync(cliMappingPath, JSON.stringify({
+  contentOriginY: 192,
+  rootRef: 'root',
+  sourceNodes: [
+    { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
+    { ref: 'btn', parentRef: 'root', pageAbsX: 10, pageAbsY: 202, relativeX: 10, relativeY: 202, width: 20, height: 20 }
+  ],
+  nodes: [{
+    xmlId: 'BTN', sourceRef: 'btn', sourceParent: 'root',
+    expectedLeft: 10, expectedTop: 10, expectedWidth: 20, expectedHeight: 20
+  }]
+}, null, 2));
+fs.writeFileSync(cliTemplateMapPath, JSON.stringify({
+  buttonFamily: {
+    controlTypes: ['IconButton'],
+    alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand', 'IOParam']
+  }
+}, null, 2));
+
+const defaultRun = spawnSync(process.execPath, [cliScript, '--xml', cliXmlPath, '--mapping', cliMappingPath], { encoding: 'utf8' });
+assert.strictEqual(defaultRun.status, 0, '默认规则下该按钮族 XML 应通过: ' + defaultRun.stderr);
+const strictRun = spawnSync(process.execPath, [cliScript, '--xml', cliXmlPath, '--mapping', cliMappingPath, '--map', cliTemplateMapPath], { encoding: 'utf8' });
+assert.notStrictEqual(strictRun.status, 0, '模板表要求 IOParam 时，缺该属性的按钮必须校验失败');
+assert.match(strictRun.stderr + strictRun.stdout, /IOParam/, '失败信息必须指出缺失的按钮族常驻属性');
+
 console.log('PASS provenance regression test');

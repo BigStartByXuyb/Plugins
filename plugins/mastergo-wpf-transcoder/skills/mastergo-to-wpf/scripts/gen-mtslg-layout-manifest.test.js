@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("assert");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { spawnSync } = require("child_process");
+
+const script = path.join(__dirname, "gen-mtslg-layout-manifest.js");
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "mtslg-layout-manifest-"));
+
+function text(text, id) {
+  return { type: "TEXT", id: id, name: "固定文本框", layoutStyle: { width: 100, height: 16, relativeX: 0, relativeY: 0 }, text: [{ text: text }] };
+}
+
+function menuItemButton(id, x, y, label, fKey) {
+  return {
+    type: "INSTANCE",
+    id: id,
+    name: "非首页-长方形",
+    layoutStyle: { width: 180, height: 84, relativeX: x, relativeY: y },
+    componentInfo: { properties: { "属性 1": "非首页-长方形" } },
+    children: [
+      {
+        type: "INSTANCE",
+        id: id + "/icon",
+        name: "icon",
+        layoutStyle: { width: 40, height: 30, relativeX: 10, relativeY: 10 },
+        children: [{
+          type: "PATH",
+          id: id + "/icon/path",
+          name: "路径",
+          layoutStyle: { width: 40, height: 30, relativeX: 0, relativeY: 0 },
+          path: [{ fill: "paint_1", data: id.endsWith("1") || id.endsWith("3") ? "M0,0L40,0L40,30L0,30Z" : "M0,0L20,0L20,30L0,30Z" }],
+        }],
+      },
+      text(label, id + "/label"),
+      text(fKey, id + "/fkey"),
+    ],
+  };
+}
+
+const residentGroup = {
+  type: "INSTANCE",
+  id: "42:1/resident",
+  name: "右侧底部-常驻button",
+  layoutStyle: { width: 200, height: 200, relativeX: 1000, relativeY: 0 },
+  children: [
+    { type: "GROUP", id: "42:1/resident/line", name: "分割线", layoutStyle: { width: 2, height: 200, relativeX: 0, relativeY: 0 } },
+    { type: "INSTANCE", id: "42:1/resident/a", name: "底部栏", layoutStyle: { width: 84, height: 84, relativeX: 16, relativeY: 12 }, componentInfo: { properties: { "属性 1": "方-icon" } } },
+    { type: "INSTANCE", id: "42:1/resident/b", name: "底部栏", layoutStyle: { width: 84, height: 84, relativeX: 110, relativeY: 12 }, componentInfo: { properties: { "属性 1": "方-icon" } } },
+  ],
+};
+
+const dsl = {
+  dsl: {
+    nodes: [{
+      type: "INSTANCE",
+      id: "42:1",
+      name: "页面",
+      layoutStyle: { width: 1280, height: 1024, relativeX: 0, relativeY: 0 },
+      children: [{
+        type: "FRAME",
+        id: "42:1/bar",
+        name: "底部button",
+        layoutStyle: { width: 1280, height: 202, relativeX: 0, relativeY: 822 },
+        children: [
+          { type: "LAYER", id: "42:1/bar/bg", name: "矩形 108", layoutStyle: { width: 1280, height: 202, relativeX: 0, relativeY: 0 } },
+          residentGroup,
+          menuItemButton("42:1/bar/1", 28, 12, "文案展示", "F1"),
+          menuItemButton("42:1/bar/2", 236, 12, "文案展示", "F1"),
+          menuItemButton("42:1/bar/3", 28, 106, "程序控制", "F6"),
+          menuItemButton("42:1/bar/4", 236, 106, "测量", "F10"),
+        ],
+      }],
+    }],
+    styles: {},
+    components: [],
+  },
+};
+fs.writeFileSync(path.join(root, "dsl.snapshot.json"), JSON.stringify(dsl, null, 2), "utf8");
+
+// 只给第一个按钮登记图标；第三个按钮几何相同（extractSvg 去重场景），应通过几何回退命中同一资源名
+const iconMap = {
+  icons: [
+    { name: "FirstGeometry", comment: "第一", sourceId: "42:1/bar/1/icon", sourceRef: "42:1/bar/1/icon/path" },
+    { name: "OtherGeometry", comment: "其它", sourceId: "42:1/bar/3/icon", sourceRef: "42:1/bar/3/icon/path" },
+  ],
+};
+fs.writeFileSync(path.join(root, "icon-map.json"), JSON.stringify(iconMap, null, 2), "utf8");
+
+const map = {
+  layoutRules: {
+    bottomBar: {
+      componentSet: "底部栏",
+      matchProperty: "属性 1",
+      residentGroupPattern: "常驻(button|按钮|分组)",
+      fKeyPattern: "^F\\d+$",
+      decorativeNamePattern: "背景|分割",
+      repeatPlaceholderThreshold: 2,
+      placeholderTexts: ["文案", "文案展示"],
+      menuItemAlwaysWrittenAttrs: ["LangName", "PageName", "IOCommand", "IOVisible"],
+      iconSizeAttrs: ["IconWidth", "IconHeight"],
+      variants: {
+        "首页-长方形": { topLeftContent: "none", iconPolicy: "single-path" },
+        "非首页-长方形": { topLeftContent: "text", iconPolicy: "single-path" },
+        "方-icon": { topLeftContent: "none", iconPolicy: "single-path" },
+      },
+    },
+  },
+};
+fs.writeFileSync(path.join(root, "map.json"), JSON.stringify(map, null, 2), "utf8");
+
+const out = path.join(root, "layout-manifest.json");
+const report = path.join(root, "report.json");
+const result = spawnSync(process.execPath, [script,
+  "--dsl", path.join(root, "dsl.snapshot.json"),
+  "--icon-map", path.join(root, "icon-map.json"),
+  "--map", path.join(root, "map.json"),
+  "--page-target", "FixturePage",
+  "--page-lang-name", "",
+  "--layout-path", "Resources/Files/Layout.xml",
+  "--out", out,
+  "--report", report,
+], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+
+const manifest = JSON.parse(fs.readFileSync(out, "utf8"));
+// Index 从 1 起，常驻分组占第 3、4 位，因此留空档
+assert.deepStrictEqual(manifest.menuItems.map(item => item.index), [1, 2, 5, 6]);
+// 文本照设计稿原样写入（不做占位符判定）
+assert.strictEqual(manifest.menuItems[0].name, "文案展示");
+assert.strictEqual(manifest.menuItems[0].topLeftContent, "F1");
+assert.strictEqual(manifest.menuItems[1].name, "文案展示");
+assert.strictEqual(manifest.menuItems[2].name, "程序控制");
+assert.strictEqual(manifest.menuItems[2].topLeftContent, "F6");
+assert.strictEqual(manifest.menuItems[3].name, "测量");
+// 图标：第一个按钮命中登记条目，第三个按钮几何相同，通过几何回退拿回同一个资源名
+assert.strictEqual(manifest.menuItems[0].icon, "FirstGeometry");
+assert.strictEqual(manifest.menuItems[2].icon, "OtherGeometry");
+assert.deepStrictEqual(manifest.menuItems[0].iconSize.width, 40);
+assert.deepStrictEqual(manifest.menuItems[0].iconSize.height, 30);
+// 常驻分组内的 2 个实例登记进 residentGroupItems，match 总数 = 菜单项 + 常驻项
+assert.strictEqual(manifest.layoutEvidence.residentGroupItems, 2);
+assert.strictEqual(manifest.layoutEvidence.matchedBottomBarItems, 6);
+assert.strictEqual(manifest.layoutStatus, "complete");
+assert.match(manifest.layoutEvidence.note, /底部栏/);
+
+const reportJson = JSON.parse(fs.readFileSync(report, "utf8"));
+assert.ok(Array.isArray(reportJson.menuItems) && reportJson.menuItems.length === 4);
+
+console.log("PASS MTSLG Layout manifest derivation regression test");

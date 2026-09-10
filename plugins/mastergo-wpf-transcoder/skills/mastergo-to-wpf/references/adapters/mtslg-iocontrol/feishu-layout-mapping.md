@@ -38,6 +38,19 @@
 
 **MenuItem 图标尺寸**：与页面 XML 按钮族同一规则——有 `Icon` 就必须有 `iconSize`（图标图形节点 bbox），发射时四舍五入写 `IconWidth` / `IconHeight`；没有图标槽位时不写 `Icon` / `IconWidth` / `IconHeight`；带 `Icon` 却没有 `iconSize` 直接失败，禁止猜尺寸。
 
+## Layout 清单（menuItems）的机械推导
+
+底部栏菜单不再人工登记，由 `gen-mtslg-layout-manifest.js` 从 DSL 快照 + 当前页面 Icon 映射 + 模板表机械推导，规则全部登记在 `mtslg-iocontrol-map.json` 的 `layoutRules.bottomBar`：
+
+- **底部栏容器**：任一"直接子节点里含右下角常驻分组"的容器（不记图层 ID、不记页面路径）。
+- **排列顺序**：视觉行序——先按 `y` 分行（同一行内 `y` 差不超过行高一半视为同行），行内按 `x` 升序；与运行目录参考 Layout 的 Index 形态一致。
+- **Index**：从 1 起，包含不生成 MenuItem 的按钮；常驻分组内的按钮占位并留下空档。
+- **Name / TopLeftContent**：取该实例的真实文本槽位与 F 键槽位，**照设计稿原样写入**（不做"占位符"判定、不登记默认值；设计里是 `文案展示` / `F1` 就写 `文案展示` / `F1`）。
+- **Icon / IconWidth / IconHeight**：从页面 Icon 映射与图标图形节点 bbox 取；`extractSvg` 去重导致映射缺条目时按几何指纹回退匹配同一资源名。
+- **常驻分组**：分组内实例数写入 `layoutEvidence.residentGroupItems`，换算 `matchedBottomBarItems = menuItems.length + residentGroupItems`。
+
+推导结果是一次性输入，仍需经 `gen-mtslg-layout.js`（常驻属性恒写、图标尺寸门禁、Index 门禁）发射。
+
 ### 属性 1：首页-长方形
 
 #### 匹配规则

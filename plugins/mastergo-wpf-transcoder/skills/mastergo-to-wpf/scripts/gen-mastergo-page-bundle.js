@@ -453,7 +453,8 @@ function validateBundleOutputs(info) {
     requireFile(info.frameworkConfigPath, "framework.config.json");
   }
 
-  run(PROVENANCE_SCRIPT, ["--xml", info.pageXmlPath, "--mapping", info.mappingAudit]);
+  run(PROVENANCE_SCRIPT, ["--xml", info.pageXmlPath, "--mapping", info.mappingAudit]
+    .concat(info.templateMapPath ? ["--map", info.templateMapPath] : []));
   const mapping = info.mapping;
   if (Array.isArray(mapping.nodes) && mapping.nodes.length > 0) {
     const sourceByRef = new Map((mapping.sourceNodes || []).map(function (node) { return [node.ref, node]; }));
@@ -632,8 +633,10 @@ function main() {
     if (contentOriginY !== 192) {
       fail("contentOriginY 必须固定为 192");
     }
-    run(XML_SCRIPT, ["--fresh", tempMapping, "--out", tempXml]);
-    run(PROVENANCE_SCRIPT, ["--xml", tempXml, "--mapping", tempMapping]);
+    run(XML_SCRIPT, ["--fresh", tempMapping, "--out", tempXml].concat(
+      templateMapPath ? ["--map", templateMapPath] : []));
+    run(PROVENANCE_SCRIPT, ["--xml", tempXml, "--mapping", tempMapping].concat(
+      templateMapPath ? ["--map", templateMapPath] : []));
     run(ICON_DISCOVERY_SCRIPT, [
       "--svg", svgPath,
       "--mapping", mappingPath,
@@ -662,7 +665,9 @@ function main() {
       menuItems: manifest.menuItems
     };
     fs.writeFileSync(layoutInput, JSON.stringify(layoutManifest, null, 2), "utf8");
-    run(LAYOUT_SCRIPT, ["--manifest", layoutInput].concat(args.overwrite ? ["--overwrite"] : []));
+    run(LAYOUT_SCRIPT, ["--manifest", layoutInput]
+      .concat(args.overwrite ? ["--overwrite"] : [])
+      .concat(templateMapPath ? ["--map", templateMapPath] : []));
 
     const host = {
       projectRoot,
@@ -708,7 +713,8 @@ function main() {
       mapping,
       layoutMenuItems: manifest.menuItems,
       layoutStatus: manifest.layoutStatus,
-      tempRoot
+      tempRoot,
+      templateMapPath
     });
 
     const bundleInfo = {

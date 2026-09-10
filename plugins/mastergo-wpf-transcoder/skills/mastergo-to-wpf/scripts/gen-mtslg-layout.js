@@ -17,27 +17,41 @@ const ATTR_FIELDS = [
 
 // MenuItem 常驻属性：与页面 XML 的按钮族（PageName/IOVisible/IOCommand 恒写）同一策略，
 // 取不到来源时写空字符串占位，避免重新生成时把宿主要求的字段丢掉。
-// 需要临时扩展时可由 manifest.menuItemAlwaysAttrs 追加。
-const MENU_ITEM_ALWAYS_ATTRS = ["LangName", "PageName", "IOCommand", "IOVisible"];
+// 真值来源：模板表 layoutRules.bottomBar.menuItemAlwaysWrittenAttrs（--map 传入时读取）；
+// 另外仍可由 manifest.menuItemAlwaysAttrs 追加。
+const DEFAULT_MENU_ITEM_ALWAYS_ATTRS = ["LangName", "PageName", "IOCommand", "IOVisible"];
+let MENU_ITEM_ALWAYS_ATTRS = DEFAULT_MENU_ITEM_ALWAYS_ATTRS;
+
+function loadMenuAlwaysAttrs(mapPath) {
+  if (!mapPath) return DEFAULT_MENU_ITEM_ALWAYS_ATTRS;
+  let templateMap;
+  try { templateMap = JSON.parse(fs.readFileSync(mapPath, "utf8")); }
+  catch (error) { fail("读取模板表失败: " + mapPath + " - " + error.message); }
+  const spec = templateMap.layoutRules && templateMap.layoutRules.bottomBar;
+  if (!spec || !Array.isArray(spec.menuItemAlwaysWrittenAttrs)) return DEFAULT_MENU_ITEM_ALWAYS_ATTRS;
+  return spec.menuItemAlwaysWrittenAttrs.map(String);
+}
 
 function fail(message) { throw new Error(message); }
 
 function parseArgs(argv) {
   let manifestPath = null;
   let overwrite = false;
+  let mapPath = null;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--manifest") manifestPath = argv[++i];
+    else if (argv[i] === "--map") mapPath = argv[++i];
     else if (argv[i] === "--overwrite") overwrite = true;
     else {
-      console.error("用法: node gen-mtslg-layout.js --manifest <layout.json> [--overwrite]");
+      console.error("用法: node gen-mtslg-layout.js --manifest <layout.json> [--overwrite] [--map mtslg-iocontrol-map.json]");
       process.exit(2);
     }
   }
   if (!manifestPath) {
-    console.error("用法: node gen-mtslg-layout.js --manifest <layout.json> [--overwrite]");
+    console.error("用法: node gen-mtslg-layout.js --manifest <layout.json> [--overwrite] [--map mtslg-iocontrol-map.json]");
     process.exit(2);
   }
-  return { manifestPath, overwrite };
+  return { manifestPath, overwrite, mapPath };
 }
 
 function xmlAttr(value) {
@@ -263,6 +277,7 @@ function backupFile(filePath) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const manifest = JSON.parse(fs.readFileSync(path.resolve(args.manifestPath), "utf8"));
+  if (args.mapPath) MENU_ITEM_ALWAYS_ATTRS = loadMenuAlwaysAttrs(args.mapPath);
   if (typeof manifest.layoutPath !== "string" || !manifest.layoutPath.trim()) {
     fail("layoutPath 必须提供");
   }

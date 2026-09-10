@@ -178,5 +178,27 @@ assert.match(mergedTextTag, /Width="NaN"/, 'merge 必须把 TextBlock 的 Width 
 assert.match(mergedTextTag, /Height="40"/, 'merge 必须保持 TextBlock 的 Height=40');
 assert.match(mergedTextTag, /Value="速度"/, 'merge 必须按 dsl.text 覆盖旧文本，保证 Value 与设计文本一致');
 
+// ---- 按钮族规则改为读模板表（--map）：改表即改产物，不再各自维护常量 ----
+const mapPath = path.join(dir, 'template-map.json');
+const mapOutput = path.join(dir, 'map-page.xml');
+fs.writeFileSync(mapPath, JSON.stringify({
+  buttonFamily: {
+    controlTypes: ['IconButton', 'Button'],
+    alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand', 'IOParam'],
+    iconSizeAttrs: ['IconWidth', 'IconHeight']
+  }
+}, null, 2));
+const mapRun = spawnSync(process.execPath, [path.join(__dirname, 'gen-iocontrol-xml.js'),
+  '--fresh', buttonMapping, '--out', mapOutput, '--map', mapPath], { encoding: 'utf8' });
+assert.strictEqual(mapRun.status, 0, '带 --map 必须能正常渲染: ' + mapRun.stderr);
+const mapXml = fs.readFileSync(mapOutput, 'utf8');
+const mapButtonTag = (mapXml.match(/<IOContorl[^>]*ID="BTN_1"[\s\S]*?\/>/) || [''])[0];
+assert.match(mapButtonTag, /IOParam=""/, '按钮族恒写属性必须来自模板表（表里加了 IOParam 就要发射）');
+const mapStatusTag = (mapXml.match(/<IOContorl[^>]*ControlType="StatusButton"[\s\S]*?\/>/) || [''])[0];
+assert.ok(mapStatusTag, 'StatusButton 节点仍应存在');
+assert.ok(!/PageName=|IOParam=/.test(mapStatusTag),
+  '模板表里 controlTypes 不含 StatusButton 时，该控件不得再获得按钮族固定参数');
+
 console.log('PASS IOContorl typed-node gate regression test');
 console.log('PASS IconButton fixed-attribute regression test');
+console.log('PASS button-family rules are read from the template map');

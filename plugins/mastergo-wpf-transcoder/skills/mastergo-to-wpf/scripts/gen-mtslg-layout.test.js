@@ -258,4 +258,26 @@ result = spawnSync(process.execPath, [script, "--manifest", missingIconSizeManif
 assert.notStrictEqual(result.status, 0, "有 Icon 却没有 iconSize 时必须失败");
 assert.match(result.stderr + result.stdout, /iconSize/);
 
+// MenuItem 常驻属性改为读模板表（--map）：表里怎么写就怎么发射
+const mapManifest = path.join(root, "map-always-attrs.json");
+const mapLayout = path.join(root, "MapAlwaysAttrsLayout.xml");
+const mapPath = path.join(root, "layout-map.json");
+fs.writeFileSync(mapPath, JSON.stringify({
+  layoutRules: { bottomBar: { menuItemAlwaysWrittenAttrs: ["LangName", "IOEnable"] } }
+}, null, 2), "utf8");
+fs.writeFileSync(mapManifest, JSON.stringify({
+  layoutPath: mapLayout,
+  pageTarget: "MapAttrsPage",
+  layoutStatus: "complete",
+  layoutEvidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
+  menuItems: [{ name: "激光设置", icon: "", index: 1 }]
+}, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", mapManifest, "--map", mapPath], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+text = fs.readFileSync(mapLayout, "utf8");
+assert.match(text, /LangName="" Icon="" Index="1" IOEnable=""/,
+  "常驻属性集合必须来自模板表（LangName + IOEnable，且不再补 PageName/IOCommand/IOVisible）");
+assert.doesNotMatch(text, /PageName=|IOCommand=|IOVisible=/,
+  "模板表未声明的常驻属性不得发射");
+
 console.log("PASS MTSLG Layout generator regression test");

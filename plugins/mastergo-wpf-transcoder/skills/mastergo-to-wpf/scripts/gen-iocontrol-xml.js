@@ -50,8 +50,8 @@
  *   5. 全新节点 → 按映射渲染，插入其父节点闭合标签之前。
  *
  * 用法：
- *   node gen-iocontrol-xml.js --fresh <mapping.json> [--out X.xml]
- *   node gen-iocontrol-xml.js --merge <existing.xml> <mapping.json> [--out X.xml]
+ *   node gen-iocontrol-xml.js --fresh <mapping.json> [--out X.xml] [--map mtslg-iocontrol-map.json]
+ *   node gen-iocontrol-xml.js --merge <existing.xml> <mapping.json> [--out X.xml] [--map mtslg-iocontrol-map.json]
  */
 'use strict';
 
@@ -61,17 +61,18 @@ const { validateTextAudit } = require('./validate-iocontrol-provenance');
 // ---------- 参数 ----------
 function usage() {
   console.error('用法:');
-  console.error('  node gen-iocontrol-xml.js --fresh <mapping.json> [--out X.xml]');
-  console.error('  node gen-iocontrol-xml.js --merge <existing.xml> <mapping.json> [--out X.xml]');
+  console.error('  node gen-iocontrol-xml.js --fresh <mapping.json> [--out X.xml] [--map mtslg-iocontrol-map.json]');
+  console.error('  node gen-iocontrol-xml.js --merge <existing.xml> <mapping.json> [--out X.xml] [--map mtslg-iocontrol-map.json]');
   process.exit(2);
 }
 
 const args = process.argv.slice(2);
-let mode = null, existingPath = null, mappingPath = null, outPath = null;
+let mode = null, existingPath = null, mappingPath = null, outPath = null, templateMapPath = null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--fresh') mode = 'fresh';
   else if (args[i] === '--merge') { mode = 'merge'; existingPath = args[++i]; }
   else if (args[i] === '--out') outPath = args[++i];
+  else if (args[i] === '--map') templateMapPath = args[++i];
   else if (!mappingPath) mappingPath = args[i];
   else usage();
 }
@@ -85,10 +86,33 @@ const TOP_ARTIFACT_TITLE_Y = 66;
 const contentOriginY = TOP_PUBLIC_BAR_Y + TOP_ARTIFACT_TITLE_Y;
 
 // ---------- 按钮族固定参数 ----------
-// 按钮族 ControlType 登记表；这些类型无差别补齐下面两组固定参数。
-const BUTTON_FAMILY_CONTROL_TYPES = new Set(['IconButton', 'Button', 'StatusButton']);
-const BUTTON_ALWAYS_ATTRS = ['PageName', 'IOVisible', 'IOCommand'];
-const BUTTON_ICON_SIZE_ATTRS = ['IconWidth', 'IconHeight'];
+// 规则真值来源：模板表 mtslg-iocontrol-map.json 的 buttonFamily（脚本不再各存一份）。
+// 传入 --map 时读取该表；未传入或表中缺字段时退回下列内置默认（与表内容一致）。
+const DEFAULT_BUTTON_FAMILY = {
+  controlTypes: ['IconButton', 'Button', 'StatusButton'],
+  alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand'],
+  iconSizeAttrs: ['IconWidth', 'IconHeight'],
+};
+const BUTTON_FAMILY_RULES = loadButtonFamilyRules(templateMapPath);
+const BUTTON_FAMILY_CONTROL_TYPES = new Set(BUTTON_FAMILY_RULES.controlTypes);
+const BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
+const BUTTON_ICON_SIZE_ATTRS = BUTTON_FAMILY_RULES.iconSizeAttrs;
+
+function loadButtonFamilyRules(mapPath) {
+  if (!mapPath) return DEFAULT_BUTTON_FAMILY;
+  let templateMap;
+  try { templateMap = JSON.parse(fs.readFileSync(mapPath, 'utf8')); }
+  catch (error) { throw new Error('读取模板表失败: ' + mapPath + ' - ' + error.message); }
+  const spec = templateMap.buttonFamily;
+  if (!spec || typeof spec !== 'object') return DEFAULT_BUTTON_FAMILY;
+  const controlTypes = Array.isArray(spec.controlTypes) && spec.controlTypes.length
+    ? spec.controlTypes.map(String) : DEFAULT_BUTTON_FAMILY.controlTypes;
+  const alwaysWrittenAttrs = Array.isArray(spec.alwaysWrittenAttrs)
+    ? spec.alwaysWrittenAttrs.map(String) : DEFAULT_BUTTON_FAMILY.alwaysWrittenAttrs;
+  const iconSizeAttrs = Array.isArray(spec.iconSizeAttrs) && spec.iconSizeAttrs.length === 2
+    ? spec.iconSizeAttrs.map(String) : DEFAULT_BUTTON_FAMILY.iconSizeAttrs;
+  return { controlTypes, alwaysWrittenAttrs, iconSizeAttrs };
+}
 
 function isButtonFamily(node) {
   const type = node.controlType || (node.attrs && node.attrs.ControlType);
@@ -127,15 +151,15 @@ function applyButtonFamilyAttrs(node, attrMap) {
   }
   const size = iconSizeOf(node);
   if (size) {
-    attrMap.IconWidth = size.width;
-    attrMap.IconHeight = size.height;
+    attrMap[BUTTON_ICON_SIZE_ATTRS[0]] = size.width;
+    attrMap[BUTTON_ICON_SIZE_ATTRS[1]] = size.height;
     return;
   }
   // 没有图标槽位：Icon / IconWidth / IconHeight 都不发射。
   if (!hasIconAttr(node)) {
     delete attrMap.Icon;
-    delete attrMap.IconWidth;
-    delete attrMap.IconHeight;
+    delete attrMap[BUTTON_ICON_SIZE_ATTRS[0]];
+    delete attrMap[BUTTON_ICON_SIZE_ATTRS[1]];
   }
 }
 
