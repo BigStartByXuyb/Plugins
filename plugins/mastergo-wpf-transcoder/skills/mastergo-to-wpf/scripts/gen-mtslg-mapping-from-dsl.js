@@ -28,6 +28,14 @@ const dslSnapshot = readJson(required("--dsl"), "DSL snapshot");
 const visibility = readJson(required("--visibility"), "visibility");
 const templateMap = readJson(required("--template-map"), "template map");
 const iconMap = arg("--icon-map") ? readJson(arg("--icon-map"), "icon map") : { icons: [] };
+// 明确隔离的组件实例：正式模板与设计结构不匹配时按 SKILL 规则只隔离该组件，
+// 保留其 DSL 来源并进入 pending，不强行套用模板，也不阻塞其他已命中组件。
+const excludeInstances = new Set(
+  String(arg("--exclude-instances") || "")
+    .split(/[,\s]+/)
+    .map(value => value.trim())
+    .filter(Boolean)
+);
 const outPath = required("--out");
 const MAPPING_TAG = "新页面完整DSL映射";
 const dsl = dslSnapshot.dsl;
@@ -248,6 +256,42 @@ function outerGroups(ref, minWidth = 55, minHeight = 40) {
   });
   return candidates.filter(id => !candidates.some(parent => parent !== id && ancestorRefs(id).includes(parent))).map(id => source(id));
 }
+// 槽位声明 position 时，按几何位置把按钮组绑到槽位：以候选按钮组整体包围盒的中心为基准，
+// 主轴方向决定 up/down/left/right，到中心的距离决定 inner（近）/outer（远）。
+// 未声明 position 的模板沿用既有行为：按设计稿层级顺序取前 N 个。
+function selectButtonGroups(buttonGroups, buttonSlots, variant) {
+  const positioned = buttonSlots.filter(item => typeof item.position === "string" && item.position);
+  if (positioned.length === 0) return buttonGroups.slice(0, buttonSlots.length);
+  if (positioned.length !== buttonSlots.length) {
+    throw new Error("固定模板槽位混用了 position 与无 position 声明: " + variant);
+  }
+  const items = buttonGroups.map(item => item.ref ? item : source(item));
+  const minX = Math.min(...items.map(item => item.pageAbsX));
+  const maxX = Math.max(...items.map(item => item.pageAbsX + item.width));
+  const minY = Math.min(...items.map(item => item.pageAbsY));
+  const maxY = Math.max(...items.map(item => item.pageAbsY + item.height));
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const labelled = items.map(item => {
+    const dx = item.pageAbsX + item.width / 2 - cx;
+    const dy = item.pageAbsY + item.height / 2 - cy;
+    const dir = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
+    return { item, dir, distance: Math.sqrt(dx * dx + dy * dy) };
+  });
+  const used = new Set();
+  return buttonSlots.map(slotSpec => {
+    const parts = String(slotSpec.position).split("_");
+    const candidates = labelled
+      .filter(candidate => candidate.dir === parts[0] && !used.has(candidate.item.ref))
+      .sort((a, b) => a.distance - b.distance);
+    if (candidates.length === 0) {
+      throw new Error("固定模板槽位找不到对应位置的按钮组: " + variant + "/" + slotSpec.slot);
+    }
+    const picked = (parts[1] || "inner") === "outer" ? candidates[candidates.length - 1] : candidates[0];
+    used.add(picked.item.ref);
+    return picked.item;
+  });
+}
 function firstInner(ref) {
   return directChildren(ref).map(x => source(x)).find(s => s.type === "INSTANCE")?.ref || ref;
 }
@@ -329,7 +373,17 @@ function addInstance(match, instanceRef, requiredSlots, omittedSlots = []) {
 const matched = [];
 for (const item of sourceNodes) {
   const matches = formalMatches(node(item.ref));
-  if (matches.length) matched.push({ item, match: matches[0] });
+  if (!matches.length) continue;
+  if (excludeInstances.has(item.ref)) {
+    pending.push({
+      sourceRef: item.ref,
+      reason: "已隔离（--exclude-instances）：正式模板与设计结构不匹配，保留 DSL 来源待确认"
+    });
+    continue;
+  }
+  // 隔离必须覆盖整个组件子树，否则内部实例会以另一个模板族命中并继续发射。
+  if (ancestorRefs(item.ref).slice(1).some(ref => excludeInstances.has(ref))) continue;
+  matched.push({ item, match: matches[0] });
 }
 const matchedRefSet = new Set(matched.map(x => x.item.ref));
 const topLevelMatches = matched.filter(x => !ancestorRefs(x.item.ref).slice(1).some(ref => matchedRefSet.has(ref)));
@@ -382,7 +436,11 @@ for (const { item: inst, match } of matched) {
     continue;
   }
   const innerRef = firstInner(inst.ref);
-  const buttonGroups = outerGroups(innerRef, variant.startsWith("加减") ? 55 : 70);
+  const groupMinWidth = Number.isFinite(Number(spec.groupMinWidth))
+    ? Number(spec.groupMinWidth)
+    : (variant.startsWith("加减") ? 55 : 70);
+  const groupMinHeight = Number.isFinite(Number(spec.groupMinHeight)) ? Number(spec.groupMinHeight) : 40;
+  const buttonGroups = outerGroups(innerRef, groupMinWidth, groupMinHeight);
   if (variant.startsWith("加减")) {
     const slots = spec.slots || [];
     const buttonSlots = slots.filter(s => s.controlType === "IconButton");
@@ -421,7 +479,7 @@ for (const { item: inst, match } of matched) {
   }
   const buttonSlots = (spec.slots || []).filter(s => s.controlType === "IconButton");
   const textSlots = (spec.slots || []).filter(s => s.controlType === "TextBlock");
-  const groups = buttonGroups.slice(0, buttonSlots.length);
+  const groups = selectButtonGroups(buttonGroups, buttonSlots, variant);
   const required = [];
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i].ref;
@@ -438,16 +496,7 @@ for (const { item: inst, match } of matched) {
   addInstance(match, inst.ref, required);
 }
 
-for (const s of sourceNodes) {
-  if (s.type !== "TEXT" || typeof s.text !== "string" || consumedTexts.has(s.ref)) continue;
-  if (visible(s.ref) && !isHostShell(s.ref) && !isPageTitle(s.ref)) addText(s.ref);
-  else textAudit.push({ sourceRef: s.ref, sourceText: s.text, visibility: visible(s.ref), role: isPageTitle(s.ref) ? "page-title" : (isHostShell(s.ref) ? "host-shell" : "hidden"), decision: "omit", omitReason: isPageTitle(s.ref) ? "page-title" : (isHostShell(s.ref) ? "host-shell" : "hidden"), outputRefs: [] });
-}
-
-for (const { item, match } of matched) {
-  if (!componentInstances.some(x => x.instanceRef === item.ref)) continue;
-}
-
+// 未命中的顶层组件先登记，供下面的文本扫描判断“文本是否位于被隔离的组件内”。
 for (const child of root.children || []) {
   const s = source(child.id);
   if (!["INSTANCE", "FRAME", "COMPONENT"].includes(s.type)) continue;
@@ -455,6 +504,34 @@ for (const child of root.children || []) {
   if (/背景|常驻信息|分割线/.test(s.name)) continue;
   if (!Object.keys(s.properties || {}).length && s.width === source(root.id).width && s.height === source(root.id).height) continue;
   pending.push({ sourceRef: s.ref, reason: "正式组件模板未命中，保留 DSL 来源，未猜测 ControlType" });
+}
+
+// 被隔离（模板不匹配）或未命中正式模板的组件，其内部文本不得泄漏成独立 TextBlock；
+// 按 SKILL 规则只保留来源与 provenance，因此以 omit + 专用 omitReason 记录。
+const isolatedRoots = new Set(pending.map(item => item.sourceRef));
+function isolatedComponentReason(ref) {
+  const owners = ancestorRefs(ref).slice(1).filter(ancestor => isolatedRoots.has(ancestor));
+  if (owners.length === 0) return null;
+  return owners.some(owner => excludeInstances.has(owner)) ? "excluded-component" : "unmapped-component";
+}
+
+for (const s of sourceNodes) {
+  if (s.type !== "TEXT" || typeof s.text !== "string" || consumedTexts.has(s.ref)) continue;
+  const isolated = isolatedComponentReason(s.ref);
+  if (isolated) {
+    textAudit.push({
+      sourceRef: s.ref,
+      sourceText: s.text,
+      visibility: visible(s.ref),
+      role: isolated,
+      decision: "omit",
+      omitReason: isolated,
+      outputRefs: []
+    });
+    continue;
+  }
+  if (visible(s.ref) && !isHostShell(s.ref) && !isPageTitle(s.ref)) addText(s.ref);
+  else textAudit.push({ sourceRef: s.ref, sourceText: s.text, visibility: visible(s.ref), role: isPageTitle(s.ref) ? "page-title" : (isHostShell(s.ref) ? "host-shell" : "hidden"), decision: "omit", omitReason: isPageTitle(s.ref) ? "page-title" : (isHostShell(s.ref) ? "host-shell" : "hidden"), outputRefs: [] });
 }
 
 const mapping = {
@@ -470,8 +547,10 @@ const mapping = {
   textAudit,
   nodes: outputNodes,
   componentInstances,
-  pending,
-  unmappedComponents: pending.map(x => x.sourceRef),
+  // 同一组件可能同时被隔离与“未命中”记录，按 sourceRef 去重后再写入清单。
+  pending: pending.filter((item, index) => pending.findIndex(x => x.sourceRef === item.sourceRef) === index),
+  unmappedComponents: [...new Set(pending.map(x => x.sourceRef))],
+  ...(excludeInstances.size ? { excludedInstances: [...excludeInstances] } : {}),
   ...(templateConflicts.length ? { templateConflicts } : {})
 };
 fs.writeFileSync(outPath, JSON.stringify(mapping, null, 2) + "\n", "utf8");

@@ -163,26 +163,29 @@ function validateInstance(instance, spec, mapping, sourceMap, nodeMap, usedSourc
   const omitted = Array.isArray(instance.omittedSlots) ? instance.omittedSlots : [];
   const omittedByName = new Map(omitted.map(slot => [slot.slot, slot]));
   const visibleExpected = expected.filter(slot => !omittedByName.has(slot.slot));
-  if (supplied.length !== visibleExpected.length) {
-    fail("固定模板槽位数量不一致（可见槽位）: " + variant + "，期望 " + visibleExpected.length + "，实际 " + supplied.length);
-  }
   const suppliedByName = new Map(supplied.map(slot => [slot.slot, slot]));
-  const requiredSlots = visibleExpected.map(expectedSlot => {
-    const slot = suppliedByName.get(expectedSlot.slot);
-    if (!slot) fail("固定模板槽位缺失: " + variant + "/" + expectedSlot.slot);
-    return validateSlot(expectedSlot, slot, sourceMap, nodeMap, variant, usedSources);
-  });
+  for (const slot of supplied) {
+    if (!visibleExpected.some(expectedSlot => expectedSlot.slot === slot.slot)) {
+      fail("固定模板包含未登记或已省略槽位: " + variant + "/" + slot.slot);
+    }
+  }
+  // 必经槽位必须全部提供；标记 optional 的槽位（例如只有在设计稿里出现的 SCAN 文案）
+  // 允许缺席，缺席时不参与计数，也不写入 requiredSlots。
+  const missingRequired = visibleExpected.filter(
+    expectedSlot => expectedSlot.optional !== true && !suppliedByName.has(expectedSlot.slot)
+  );
+  if (missingRequired.length > 0) {
+    fail("固定模板缺失必经槽位: " + variant + "/" + missingRequired.map(slot => slot.slot).join(", "));
+  }
+  const requiredSlots = visibleExpected
+    .filter(expectedSlot => suppliedByName.has(expectedSlot.slot))
+    .map(expectedSlot => validateSlot(expectedSlot, suppliedByName.get(expectedSlot.slot), sourceMap, nodeMap, variant, usedSources));
   const omittedSlots = omitted.map(slot => {
     if (!expected.some(expectedSlot => expectedSlot.slot === slot.slot)) {
       fail("省略槽位未在固定模板登记: " + variant + "/" + slot.slot);
     }
     return validateOmittedSlot(slot, sourceMap, nodeMap, variant, usedSources);
   });
-  for (const slot of supplied) {
-    if (!visibleExpected.some(expectedSlot => expectedSlot.slot === slot.slot)) {
-      fail("固定模板包含未登记或已省略槽位: " + variant + "/" + slot.slot);
-    }
-  }
   const extraTextSlots = Array.isArray(instance.extraTextSlots) ? instance.extraTextSlots.map(slot => {
     if (typeof slot.slot !== "string") fail("额外文本槽位缺少 slot: " + variant);
     return validateSlot({ controlType: "TextBlock" }, slot, sourceMap, nodeMap, variant, usedSources);

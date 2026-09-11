@@ -726,11 +726,12 @@ function bundleGeneratedPaths(info) {
     info.iconMapAudit,
     info.bundleAudit,
     info.csprojPath
-  ].concat(info.langPaths || []);
+  ];
   if (info.scaffold) files.push(info.frameworkConfigPath);
+  // 语言文件在清单里本来就是项目相对路径，不能再过 projectRelative（否则按 CWD 解析出错路径）。
   return files.map(function (filePath) {
     return projectRelative(info.projectRoot, filePath);
-  });
+  }).concat(info.langPaths || []);
 }
 
 function ensureLayoutContent(csprojPath, layoutPath) {
@@ -767,6 +768,12 @@ function main() {
     ? null
     : LANG.normalizeSpec(manifest.languages, manifest.name);
   const langPaths = langSpec ? pageLangPaths(manifest.name, langSpec.locales) : [];
+  // 明确隔离的组件实例（正式模板与设计结构不匹配时只隔离该组件，其余照常生成）。
+  const excludeInstances = Array.isArray(manifest.excludeInstances)
+    ? manifest.excludeInstances.map(String)
+    : (typeof manifest.excludeInstances === "string" && manifest.excludeInstances.trim()
+      ? manifest.excludeInstances.split(/[,\s]+/).filter(Boolean)
+      : []);
   const existingMode = ["modify-existing", "replace-existing"].includes(manifest.operation);
   const scaffoldInfo = ensureScaffold(manifest);
   const projectRoot = scaffoldInfo.projectRoot;
@@ -805,7 +812,7 @@ function main() {
       "--template-map", templateMapPath,
       "--icon-map", iconMapPath,
       "--out", mappingPath
-    ]);
+    ].concat(excludeInstances.length ? ["--exclude-instances", excludeInstances.join(",")] : []));
     const generatedMapping = readJson(mappingPath);
     if (generatedMapping.mappingTag !== NEW_PAGE_MAPPING_TAG) {
       fail("本次生成的 mapping 缺少算法 Tag：\"" + NEW_PAGE_MAPPING_TAG + "\"");
@@ -995,6 +1002,7 @@ function main() {
         paths: langPaths,
         bindings: langBindings
       } : null,
+      excludedInstances: excludeInstances,
       layout: {
         status: manifest.layoutStatus,
         evidence: manifest.layoutEvidence,

@@ -259,7 +259,7 @@ assert.throws(
 const missingSlot = makeMapping("加减快捷操作-有标题", slotsForWithTitle().slice(0, -1));
 assert.throws(
   () => resolveTemplateMapping(missingSlot, templateMap),
-  /固定模板槽位数量不一致/
+  /缺失必经槽位/
 );
 
 const badText = makeMapping("加减快捷操作-有标题", slotsForWithTitle());
@@ -270,16 +270,20 @@ assert.throws(
 );
 
 const confirmedFastAxis = makeMapping("轴操作-快慢", [
-  { slot: "up", sourceRef: "button/up" },
-  { slot: "left", sourceRef: "button/left" },
-  { slot: "right", sourceRef: "button/right" },
-  { slot: "down", sourceRef: "button/down" },
+  { slot: "up_inner", sourceRef: "button/up-inner" },
+  { slot: "up_outer", sourceRef: "button/up-outer" },
+  { slot: "down_inner", sourceRef: "button/down-inner" },
+  { slot: "down_outer", sourceRef: "button/down-outer" },
+  { slot: "left_inner", sourceRef: "button/left-inner" },
+  { slot: "left_outer", sourceRef: "button/left-outer" },
+  { slot: "right_inner", sourceRef: "button/right-inner" },
+  { slot: "right_outer", sourceRef: "button/right-outer" },
   { slot: "scan", sourceRef: "text/scan", valueSourceRef: "text/scan", text: "SCAN", controlType: "TextBlock" }
 ]);
 const resolvedFastAxis = resolveTemplateMapping(confirmedFastAxis, templateMap);
 assert.strictEqual(resolvedFastAxis.resolvedTemplates.length, 1);
 assert.strictEqual(resolvedFastAxis.resolvedTemplates[0].variant, "轴操作-快慢");
-assert.strictEqual(resolvedFastAxis.nodes.length, 5);
+assert.strictEqual(resolvedFastAxis.nodes.length, 9);
 
 const resolvedRight = resolveTemplateMapping(
   makeRightSidebarMapping("stop", "right/stop", "STOP"),
@@ -358,5 +362,18 @@ fs.writeFileSync(inputPath, JSON.stringify(makeMapping("加减快捷操作-有�
 fs.writeFileSync(outputPath, JSON.stringify(resolved), "utf8");
 assert.ok(fs.existsSync(inputPath) && fs.existsSync(outputPath));
 fs.rmSync(tempDir, { recursive: true, force: true });
+
+// 轴操作-快慢：8 个方向键槽位；optional 的 SCAN 在设计稿不存在时允许缺席，必经槽位仍不得缺失。
+const axisSlots = ['up_inner', 'up_outer', 'down_inner', 'down_outer',
+  'left_inner', 'left_outer', 'right_inner', 'right_outer']
+  .map(slot => ({ slot, sourceRef: 'axis/' + slot, controlType: 'IconButton' }));
+const axisResolved = resolveTemplateMapping(makeMapping('轴操作-快慢', axisSlots), templateMap);
+assert.strictEqual(axisResolved.resolvedTemplates[0].requiredSlots.length, 8);
+assert.ok(!axisResolved.resolvedTemplates[0].requiredSlots.some(item => item.slot === 'scan'),
+  'optional 槽位缺席时不应写入 requiredSlots');
+assert.throws(
+  () => resolveTemplateMapping(makeMapping('轴操作-快慢', axisSlots.slice(0, 7)), templateMap),
+  /缺失必经槽位/
+);
 
 console.log("PASS MTSLG template mapping resolver test");

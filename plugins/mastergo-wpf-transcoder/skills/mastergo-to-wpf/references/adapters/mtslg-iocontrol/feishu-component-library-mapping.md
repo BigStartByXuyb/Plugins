@@ -265,9 +265,9 @@ Style 与内部组件对照（只对下表列出的真实值成立）：
 
 该组件的 `显示主标题` 和 `显示左侧副标题` 都是文本可见性开关：属性为 true 时，沿当前实例父子链读取对应的主标题/左侧副标题 TEXT 节点并各自生成独立 TextBlock；属性为 false 时省略对应文本节点。主标题和左侧副标题都不是按钮 Value，不得从按钮文案或坐标推断文本。
 
-### 固定模板：属性 1=轴操作、轴操作-快慢
+### 固定模板：属性 1=轴操作
 
-固定节点：四个 IconButton IOContorl 和一个 TextBlock IOContorl；按钮 ControlType 固定为 IconButton，Style 属性省略；文本 ControlType 固定为 TextBlock；四个按钮与 SCAN 文本的槽位顺序和父子关系固定。
+固定节点：四个 IconButton IOContorl 和一个可选 TextBlock IOContorl；按钮 ControlType 固定为 IconButton，Style 属性省略；文本 ControlType 固定为 TextBlock；四个方向按钮（up、left、right、down）与 SCAN 文本的槽位顺序和父子关系固定。
 
 ```xml
 <IOContorl ID="{up_id}" IOName="{up_io_name}" IOCommand="{up_io_command}" ControlType="IconButton" Icon="{up_icon}" IconHeight="{up_icon_height}" IconWidth="{up_icon_width}" IOEnable="{up_enable}" IOState="{up_state}" Value="{up_value}" Left="{up_left}" Top="{up_top}" Width="{up_width}" Height="{up_height}" />
@@ -277,7 +277,7 @@ Style 与内部组件对照（只对下表列出的真实值成立）：
 <IOContorl ID="{scan_id}" ControlType="TextBlock" Value="{scan_text}" Left="{scan_left}" Top="{scan_top}" Width="NaN" Height="40" />
 ```
 
-四个按钮的图标、文案、业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；SCAN 文本节点填入 TextBlock.Value。存在图标槽位时生成 Icon、IconHeight、IconWidth；未提供的可选字段字段缺失时保留对应 XML 属性并输出空字符串值。
+四个按钮的图标、文案、业务字段/动作、状态、位置和尺寸从对应 MasterGo 节点读取；SCAN 文本节点填入 TextBlock.Value。SCAN 是可选取槽位：当前实例不存在该 TEXT 节点时不生成该 TextBlock，也不得用坐标或相邻实例补齐。存在图标槽位时生成 Icon、IconHeight、IconWidth；未提供的可选字段缺失时保留对应 XML 属性并输出空字符串值。
 
 本组件集的固定真实子节点顺序为：
 
@@ -288,6 +288,26 @@ Style 与内部组件对照（只对下表列出的真实值成立）：
 - `scan`：独立 TEXT 节点，单独生成 TextBlock，不并入任一方向按钮的 Value。
 
 按钮的 `Left/Top/Width/Height` 必须读取四个按钮外层节点 bbox；内部图标组只提供 Icon 来源和图标尺寸，不得用内部图标 bbox 代替按钮尺寸。实例文本、图标和坐标均从当前实例的真实父子链读取。
+
+### 固定模板：属性 1=轴操作-快慢
+
+固定节点：八个 IconButton IOContorl 和一个可选 TextBlock IOContorl；按钮 ControlType 固定为 IconButton，Style 属性省略；文本 ControlType 固定为 TextBlock；八个按钮按“方向 × 内外圈”固定槽位顺序 up_inner、up_outer、down_inner、down_outer、left_inner、left_outer、right_inner、right_outer，SCAN 文本排在最后且仅在设计稿存在该 TEXT 节点时生成。
+
+```xml
+<IOContorl ID="{up_inner_id}" IOName="{up_inner_io_name}" IOCommand="{up_inner_io_command}" ControlType="IconButton" Icon="{up_inner_icon}" IconHeight="{up_inner_icon_height}" IconWidth="{up_inner_icon_width}" IOEnable="{up_inner_enable}" IOState="{up_inner_state}" Value="{up_inner_value}" Left="{up_inner_left}" Top="{up_inner_top}" Width="{up_inner_width}" Height="{up_inner_height}" />
+<IOContorl ID="{up_outer_id}" IOName="{up_outer_io_name}" IOCommand="{up_outer_io_command}" ControlType="IconButton" Icon="{up_outer_icon}" IconHeight="{up_outer_icon_height}" IconWidth="{up_outer_icon_width}" IOEnable="{up_outer_enable}" IOState="{up_outer_state}" Value="{up_outer_value}" Left="{up_outer_left}" Top="{up_outer_top}" Width="{up_outer_width}" Height="{up_outer_height}" />
+<IOContorl ID="{down_inner_id}" IOName="{down_inner_io_name}" IOCommand="{down_inner_io_command}" ControlType="IconButton" Icon="{down_inner_icon}" IconHeight="{down_inner_icon_height}" IconWidth="{down_inner_icon_width}" IOEnable="{down_inner_enable}" IOState="{down_inner_state}" Value="{down_inner_value}" Left="{down_inner_left}" Top="{down_inner_top}" Width="{down_inner_width}" Height="{down_inner_height}" />
+<IOContorl ID="{down_outer_id}" IOName="{down_outer_io_name}" IOCommand="{down_outer_io_command}" ControlType="IconButton" Icon="{down_outer_icon}" IconHeight="{down_outer_icon_height}" IconWidth="{down_outer_icon_width}" IOEnable="{down_outer_enable}" IOState="{down_outer_state}" Value="{down_outer_value}" Left="{down_outer_left}" Top="{down_outer_top}" Width="{down_outer_width}" Height="{down_outer_height}" />
+<IOContorl ID="{left_inner_id}" IOName="{left_inner_io_name}" IOCommand="{left_inner_io_command}" ControlType="IconButton" Icon="{left_inner_icon}" IconHeight="{left_inner_icon_height}" IconWidth="{left_inner_icon_width}" IOEnable="{left_inner_enable}" IOState="{left_inner_state}" Value="{left_inner_value}" Left="{left_inner_left}" Top="{left_inner_top}" Width="{left_inner_width}" Height="{left_inner_height}" />
+<IOContorl ID="{left_outer_id}" IOName="{left_outer_io_name}" IOCommand="{left_outer_io_command}" ControlType="IconButton" Icon="{left_outer_icon}" IconHeight="{left_outer_icon_height}" IconWidth="{left_outer_icon_width}" IOEnable="{left_outer_enable}" IOState="{left_outer_state}" Value="{left_outer_value}" Left="{left_outer_left}" Top="{left_outer_top}" Width="{left_outer_width}" Height="{left_outer_height}" />
+<IOContorl ID="{right_inner_id}" IOName="{right_inner_io_name}" IOCommand="{right_inner_io_command}" ControlType="IconButton" Icon="{right_inner_icon}" IconHeight="{right_inner_icon_height}" IconWidth="{right_inner_icon_width}" IOEnable="{right_inner_enable}" IOState="{right_inner_state}" Value="{right_inner_value}" Left="{right_inner_left}" Top="{right_inner_top}" Width="{right_inner_width}" Height="{right_inner_height}" />
+<IOContorl ID="{right_outer_id}" IOName="{right_outer_io_name}" IOCommand="{right_outer_io_command}" ControlType="IconButton" Icon="{right_outer_icon}" IconHeight="{right_outer_icon_height}" IconWidth="{right_outer_icon_width}" IOEnable="{right_outer_enable}" IOState="{right_outer_state}" Value="{right_outer_value}" Left="{right_outer_left}" Top="{right_outer_top}" Width="{right_outer_width}" Height="{right_outer_height}" />
+<IOContorl ID="{scan_id}" ControlType="TextBlock" Value="{scan_text}" Left="{scan_left}" Top="{scan_top}" Width="NaN" Height="40" />
+```
+
+槽位绑定规则：以八个候选按钮组整体包围盒的中心为基准，按钮中心落在主轴方向决定 up/down/left/right，到中心的距离决定 inner（近）/outer（远）；同一方向距离更近的一组记为 inner。八个按钮的图标、文案、业务字段/动作、状态、位置和尺寸从各自 MasterGo 节点读取。
+
+按钮的 `Left/Top/Width/Height` 必须读取各自按钮外层节点 bbox；内部图标组只提供 Icon 来源和图标尺寸（IconWidth/IconHeight 取图标图形节点自身 bbox），不得用图标 bbox 代替按钮尺寸。即使同一方向内外两个按钮在设计稿中使用同一个图形（几何完全相同），也必须分别绑定各自实例的图标来源；设计侧缺少独立图形时保留按钮节点与 provenance，标记待设计补图，不得自行镜像或猜测朝向。SCAN 为可选取槽位，当前实例没有该 TEXT 节点时不生成，也不得补齐。实例文本、图标和坐标均从当前实例的真实父子链读取。
 
 ### 固定模板：属性 1=方向
 

@@ -293,6 +293,7 @@
           {
             "slot": "scan",
             "controlType": "TextBlock",
+            "optional": true,
             "valueSource": "dsl.text"
           }
         ]
@@ -301,34 +302,68 @@
         "controlType": "IconButton",
         "style": null,
         "iconPolicy": "single-path",
+        "groupMinWidth": 55,
         "slots": [
           {
-            "slot": "up",
+            "slot": "up_inner",
             "controlType": "IconButton",
             "iconPolicy": "single-path",
+            "position": "up_inner",
             "valueSource": "dsl.text"
           },
           {
-            "slot": "left",
+            "slot": "up_outer",
             "controlType": "IconButton",
             "iconPolicy": "single-path",
+            "position": "up_outer",
             "valueSource": "dsl.text"
           },
           {
-            "slot": "right",
+            "slot": "down_inner",
             "controlType": "IconButton",
             "iconPolicy": "single-path",
+            "position": "down_inner",
             "valueSource": "dsl.text"
           },
           {
-            "slot": "down",
+            "slot": "down_outer",
             "controlType": "IconButton",
             "iconPolicy": "single-path",
+            "position": "down_outer",
+            "valueSource": "dsl.text"
+          },
+          {
+            "slot": "left_inner",
+            "controlType": "IconButton",
+            "iconPolicy": "single-path",
+            "position": "left_inner",
+            "valueSource": "dsl.text"
+          },
+          {
+            "slot": "left_outer",
+            "controlType": "IconButton",
+            "iconPolicy": "single-path",
+            "position": "left_outer",
+            "valueSource": "dsl.text"
+          },
+          {
+            "slot": "right_inner",
+            "controlType": "IconButton",
+            "iconPolicy": "single-path",
+            "position": "right_inner",
+            "valueSource": "dsl.text"
+          },
+          {
+            "slot": "right_outer",
+            "controlType": "IconButton",
+            "iconPolicy": "single-path",
+            "position": "right_outer",
             "valueSource": "dsl.text"
           },
           {
             "slot": "scan",
             "controlType": "TextBlock",
+            "optional": true,
             "valueSource": "dsl.text"
           }
         ]
