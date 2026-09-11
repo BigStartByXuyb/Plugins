@@ -118,8 +118,8 @@ function buttonCase(tagAttrs, nodeExtra) {
   fs.writeFileSync(manifestFile, JSON.stringify(manifest));
   return validate(xmlFile, manifestFile);
 }
-const iconButtonAttrs = { ID: 'BTN', ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '', IconWidth: '97', IconHeight: '66', Left: '300', Top: '108', Width: '170', Height: '80' };
-const iconNodeAttrs = { attrs: { ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '' }, iconSize: { width: 97.0352783203125, height: 65.99, sourceRef: 'btn/icon' } };
+const iconButtonAttrs = { ID: 'BTN', ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '', IOEnable: '', IconWidth: '97', IconHeight: '66', Left: '300', Top: '108', Width: '170', Height: '80' };
+const iconNodeAttrs = { attrs: { ControlType: 'IconButton', Icon: 'ExitGeometry', PageName: '', IOVisible: '', IOCommand: '', IOEnable: '' }, iconSize: { width: 97.0352783203125, height: 65.99, sourceRef: 'btn/icon' } };
 const goodButton = buttonCase(iconButtonAttrs, iconNodeAttrs);
 if (!goodButton.ok) throw new Error('合法按钮族节点应通过 provenance 校验: ' + goodButton.errors.join('; '));
 
@@ -149,8 +149,8 @@ if (badIconBoxResult.ok || !badIconBoxResult.errors.some(x => /iconSize 与图�
 const plainButtonAttrs = { ID: 'BTN', ControlType: 'IconButton', PageName: '', IOVisible: '', IOCommand: '', IconWidth: '60', IconHeight: '60', Left: '600', Top: '108', Width: '60', Height: '60' };
 const plainButtonNode = { sourceRef: 'plain', expectedLeft: 600, expectedTop: 108, expectedWidth: 60, expectedHeight: 60, attrs: { ControlType: 'IconButton', PageName: '', IOVisible: '', IOCommand: '' } };
 const plainButtonResult = buttonCase(plainButtonAttrs, plainButtonNode);
-if (plainButtonResult.ok || !plainButtonResult.errors.some(x => /无图标按钮不得出现 IconWidth/.test(x))) {
-  throw new Error('无图标按钮出现 IconWidth/IconHeight 时必须失败');
+if (plainButtonResult.ok || !plainButtonResult.errors.some(x => /无图标按钮的 IconWidth 必须为空值/.test(x))) {
+  throw new Error('无图标按钮带非空 IconWidth/IconHeight 时必须失败');
 }
 
 // ---- TextBlock 固定宽度 NaN ----
@@ -181,7 +181,7 @@ const cliMappingPath = path.join(dir, 'button-cli-mapping.json');
 const cliTemplateMapPath = path.join(dir, 'button-cli-template-map.json');
 fs.writeFileSync(cliXmlPath, [
   '<IOContorl ID="" Left="NaN" Top="NaN" Width="NaN" Height="NaN">',
-  '  <IOContorl ID="BTN" ControlType="IconButton" PageName="" IOVisible="" IOCommand="" Left="10" Top="10" Width="20" Height="20" />',
+  '  <IOContorl ID="BTN" ControlType="IconButton" PageName="" IOVisible="" IOCommand="" IOEnable="" Left="10" Top="10" Width="20" Height="20" />',
   '</IOContorl>'
 ].join('\n'));
 fs.writeFileSync(cliMappingPath, JSON.stringify({

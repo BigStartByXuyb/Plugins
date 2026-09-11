@@ -93,10 +93,45 @@ const DEFAULT_BUTTON_FAMILY = {
   alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand', 'IOEnable'],
   iconSizeAttrs: ['IconWidth', 'IconHeight'],
 };
+// 每个 ControlType 的固定必写字段集（设计方给定的 IOContorl 字段模板）。
+// 真值来源：模板表 mtslg-iocontrol-map.json 的 controlTypeRequiredAttrs；缺表时退回内置默认。
+const DEFAULT_CONTROL_TYPE_REQUIRED_ATTRS = {
+  GroupBox: ['Style', 'Header', 'LangName', 'IOEnable', 'IOVisible'],
+  Border: ['Style', 'Value', 'IOEnable', 'IOVisible'],
+  TextBlock: ['Style', 'Value', 'LangName', 'IOName', 'IOEnable', 'IOVisible', 'IsAutoRead', 'Foreground', 'FontSize'],
+  Button: ['Style', 'Value', 'LangName', 'PageName', 'IOCommand', 'IOEnable', 'IOVisible'],
+  StatusButton: ['Style', 'Value', 'LangName', 'PageName', 'IOCommand', 'IOEnable', 'IOVisible'],
+  IconButton: ['Style', 'Value', 'LangName', 'PageName', 'Icon', 'TopLeftContent', 'IsShowStatus', 'IsNeedRedMark', 'IOCommand', 'IOEnable', 'IOVisible', 'IconHeight', 'IconWidth'],
+  Togglebutton: ['Style', 'Value', 'IOName', 'IOState', 'IsAutoRefresh', 'IOEnable', 'IOVisible'],
+  RadioButton: ['Style', 'Value', 'IOName', 'IOState', 'IsAutoRefresh', 'IOEnable', 'IOVisible'],
+  ComboBox: ['Style', 'Value', 'IOName', 'ItemsSourceFile', 'DisplayMemberPath', 'SelectedValuePath', 'IsAutoRead', 'IsAutoWrite', 'IsWriteIO', 'IOCommand', 'IOEnable', 'IOVisible'],
+  CheckBox: ['Value', 'IOName', 'DefaultValue', 'IsWriteIO', 'IOEnable', 'IOVisible'],
+  TextBox: ['Value', 'DefaultValue', 'IsWriteIO', 'Keypad', 'IOEnable', 'IOVisible'],
+  NumberBox: ['Value', 'MinValue', 'MaxValue', 'DefaultValue', 'DecimalPlaces', 'IsWriteIO', 'Keypad', 'IsAutoRead', 'IOEnable', 'IOVisible'],
+  IntNumberBox: ['Value', 'MinValue', 'MaxValue', 'DefaultValue', 'DecimalPlaces', 'IsWriteIO', 'Keypad', 'IsAutoRead', 'IOEnable', 'IOVisible'],
+  DataGrid: ['Value', 'IOName', 'IOEnable', 'IOVisible'],
+  Camera: ['DesignPanelID', 'Value', 'IOName'],
+};
 const BUTTON_FAMILY_RULES = loadButtonFamilyRules(templateMapPath);
 const BUTTON_FAMILY_CONTROL_TYPES = new Set(BUTTON_FAMILY_RULES.controlTypes);
 const BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
 const BUTTON_ICON_SIZE_ATTRS = BUTTON_FAMILY_RULES.iconSizeAttrs;
+const REQUIRED_ATTRS_BY_CONTROL_TYPE = loadControlTypeRequiredAttrs(templateMapPath);
+
+function loadControlTypeRequiredAttrs(mapPath) {
+  if (!mapPath) return DEFAULT_CONTROL_TYPE_REQUIRED_ATTRS;
+  let templateMap;
+  try { templateMap = JSON.parse(fs.readFileSync(mapPath, 'utf8')); }
+  catch (error) { throw new Error('读取模板表失败: ' + mapPath + ' - ' + error.message); }
+  const spec = templateMap.controlTypeRequiredAttrs;
+  if (!spec || typeof spec !== 'object') return DEFAULT_CONTROL_TYPE_REQUIRED_ATTRS;
+  const result = {};
+  for (const [type, list] of Object.entries(spec)) {
+    if (type.startsWith('_')) continue;
+    if (Array.isArray(list)) result[type] = list.map(String);
+  }
+  return Object.keys(result).length ? result : DEFAULT_CONTROL_TYPE_REQUIRED_ATTRS;
+}
 
 function loadButtonFamilyRules(mapPath) {
   if (!mapPath) return DEFAULT_BUTTON_FAMILY;
@@ -150,16 +185,39 @@ function applyButtonFamilyAttrs(node, attrMap) {
     if (attrMap[key] === undefined || attrMap[key] === null) attrMap[key] = '';
   }
   const size = iconSizeOf(node);
+  const type = node.controlType || (node.attrs && node.attrs.ControlType);
+  const required = REQUIRED_ATTRS_BY_CONTROL_TYPE[type] || [];
+  const wantsIconAttrs = required.indexOf('Icon') >= 0 || required.indexOf(BUTTON_ICON_SIZE_ATTRS[0]) >= 0;
   if (size) {
     attrMap[BUTTON_ICON_SIZE_ATTRS[0]] = size.width;
     attrMap[BUTTON_ICON_SIZE_ATTRS[1]] = size.height;
-    return;
   }
-  // 没有图标槽位：Icon / IconWidth / IconHeight 都不发射。
-  if (!hasIconAttr(node)) {
-    delete attrMap.Icon;
-    delete attrMap[BUTTON_ICON_SIZE_ATTRS[0]];
-    delete attrMap[BUTTON_ICON_SIZE_ATTRS[1]];
+  else if (!hasIconAttr(node)) {
+    if (wantsIconAttrs) {
+      // 该 ControlType 的模板含图标字段（如 IconButton）：字段恒写，值写空字符串，
+      // 同时丢弃映射里可能残留的陈旧尺寸。
+      attrMap.Icon = '';
+      attrMap[BUTTON_ICON_SIZE_ATTRS[0]] = '';
+      attrMap[BUTTON_ICON_SIZE_ATTRS[1]] = '';
+    } else {
+      // 模板不含图标字段（如 Button / StatusButton）：不发射 Icon / IconWidth / IconHeight。
+      delete attrMap.Icon;
+      delete attrMap[BUTTON_ICON_SIZE_ATTRS[0]];
+      delete attrMap[BUTTON_ICON_SIZE_ATTRS[1]];
+    }
+  }
+}
+
+// 就地补齐当前 ControlType 的固定必写字段（缺来源写空字符串）。
+// 几何（Left/Top/Width/Height）、ID/ControlType 由 emit 单独发射，不在此覆盖。
+function applyRequiredAttrs(node, attrMap) {
+  const type = node.controlType || (node.attrs && node.attrs.ControlType);
+  const required = REQUIRED_ATTRS_BY_CONTROL_TYPE[type];
+  if (!Array.isArray(required)) return;
+  for (const key of required) {
+    // LangName 例外：只有多语言绑定层给出真实 key 时才挂，动态值等豁免节点不写空占位。
+    if (key === 'LangName') continue;
+    if (attrMap[key] === undefined || attrMap[key] === null) attrMap[key] = '';
   }
 }
 
@@ -349,6 +407,7 @@ function renderFresh() {
     if (outputWidth(node) !== undefined && outputWidth(node) !== null) attrMap.Width = fmtNum(outputWidth(node));
     if (outputHeight(node) !== undefined && outputHeight(node) !== null) attrMap.Height = fmtNum(outputHeight(node));
     applyButtonFamilyAttrs(node, attrMap);
+    applyRequiredAttrs(node, attrMap);
 
     const kids = childMap.get(node.ref) || [];
     if (node.comment) lines.push(`${indent}<!-- ${node.comment} -->`);
@@ -482,6 +541,7 @@ function mergeMode() {
     if (outputWidth(n) !== undefined && outputWidth(n) !== null) attrMap.Width = fmtNum(outputWidth(n));
     if (outputHeight(n) !== undefined && outputHeight(n) !== null) attrMap.Height = fmtNum(outputHeight(n));
     applyButtonFamilyAttrs(n, attrMap);
+    applyRequiredAttrs(n, attrMap);
     rendered.set(n.ref, { n, attrMap, tokenIdx: null, matchKind: null });
   }
 
@@ -601,6 +661,7 @@ function mergeMode() {
       if (outputWidth(node) !== undefined && outputWidth(node) !== null) am.Width = fmtNum(outputWidth(node));
       if (outputHeight(node) !== undefined && outputHeight(node) !== null) am.Height = fmtNum(outputHeight(node));
       applyButtonFamilyAttrs(node, am);
+      applyRequiredAttrs(node, am);
       const kk = nodes.filter(x => (x.parent || null) === node.ref);
       const ind = '    '.repeat(d);
       const parts = [];

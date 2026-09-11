@@ -14,8 +14,25 @@ const fs = require('fs');
 // 传入 --map 时读取该表，未传入或表缺字段时退回内置默认（与表内容一致）。
 const DEFAULT_BUTTON_FAMILY_RULES = {
   controlTypes: ['IconButton', 'Button', 'StatusButton'],
-  alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand'],
+  alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand', 'IOEnable'],
 };
+
+// 每个 ControlType 的固定必写字段集（设计方模板）：真值来源 mtslg-iocontrol-map.json 的
+// controlTypeRequiredAttrs；未传入 --map 或表缺该字段时不做必写字段校验。
+function loadControlTypeRequiredAttrs(mapPath) {
+  if (!mapPath) return {};
+  let templateMap;
+  try { templateMap = JSON.parse(fs.readFileSync(mapPath, 'utf8')); }
+  catch (error) { throw new Error('读取模板表失败: ' + mapPath + ' - ' + error.message); }
+  const spec = templateMap.controlTypeRequiredAttrs;
+  if (!spec || typeof spec !== 'object') return {};
+  const result = {};
+  for (const [type, list] of Object.entries(spec)) {
+    if (type.startsWith('_')) continue;
+    if (Array.isArray(list)) result[type] = list.map(String);
+  }
+  return result;
+}
 
 function loadButtonFamilyRules(mapPath) {
   if (!mapPath) return DEFAULT_BUTTON_FAMILY_RULES;
@@ -35,6 +52,7 @@ function loadButtonFamilyRules(mapPath) {
 let BUTTON_FAMILY_RULES = DEFAULT_BUTTON_FAMILY_RULES;
 let BUTTON_FAMILY_CONTROL_TYPES = BUTTON_FAMILY_RULES.controlTypes;
 let BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
+let REQUIRED_ATTRS_BY_CONTROL_TYPE = {};
 
 function attrsFromTag(tag) {
   const attrs = {};
@@ -240,6 +258,16 @@ function validate(xmlPath, manifestPath) {
       if (!sameNumber(x[attr], n[field])) errors.push('[' + n.xmlId + '] ' + attr + '=' + (x[attr] || '') + ' != expected=' + n[field]);
     }
     const controlType = x.ControlType || n.controlType || (n.attrs && n.attrs.ControlType);
+    const requiredAttrs = REQUIRED_ATTRS_BY_CONTROL_TYPE[controlType];
+    if (Array.isArray(requiredAttrs)) {
+      for (const attr of requiredAttrs) {
+        // LangName 例外：动态值等 noLangRefs 豁免节点不挂 LangName，也不写空占位。
+        if (attr === 'LangName') continue;
+        if (x[attr] === undefined) {
+          errors.push('[' + n.xmlId + '] ' + controlType + ' 缺少必写属性 ' + attr + '（取不到来源时必须写空值占位）');
+        }
+      }
+    }
     if (BUTTON_FAMILY_CONTROL_TYPES.includes(controlType)) {
       for (const attr of BUTTON_ALWAYS_ATTRS) {
         if (x[attr] === undefined) errors.push('[' + n.xmlId + '] 按钮族缺少必写属性 ' + attr);
@@ -263,8 +291,16 @@ function validate(xmlPath, manifestPath) {
             errors.push('[' + n.xmlId + '] IconWidth/IconHeight 必须等于图标图形节点 bbox 取整值');
           }
         }
-      } else if (x.IconWidth !== undefined || x.IconHeight !== undefined) {
-        errors.push('[' + n.xmlId + '] 无图标按钮不得出现 IconWidth/IconHeight');
+      } else {
+        // 无图标槽位：Icon / IconWidth / IconHeight 字段仍恒写，但值必须为空字符串。
+        if (x.Icon !== undefined && String(x.Icon).trim() !== '') {
+          errors.push('[' + n.xmlId + '] 无图标按钮的 Icon 必须为空值');
+        }
+        for (const attr of ['IconWidth', 'IconHeight']) {
+          if (x[attr] !== undefined && String(x[attr]).trim() !== '') {
+            errors.push('[' + n.xmlId + '] 无图标按钮的 ' + attr + ' 必须为空值');
+          }
+        }
       }
     }
   }
@@ -283,9 +319,10 @@ if (require.main === module) {
   if (!xml || !manifest) { console.error('用法: node validate-iocontrol-provenance.js --xml <page.xml> --mapping <mapping.json> [--map mtslg-iocontrol-map.json]'); process.exit(2); }
   const mapPath = get('--map');
   if (mapPath) {
-    BUTTON_FAMILY_RULES = loadButtonFamilyRules(mapPath);
-    BUTTON_FAMILY_CONTROL_TYPES = BUTTON_FAMILY_RULES.controlTypes;
-    BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
+BUTTON_FAMILY_RULES = loadButtonFamilyRules(mapPath);
+BUTTON_FAMILY_CONTROL_TYPES = BUTTON_FAMILY_RULES.controlTypes;
+BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
+REQUIRED_ATTRS_BY_CONTROL_TYPE = loadControlTypeRequiredAttrs(mapPath);
   }
   const result = validate(xml, manifest);
   if (!result.ok) { console.error(result.errors.join('\n')); process.exit(1); }

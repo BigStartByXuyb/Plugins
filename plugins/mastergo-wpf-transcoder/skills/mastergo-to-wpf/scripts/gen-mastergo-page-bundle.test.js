@@ -152,7 +152,8 @@ for (const stale of ["Common/Pages/F2NewPagePage.xml", "Resources/Icons/F2NewPag
 }
 assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPageIcons.xaml"), "utf8"), /ActionGeometry/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPagePage.xml"), "utf8"), /Value="\+5"/);
-assert.doesNotMatch(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPagePage.xml"), "utf8"), /IOName="/);
+// 必写字段：TextBlock 即使没有 IO 来源也要发射空 IOName 占位
+assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPagePage.xml"), "utf8"), /IOName=""/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), "utf8"), /Index="1"/);
 assert.match(fs.readFileSync(csproj, "utf8"), /F2NewPagePage\.xml|F2NewPageIcons\.xaml/);
 const iconMapAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.icon-map.json"), "utf8"));

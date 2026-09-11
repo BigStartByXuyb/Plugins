@@ -89,7 +89,10 @@ assert.match(buttonTag, /PageName=""/, '无图标按钮缺少空 PageName 占位
 assert.match(buttonTag, /IOVisible=""/, '无图标按钮缺少空 IOVisible 占位');
 assert.match(buttonTag, /IOCommand=""/, '无图标按钮缺少空 IOCommand 占位');
 assert.match(buttonTag, /IOEnable=""/, '无图标按钮缺少空 IOEnable 占位');
-assert.ok(!/IconWidth=|IconHeight=/.test(buttonTag), '无图标按钮不得发射 IconWidth/IconHeight');
+assert.match(buttonTag, /Icon=""/, '无图标按钮必须发射空 Icon 占位');
+assert.match(buttonTag, /IconWidth=""/, '无图标按钮必须发射空 IconWidth 占位');
+assert.match(buttonTag, /IconHeight=""/, '无图标按钮必须发射空 IconHeight 占位');
+assert.match(buttonTag, /TopLeftContent=""/, '无图标按钮必须发射空 TopLeftContent 占位');
 const iconButtonTag = (buttonXml.match(/<IOContorl[^>]*ID="BTN_2"[\s\S]*?\/>/) || [''])[0];
 assert.ok(iconButtonTag, 'fresh 输出必须包含带图标按钮节点');
 assert.match(iconButtonTag, /IconWidth="97"/, 'IconWidth 必须取图标图形节点 bbox 并取整');
@@ -111,6 +114,13 @@ function assertAttrOrder(tag, order, label) {
 const PAGE_ATTR_ORDER = [
   'ID', 'ControlType', 'Style', 'Icon', 'IconText', 'TopLeftContent', 'Value', 'Header', 'LangName',
   'PageName', 'IOName', 'IOCommand', 'IOVisible', 'IOEnable', 'IOParam', 'IOStyle', 'IOState', 'IOGroup',
+  'UserRightId',
+  'IsAutoRead', 'IsAutoWrite', 'IsAutoRefresh', 'IsWriteIO', 'IsSave',
+  'IsShowDialog', 'DialogMessage', 'IsShowStatus', 'IsNeedRedMark', 'StatusBrush',
+  'Foreground', 'FontSize', 'Orientation', 'ItemsSourceFile', 'DisplayMemberPath',
+  'SelectedValuePath', 'Filter', 'DefaultValue', 'MinValue', 'MaxValue', 'MinRange',
+  'MaxRange', 'DecimalPlaces', 'Keypad', 'MaxLength', 'DisableRow', 'DesignPanelID',
+  'ParameterName',
   'Width', 'Height', 'IconWidth', 'IconHeight', 'Left', 'Top'
 ];
 const statusTag = (buttonXml.match(/<IOContorl[^>]*ControlType="StatusButton"[\s\S]*?\/>/) || [''])[0];
@@ -129,6 +139,72 @@ assertAttrOrder(statusTag, PAGE_ATTR_ORDER, 'StatusButton');
 assertAttrOrder(textTag, PAGE_ATTR_ORDER, 'TextBlock');
 assert.match(textTag, /Width="NaN"/, 'TextBlock 的 Width 必须固定为 NaN');
 assert.match(textTag, /Height="40"/, 'TextBlock 的 Height 必须固定为 40');
+
+// ---- 每个 ControlType 的固定必写字段（设计方模板）：缺来源一律写空字符串占位 ----
+assert.match(textTag, /Style=""/, 'TextBlock 必须发射空 Style 占位');
+assert.match(textTag, /IOName=""/, 'TextBlock 必须发射空 IOName 占位');
+assert.match(textTag, /IOEnable=""/, 'TextBlock 必须发射空 IOEnable 占位');
+assert.match(textTag, /IOVisible=""/, 'TextBlock 必须发射空 IOVisible 占位');
+assert.match(textTag, /IsAutoRead=""/, 'TextBlock 必须发射空 IsAutoRead 占位');
+assert.match(textTag, /Foreground=""/, 'TextBlock 必须发射空 Foreground 占位');
+assert.match(iconButtonTag, /Icon="ExitGeometry"/, 'IconButton 的 Icon 必须按映射发射');
+assert.match(iconButtonTag, /TopLeftContent=""/, 'IconButton 必须发射空 TopLeftContent 占位');
+assert.match(iconButtonTag, /IsShowStatus=""/, 'IconButton 必须发射空 IsShowStatus 占位');
+assert.match(iconButtonTag, /IsNeedRedMark=""/, 'IconButton 必须发射空 IsNeedRedMark 占位');
+assert.match(statusTag, /Style=""/, 'StatusButton 必须发射空 Style 占位');
+assert.match(statusTag, /Value=""/, 'StatusButton 必须发射空 Value 占位');
+assert.ok(!/LangName="/.test(statusTag), 'LangName 例外：没有真实语言 key 时不写空占位');
+
+// 其余 ControlType 的必写字段集（设计方模板逐类核对）
+const typedMapping = path.join(dir, 'typed-mapping.json');
+const typedOutput = path.join(dir, 'typed-page.xml');
+fs.writeFileSync(typedMapping, JSON.stringify({
+  rootRef: 'root',
+  sourceNodes: [
+    { ref: 'root', parentRef: null, pageAbsX: 0, pageAbsY: 0, relativeX: 0, relativeY: 0, width: 1280, height: 1024 },
+    { ref: 'num', parentRef: 'root', pageAbsX: 10, pageAbsY: 292, relativeX: 10, relativeY: 292, width: 140, height: 36 },
+    { ref: 'chk', parentRef: 'root', pageAbsX: 200, pageAbsY: 292, relativeX: 200, relativeY: 292, width: 24, height: 24 },
+    { ref: 'rad', parentRef: 'root', pageAbsX: 300, pageAbsY: 292, relativeX: 300, relativeY: 292, width: 24, height: 24 },
+    { ref: 'cmb', parentRef: 'root', pageAbsX: 400, pageAbsY: 292, relativeX: 400, relativeY: 292, width: 170, height: 40 },
+    { ref: 'cam', parentRef: 'root', pageAbsX: 600, pageAbsY: 292, relativeX: 600, relativeY: 292, width: 600, height: 600 },
+    { ref: 'grid', parentRef: 'root', pageAbsX: 10, pageAbsY: 700, relativeX: 10, relativeY: 700, width: 600, height: 200 },
+    { ref: 'box', parentRef: 'root', pageAbsX: 10, pageAbsY: 400, relativeX: 10, relativeY: 400, width: 300, height: 200 },
+    { ref: 'bdr', parentRef: 'root', pageAbsX: 10, pageAbsY: 400, relativeX: 10, relativeY: 400, width: 300, height: 2 }
+  ],
+  textAudit: [],
+  nodes: [
+    { ref: 'num', sourceRef: 'num', sourceParent: 'root', id: 'NUM_1', xmlId: 'NUM_1', controlType: 'NumberBox', absX: 10, absY: 292, w: 140, h: 36, attrs: { Value: '0.3000' } },
+    { ref: 'chk', sourceRef: 'chk', sourceParent: 'root', id: 'CHK_1', xmlId: 'CHK_1', controlType: 'CheckBox', absX: 200, absY: 292, w: 24, h: 24, attrs: {} },
+    { ref: 'rad', sourceRef: 'rad', sourceParent: 'root', id: 'RAD_1', xmlId: 'RAD_1', controlType: 'RadioButton', absX: 300, absY: 292, w: 24, h: 24, attrs: {} },
+    { ref: 'cmb', sourceRef: 'cmb', sourceParent: 'root', id: 'CMB_1', xmlId: 'CMB_1', controlType: 'ComboBox', absX: 400, absY: 292, w: 170, h: 40, attrs: {} },
+    { ref: 'cam', sourceRef: 'cam', sourceParent: 'root', id: 'CAM_1', xmlId: 'CAM_1', controlType: 'Camera', absX: 600, absY: 292, w: 600, h: 600, attrs: {} },
+    { ref: 'grid', sourceRef: 'grid', sourceParent: 'root', id: 'GRD_1', xmlId: 'GRD_1', controlType: 'DataGrid', absX: 10, absY: 700, w: 600, h: 200, attrs: {} },
+    { ref: 'box', sourceRef: 'box', sourceParent: 'root', id: 'BOX_1', xmlId: 'BOX_1', controlType: 'GroupBox', absX: 10, absY: 400, w: 300, h: 200, attrs: {} },
+    { ref: 'bdr', sourceRef: 'bdr', sourceParent: 'root', id: 'BDR_1', xmlId: 'BDR_1', controlType: 'Border', absX: 10, absY: 400, w: 300, h: 2, attrs: {} }
+  ]
+}, null, 2));
+const typedRun = spawnSync(process.execPath, [path.join(__dirname, 'gen-iocontrol-xml.js'), '--fresh', typedMapping, '--out', typedOutput], { encoding: 'utf8' });
+assert.strictEqual(typedRun.status, 0, '各 ControlType 必写字段映射必须能正常渲染: ' + typedRun.stderr);
+const typedXml = fs.readFileSync(typedOutput, 'utf8');
+function tagOf(xml, id) { return (xml.match(new RegExp('<IOContorl[^>]*ID="' + id + '"[\\s\\S]*?/>')) || [''])[0]; }
+const REQUIRED_BY_TYPE = {
+  NUM_1: ['Value="0.3000"', 'MinValue=""', 'MaxValue=""', 'DefaultValue=""', 'DecimalPlaces=""', 'IsWriteIO=""', 'Keypad=""', 'IsAutoRead=""', 'IOEnable=""', 'IOVisible=""'],
+  CHK_1: ['Value=""', 'IOName=""', 'DefaultValue=""', 'IsWriteIO=""', 'IOEnable=""', 'IOVisible=""'],
+  RAD_1: ['Style=""', 'Value=""', 'IOName=""', 'IOState=""', 'IsAutoRefresh=""', 'IOEnable=""', 'IOVisible=""'],
+  CMB_1: ['Style=""', 'Value=""', 'IOName=""', 'ItemsSourceFile=""', 'DisplayMemberPath=""', 'SelectedValuePath=""', 'IsAutoRead=""', 'IsAutoWrite=""', 'IsWriteIO=""', 'IOCommand=""', 'IOEnable=""', 'IOVisible=""'],
+  CAM_1: ['DesignPanelID=""', 'Value=""', 'IOName=""'],
+  GRD_1: ['Value=""', 'IOName=""', 'IOEnable=""', 'IOVisible=""'],
+  BOX_1: ['Style=""', 'Header=""', 'IOEnable=""', 'IOVisible=""'],
+  BDR_1: ['Style=""', 'Value=""', 'IOEnable=""', 'IOVisible=""']
+};
+for (const [id, expected] of Object.entries(REQUIRED_BY_TYPE)) {
+  const tag = tagOf(typedXml, id);
+  assert.ok(tag, '输出必须包含节点 ' + id);
+  for (const attr of expected) {
+    assert.ok(tag.includes(attr), id + ' 缺少必写字段 ' + attr + '：' + tag.replace(/\s+/g, ' '));
+  }
+  assertAttrOrder(tag, PAGE_ATTR_ORDER, id);
+}
 
 // 门禁：按钮带 Icon 却没有 iconSize 必须直接失败
 const badMapping = path.join(dir, 'button-missing-iconsize.json');
@@ -209,6 +285,11 @@ fs.writeFileSync(mapPath, JSON.stringify({
     controlTypes: ['IconButton', 'Button'],
     alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand', 'IOParam'],
     iconSizeAttrs: ['IconWidth', 'IconHeight']
+  },
+  controlTypeRequiredAttrs: {
+    // 只登记需要的类型：表里没有的类型不发射固定字段（改表即改产物）
+    IconButton: ['PageName', 'IOVisible', 'IOCommand', 'IOParam', 'Icon', 'IconWidth', 'IconHeight', 'Value'],
+    Button: ['PageName', 'IOVisible', 'IOCommand', 'IOParam', 'Value']
   }
 }, null, 2));
 const mapRun = spawnSync(process.execPath, [path.join(__dirname, 'gen-iocontrol-xml.js'),
