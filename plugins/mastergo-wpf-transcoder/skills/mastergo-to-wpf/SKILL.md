@@ -123,7 +123,6 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 "languages": {
   "auto": true,
   "locales": ["CN", "EN"],
-  "keyCatalog": ["Resources/Files/Language/MaxWellClient_CN.xaml", "Resources/Files/Language/MaxWellClient_EN.xaml"],
   "translations": "Generated/Home.lang-translations.json",
   "bindByText": true,
   "requireLangName": true,
@@ -132,6 +131,16 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 }
 ```
 
+**页面语言字典默认自包含**：每个页面的 key 全部由本页机械派生（页面标题 / MenuItem / 页面内容），不读、不复制、不引用目标项目的框架语言字典。因此默认 manifest **不要**写 `keyCatalog`。
+
+`keyCatalog` 是**可选的复用开关**，只有显式配置时才会去读目标项目已登记语言文件（同文案的既有 key 直接复用）。开启前必须确认这三件事，否则默认关闭：
+
+1. 复用的键会把目标字典里的文案**复制进本页字典**，运行时会遮蔽框架字典里的同名键；
+2. 目标字典里的既有译文（含笔误）会被原样带进页面，页面不再只反映设计稿；
+3. 复用键通常不带页面名前缀，与“一页一套自包含字典”的约定并存时需要额外说明。
+
+只有确实需要跨页面/框架共用同一句文案、并接受上述代价时，才配置 `keyCatalog`（可写顶层 `keyCatalog` 或 `languages.keyCatalog`）；`MaxwellFramework_*` 这类框架级字典默认不纳入复用范围。
+
 ### 语言键自动派生（新建页面默认路径）
 
 `languages.auto=true` 时，Bundle 在 XML/Layout 生成前调用 `gen-mtslg-lang-keys-from-dsl.js`，从当前页 DSL/mapping/Layout 菜单项**机械派生** LanguageKey，不再要求调用方逐条登记。派生规则固定、可复现：
@@ -139,7 +148,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 1. 页面标题 → `{页面名}PageTitle`，文案取 `textAudit` 的 `page-title`，没有则取 DSL 根节点名。
 2. Layout 菜单项 → `MenuItem{名称}`，语义名优先取菜单 `Icon` 资源名去掉 `Geometry` 后缀。
 3. 页面内容节点（`valueSource=dsl.text`）→ `{页面名}{名称}`，语义名按以下优先级回退：
-   1. 目标项目已登记语言字典里**同文案**的既有 key（`keyCatalog` 指向的 CN/EN 文件）→ 直接复用并记为 `scope=shared`；`MenuItem*` 命名空间的键不给页面内容节点复用。
+   1. （**仅当显式配置 `keyCatalog` 时**）目标项目已登记语言字典里**同文案**的既有 key → 直接复用并记为 `scope=shared`；`MenuItem*` 命名空间的键不给页面内容节点复用。默认不配置，页面 key 全部页面内自产。
    2. 节点 `Icon` 资源名去掉 `Geometry` 后缀（IconButton / 带图标按钮天然带英文语义名）。
    3. `langGlossary` 术语表（`{ "中文文案": "EnglishIdentifier" }`，可内联或给 JSON 文件路径）。
    4. 纯 ASCII 文案（`AUX.` → `AUX`）。
