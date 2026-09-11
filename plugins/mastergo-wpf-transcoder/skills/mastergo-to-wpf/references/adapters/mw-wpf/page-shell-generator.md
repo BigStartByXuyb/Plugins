@@ -50,7 +50,15 @@ public class <Page>ViewModel : IOScreen, IPage
     {
         if (message.IsMouseDown)
         {
-            switch (message.ButtonName) { }
+            switch (message.ButtonName)
+            {
+                case "新建示教":                                  // 本页底部 Layout Menu 的每个 MenuItem
+                    // TODO: 新建示教 按钮处理
+                    break;
+                case "对焦":
+                    // TODO: 对焦 按钮处理
+                    break;
+            }
         }
     }
 
@@ -58,7 +66,15 @@ public class <Page>ViewModel : IOScreen, IPage
 }
 ```
 
-依据（框架事实，不可猜测）：`ButtonEvent` = `MaxwellFramework.Core.Events.ButtonEvent`；`IOScreen` 上 `OnViewLoaded` 为 `protected virtual`、`HandleButtonEvent(ButtonEvent)` 为 `public virtual`，因此这两个成员必须用 `override`。`OKCmd` 为页面确认按钮命令，如某页确认无此按钮，可在生成后由工程师删除。
+依据（框架事实，不可猜测）：`ButtonEvent` = `MaxwellFramework.Core.Events.ButtonEvent`（ctor `ButtonEvent(bool isMouseDown, string buttonName)`，属性 `IsMouseDown` / `ButtonName`）；`IOScreen` 上 `OnViewLoaded` 为 `protected virtual`、`HandleButtonEvent(ButtonEvent)` 为 `public virtual`，因此这两个成员必须用 `override`。`OKCmd` 为页面确认按钮命令，如某页确认无此按钮，可在生成后由工程师删除。
+
+### switch case 的来源
+
+`switch (message.ButtonName)` 的 `case` **按本页底部按钮逐个生成**（每个 `case` 带一行 `// TODO: <按钮名> 按钮处理` 与 `break;`，业务由工程师填）：
+
+- 来源：清单里的 `menuItems`（Bundle 传的就是本页 Layout Menu 的 MenuItem 列表），取每项 `name`；也可用 `buttonNames: ["…"]` 直接给出。
+- 规则：按菜单顺序生成；重复名称只生成一次；**空名称的菜单项不生成 case**（Layout 里 `Name=""` 的占位项没有可用按钮名）。
+- 生成器不推断按钮语义，也不写业务逻辑。
 
 ## 执行
 

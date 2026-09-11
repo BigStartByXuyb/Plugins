@@ -228,6 +228,7 @@ function loadManifest(manifestPath) {
     pageName, viewName, viewModelName, xmlPageName, iconPath, pageXmlPath,
     langPaths,
     viewRelative, codeBehindRelative, viewModelRelative,
+    buttonNames: normalizeButtonNames(manifest),
     designWidth: manifest.designWidth || 1280, designHeight: manifest.designHeight || 1024,
     files
   };
@@ -273,7 +274,15 @@ function renderCodeBehind(config) {
 
 function renderViewModel(config) {
   const ns = config.rootNamespace + "." + config.namespaceArea + ".ViewModel";
-  return [
+  // switch (message.ButtonName) 的 case：本页底部（Layout Menu）全部按钮名，
+  // 逐个生成 case 骨架供工程师填业务；空名称按钮不生成 case。
+  const caseLines = [];
+  (config.buttonNames || []).forEach(function (name) {
+    caseLines.push("                case \"" + csString(name) + "\":");
+    caseLines.push("                    // TODO: " + name + " 按钮处理");
+    caseLines.push("                    break;");
+  });
+  const head = [
     "using MaxWell.UIDesign;",
     "using MaxwellFramework.Core.Events;",
     "using MaxwellFramework.Core.Interfaces;",
@@ -292,12 +301,32 @@ function renderViewModel(config) {
     "        /// <param name=\"message\"></param>",
     "        public override void HandleButtonEvent(ButtonEvent message)", "        {",
     "            if (message.IsMouseDown)", "            {",
-    "                switch (message.ButtonName)", "                {",
+    "                switch (message.ButtonName)", "                {"
+  ];
+  const tail = [
     "                }", "            }", "        }", "",
     "        /// <summary>", "        /// 确认按钮", "        /// </summary>",
     "        public void OKCmd()", "        {",
     "            pageDesign.SaveXml();", "        }", "    }", "}", ""
-  ].join("\n");
+  ];
+  return head.concat(caseLines).concat(tail).join("\n");
+}
+
+// C# 字符串字面量转义（按钮名可能含引号/反斜杠）。
+function csString(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+}
+
+// 底部按钮名列表：优先 manifest.buttonNames；否则从 manifest.menuItems[].name 派生；去重、跳过空名。
+function normalizeButtonNames(manifest) {
+  const list = [];
+  const push = function (value) {
+    const name = String(value === undefined || value === null ? "" : value).trim();
+    if (name && list.indexOf(name) === -1) list.push(name);
+  };
+  if (Array.isArray(manifest.buttonNames)) manifest.buttonNames.forEach(push);
+  if (Array.isArray(manifest.menuItems)) manifest.menuItems.forEach(function (item) { if (item) push(item.name); });
+  return list;
 }
 
 function itemBlock(kind, include) {

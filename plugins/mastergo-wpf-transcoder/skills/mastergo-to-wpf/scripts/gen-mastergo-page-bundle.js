@@ -1078,7 +1078,9 @@ function main() {
       viewPath: hostPaths.view,
       codeBehindPath: hostPaths.codeBehind,
       viewModelPath: hostPaths.viewModel,
-      langPaths
+      langPaths,
+      // 底部按钮名（Layout Menu 的 MenuItem）→ ViewModel 里 switch (message.ButtonName) 的 case 骨架
+      menuItems: Array.isArray(manifest.menuItems) ? manifest.menuItems : []
     };
     fs.writeFileSync(hostManifest, JSON.stringify(host, null, 2), "utf8");
     run(HOST_SCRIPT, ["--manifest", hostManifest].concat(args.overwrite ? ["--overwrite"] : []));

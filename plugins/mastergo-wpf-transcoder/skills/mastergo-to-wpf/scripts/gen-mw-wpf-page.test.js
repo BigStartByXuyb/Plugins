@@ -23,7 +23,13 @@ fs.writeFileSync(manifestPath, JSON.stringify({
   viewModelPath: 'UI/F2-Teach/ViewModel/F2NewOperationViewModel.cs',
   includeIcon: true,
   iconPath: 'Resources/Pages/F2NewOperation/F2NewOperationIcons.xaml',
-  pageXmlPath: 'Resources/Pages/F2NewOperation/F2NewOperationPage.xml'
+  pageXmlPath: 'Resources/Pages/F2NewOperation/F2NewOperationPage.xml',
+  // 底部按钮 → ViewModel 里 switch (message.ButtonName) 的 case 骨架（空名称不生成 case）
+  menuItems: [
+    { name: '新建示教', index: 1 },
+    { name: '', index: 2 },
+    { name: '对焦', index: 10 }
+  ]
 }, null, 2), 'utf8');
 
 let result = spawnSync(process.execPath, [script, '--manifest', manifestPath], { encoding: 'utf8' });
@@ -54,6 +60,10 @@ assert.match(generatedViewModel, /public override void HandleButtonEvent\(Button
 assert.match(generatedViewModel, /if \(message\.IsMouseDown\)/);
 assert.match(generatedViewModel, /switch \(message\.ButtonName\)/);
 assert.match(generatedViewModel, /public void OKCmd\(\)\s*\{\s*pageDesign\.SaveXml\(\);\s*\}/);
+// switch 的 case 必须是本页底部（Layout Menu）全部按钮名；空名称按钮不生成 case。
+assert.match(generatedViewModel, /case "新建示教":/);
+assert.match(generatedViewModel, /case "对焦":/);
+assert.ok(!/case "":/.test(generatedViewModel), '空名称菜单项不得生成 case');
 
 let csproj = fs.readFileSync(csprojPath, 'utf8');
 assert.match(csproj, /<Compile Include="UI\\F2-Teach\\View\\F2NewOperationView\.xaml\.cs"\s*\/>/);

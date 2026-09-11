@@ -178,6 +178,9 @@ assert.match(fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), 
 // 译文/术语表是页面级产物：本场景没有提供译文与术语表输入，因此不应凭空生成这两个文件。
 assert.ok(!fs.existsSync(path.join(project, "Generated/F2NewPage.lang-translations.json")));
 assert.ok(!fs.existsSync(path.join(project, "Generated/F2NewPage.lang-glossary.json")));
+// ViewModel 的 switch (message.ButtonName) 必须包含本页底部菜单项（Layout MenuItem）
+const hostViewModel = fs.readFileSync(path.join(project, "UI/F2-Teach/ViewModel/F2NewPageViewModel.cs"), "utf8");
+assert.match(hostViewModel, /case "操作":/, "ViewModel 必须按底部菜单项生成 case 骨架");
 
 const emptyIconMap = path.join(root, "empty-icon-map.json");
 fs.writeFileSync(emptyIconMap, JSON.stringify({ icons: [] }, null, 2), "utf8");
