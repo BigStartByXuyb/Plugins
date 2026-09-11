@@ -165,6 +165,9 @@ assert.deepStrictEqual(bundleAudit.layout, {
   evidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
   menuItemCount: 1
 });
+// 未提供 languages 时不再静默：审计里必须留下“不会挂 LangName”的明确原因。
+assert.strictEqual(bundleAudit.languages, null);
+assert.match(bundleAudit.languageWarning, /未提供 languages/);
 
 const emptyIconMap = path.join(root, "empty-icon-map.json");
 fs.writeFileSync(emptyIconMap, JSON.stringify({ icons: [] }, null, 2), "utf8");
@@ -454,5 +457,62 @@ const exemptXml = fs.readFileSync(path.join(project, "Resources/Pages/LangExempt
 const exemptBlocks = exemptXml.split("<IOContorl").slice(1).filter((block) => /Value="9\.0%"/.test(block));
 assert.strictEqual(exemptBlocks.length, 1);
 assert.doesNotMatch(exemptBlocks[0], /LangName="/, "被豁免的动态值节点不应挂 LangName");
+
+// 自动产键：languages.auto=true 时语言键由 DSL/mapping 机械派生，
+// 每个带文案的控件（含 IconButton）都必须自动挂上 LangName，不需要人工登记 key。
+const autoCatalog = path.join(root, "AutoClient_CN.xaml");
+fs.writeFileSync(autoCatalog, [
+  '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"',
+  '                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+  '                    xmlns:sys="clr-namespace:System;assembly=mscorlib">',
+  '    <sys:String x:Key="CommonDir">Dir</sys:String>',
+  "</ResourceDictionary>",
+  ""
+].join("\n"), "utf8");
+const autoManifest = langManifestFor("LangAuto", {
+  auto: true,
+  locales: ["CN", "EN"],
+  keyCatalog: autoCatalog
+});
+const autoManifestPath = path.join(root, "lang-auto.json");
+fs.writeFileSync(autoManifestPath, JSON.stringify(autoManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", autoManifestPath], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+const autoDir = path.join(project, "Resources", "Pages", "LangAuto");
+assert.deepStrictEqual(fs.readdirSync(autoDir).sort(),
+  ["LangAutoIcons.xaml", "LangAutoPage.xml", "LangAuto_CN.xaml", "LangAuto_EN.xaml"]);
+const autoCn = fs.readFileSync(path.join(autoDir, "LangAuto_CN.xaml"), "utf8");
+const autoEn = fs.readFileSync(path.join(autoDir, "LangAuto_EN.xaml"), "utf8");
+assert.deepStrictEqual(readLangKeys(autoCn), readLangKeys(autoEn), "CN/EN 的 key 必须完全一致");
+assert.match(autoCn, /<sys:String x:Key="LangAutoPageTitle">/, "页面标题键必须机械生成");
+assert.doesNotMatch(autoCn, /LangAutoPlus5/,
+  "数字/符号文案（+5）中英文一致，不生成语言键");
+assert.match(autoCn, /<sys:String x:Key="CommonDir">Dir<\/sys:String>/,
+  "必须复用目标项目已登记的语言键");
+const autoXml = fs.readFileSync(path.join(autoDir, "LangAutoPage.xml"), "utf8");
+const autoBlocks = autoXml.split("<IOContorl").slice(1).filter((block) => /Value="/.test(block));
+assert.ok(autoBlocks.length >= 5, "自动产键示例页应包含多个带文案的控件");
+const autoBlocksWithoutLang = autoBlocks.filter((block) => !/LangName="/.test(block));
+assert.ok(autoBlocksWithoutLang.length >= 4, "步骤按钮等数字/符号文案不挂 LangName");
+autoBlocksWithoutLang.forEach((block) => {
+  const value = /Value="([^"]*)"/.exec(block)[1];
+  assert.ok(!/[\u4e00-\u9fa5]/.test(value),
+    "没有 LangName 的必须是中英文一致的数字/符号文本，实际: " + value);
+});
+assert.match(autoXml, /LangName="CommonDir"/, "复用已登记键的节点必须挂上该 key");
+const autoLangLayout = fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), "utf8");
+assert.match(autoLangLayout, /<Page Target="LangAuto" LangName="LangAutoPageTitle">/);
+assert.match(autoLangLayout, /LangName="MenuItemAction"/,
+  "Layout 菜单项也必须引用自动派生的 MenuItem key");
+const autoAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/LangAuto.bundle.manifest.json"), "utf8"));
+assert.strictEqual(autoAudit.languages.auto, true);
+assert.strictEqual(autoAudit.languageWarning, null);
+assert.ok(autoAudit.languages.keyCount >= 3, "应派生标题/菜单/内容三类键");
+assert.ok(autoAudit.languages.derivation.pendingTranslations.length > 0,
+  "缺真实英文的键必须在审计里标记待翻译");
+assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text === "9.0%"),
+  "动态值必须自动进入 noLangRefs 并记录原因");
+assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text === "+5"),
+  "数字/符号文案必须自动进入 noLangRefs");
 
 console.log("PASS MasterGo page bundle regression test");

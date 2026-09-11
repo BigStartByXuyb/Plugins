@@ -21,6 +21,8 @@ const TEMPLATE_RESOLVER_SCRIPT = path.join(SCRIPT_DIR, "resolve-mtslg-template-m
 const ICON_DISCOVERY_SCRIPT = path.join(SCRIPT_DIR, "discover-mtslg-page-icon-map.js");
 const LANG_SCRIPT = path.join(SCRIPT_DIR, "gen-mtslg-page-lang.js");
 const LANG = require("./gen-mtslg-page-lang");
+const LANG_KEYS_SCRIPT = path.join(SCRIPT_DIR, "gen-mtslg-lang-keys-from-dsl.js");
+const LANG_KEYS = require("./gen-mtslg-lang-keys-from-dsl");
 const DEFAULT_TEMPLATE_MAP = path.resolve(SCRIPT_DIR, "..", "references", "adapters", "mtslg-iocontrol", "mtslg-iocontrol-map.json");
 const NEW_PAGE_MAPPING_TAG = "新页面完整DSL映射";
 
@@ -419,6 +421,82 @@ function validateResidentGroupEvidence(mapping, manifest) {
 
 // 多语言绑定：语言清单是 LanguageKey 的唯一真值源，控件与菜单只“引用”它，不另写一份 key。
 // 引用方式：sourceRef（页面节点）、menuIndex（Layout MenuItem）、role=page-title（页面标题键）。
+// 目标项目已登记语言字典：CN 文件建索引，同目录 EN 文件提供真实英文文案。
+function resolveLangCatalogs(manifestDir, projectRoot, manifest) {
+  // 语言字典既可以写在顶层 keyCatalog（与扫描器审计字段一致），也可以写在 languages.keyCatalog。
+  const raw = [manifest.keyCatalog, manifest.languages && manifest.languages.keyCatalog];
+  const items = [];
+  for (const value of raw) {
+    if (!value) continue;
+    for (const item of (Array.isArray(value) ? value : [value])) {
+      if (typeof item === "string" && item.trim() && items.indexOf(item) === -1) items.push(item);
+    }
+  }
+  if (items.length === 0) return [];
+  const cnTexts = [];
+  let enText = "";
+  for (const item of items) {
+    if (typeof item !== "string" || !item.trim()) continue;
+    const file = resolveInput(manifestDir, projectRoot, item, "keyCatalog");
+    if (!fs.existsSync(file)) fail("keyCatalog 文件不存在: " + file);
+    const text = fs.readFileSync(file, "utf8");
+    if (/_EN\.xaml$/i.test(file)) {
+      if (!enText) enText = text;
+    } else {
+      cnTexts.push(text);
+    }
+  }
+  return cnTexts.map(function (cn) { return { cn, en: enText }; });
+}
+
+function resolveLangGlossary(manifestDir, projectRoot, manifest) {
+  const value = manifest.langGlossary;
+  if (!value) return {};
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+  if (typeof value !== "string") fail("langGlossary 必须是术语表对象或 JSON 文件路径");
+  const file = resolveInput(manifestDir, projectRoot, value, "langGlossary");
+  if (!fs.existsSync(file)) fail("langGlossary 文件不存在: " + file);
+  return readJson(file);
+}
+
+// 自动产键与显式登记项合并：显式项按 key / sourceRef / menuIndex 覆盖机械派生结果。
+function mergeAutoLangKeys(derived, explicit) {
+  const spec = Object.assign({}, derived);
+  const explicitKeys = explicit && Array.isArray(explicit.keys) ? explicit.keys : [];
+  const noLangRefs = Array.isArray(spec.noLangRefs) ? spec.noLangRefs.slice() : [];
+  if (explicit && Array.isArray(explicit.noLangRefs)) {
+    for (const ref of explicit.noLangRefs) {
+      if (noLangRefs.indexOf(ref) === -1) noLangRefs.push(ref);
+    }
+  }
+  spec.noLangRefs = noLangRefs;
+  if (explicitKeys.length === 0) return spec;
+  const explicitKeyNames = new Set();
+  const explicitRefs = new Set();
+  const explicitMenus = new Set();
+  for (const entry of explicitKeys) {
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.key === "string" && entry.key) explicitKeyNames.add(entry.key);
+    if (typeof entry.sourceRef === "string" && entry.sourceRef) explicitRefs.add(entry.sourceRef);
+    if (Array.isArray(entry.sourceRefs)) {
+      entry.sourceRefs.forEach(function (ref) {
+        if (typeof ref === "string" && ref) explicitRefs.add(ref);
+      });
+    }
+    if (entry.menuIndex !== undefined && entry.menuIndex !== null) explicitMenus.add(Number(entry.menuIndex));
+  }
+  const kept = spec.keys.filter(function (entry) {
+    if (explicitKeyNames.has(entry.key)) return false;
+    if (entry.sourceRef && explicitRefs.has(entry.sourceRef)) return false;
+    if (Array.isArray(entry.sourceRefs) &&
+        entry.sourceRefs.some(function (ref) { return explicitRefs.has(ref); })) return false;
+    if (entry.menuIndex !== undefined && explicitMenus.has(Number(entry.menuIndex))) return false;
+    return true;
+  });
+  spec.keys = kept.concat(explicitKeys);
+  return spec;
+}
+
 function applyLangBindings(mapping, manifest, langSpec) {
   const applied = [];
   const problems = [];
@@ -453,18 +531,26 @@ function applyLangBindings(mapping, manifest, langSpec) {
     }
   }
   for (const entry of langSpec.keys) {
-    if (entry.sourceRef) {
-      const node = nodes.find(function (n) { return (n.sourceRef || n.ref) === entry.sourceRef; });
+    // 一个 key 可以绑定多个节点：sourceRef 单数用于普通节点，sourceRefs 用于同文案多节点复用同一 key。
+    const boundRefs = [];
+    if (entry.sourceRef) boundRefs.push(entry.sourceRef);
+    if (Array.isArray(entry.sourceRefs)) {
+      for (const ref of entry.sourceRefs) {
+        if (boundRefs.indexOf(ref) === -1) boundRefs.push(ref);
+      }
+    }
+    for (const ref of boundRefs) {
+      const node = nodes.find(function (n) { return (n.sourceRef || n.ref) === ref; });
       if (!node) {
-        problems.push("LanguageKey " + entry.key + " 的 sourceRef 未命中页面节点：" + entry.sourceRef);
+        problems.push("LanguageKey " + entry.key + " 的 sourceRef 未命中页面节点：" + ref);
       } else {
         const current = node.attrs && node.attrs.LangName;
         if (typeof current === "string" && current !== "" && current !== entry.key) {
-          problems.push("节点 " + entry.sourceRef + " 已有 LangName=\"" + current +
+          problems.push("节点 " + ref + " 已有 LangName=\"" + current +
             "\"，与语言清单 \"" + entry.key + "\" 冲突");
         } else {
           node.attrs = Object.assign({}, node.attrs, { LangName: entry.key });
-          applied.push(entry.key + " -> 节点 " + entry.sourceRef);
+          applied.push(entry.key + " -> 节点 " + ref);
         }
       }
     }
@@ -764,10 +850,20 @@ function main() {
   const manifestDir = path.dirname(manifestFile);
   const manifest = normalizePageManifest(readJson(manifestFile));
   // 多语言是可选能力：只在 manifest 提供 languages 时生成 CN/EN 字典并强制 LangName 引用闭环。
-  const langSpec = manifest.languages === undefined || manifest.languages === null
-    ? null
-    : LANG.normalizeSpec(manifest.languages, manifest.name);
-  const langPaths = langSpec ? pageLangPaths(manifest.name, langSpec.locales) : [];
+  // languages.auto=true 时，LanguageKey 在读到 resolved mapping 后由 DSL 机械派生，
+  // 不再要求调用方逐条登记键；显式提供的 keys 仍然优先。
+  const autoLang = Boolean(manifest.languages) && typeof manifest.languages === "object"
+    && !Array.isArray(manifest.languages) && manifest.languages.auto === true;
+  let langSpec = null;
+  let autoLangReport = null;
+  let langLocales = [];
+  if (autoLang) {
+    langLocales = LANG_KEYS.localesFrom(manifest.languages.locales);
+  } else if (manifest.languages !== undefined && manifest.languages !== null) {
+    langSpec = LANG.normalizeSpec(manifest.languages, manifest.name);
+    langLocales = langSpec.locales;
+  }
+  const langPaths = langLocales.length > 0 ? pageLangPaths(manifest.name, langLocales) : [];
   // 明确隔离的组件实例（正式模板与设计结构不匹配时只隔离该组件，其余照常生成）。
   const excludeInstances = Array.isArray(manifest.excludeInstances)
     ? manifest.excludeInstances.map(String)
@@ -865,6 +961,25 @@ function main() {
       ? 192 : Number(mapping.contentOriginY);
     if (contentOriginY !== 192) {
       fail("contentOriginY 必须固定为 192");
+    }
+    // 自动产键：从当前页 DSL/mapping/Layout 菜单项机械派生 LanguageKey，显式登记项优先。
+    if (autoLang) {
+      const langDsl = manifest.dslPath
+        ? readJson(resolveInput(manifestDir, projectRoot, manifest.dslPath, "dslPath"))
+        : null;
+      const derived = LANG_KEYS.deriveLangSpec({
+        pageName: manifest.name,
+        mapping,
+        dsl: langDsl,
+        menuItems: Array.isArray(manifest.menuItems) ? manifest.menuItems : [],
+        keyCatalog: LANG_KEYS.buildKeyCatalog(resolveLangCatalogs(manifestDir, projectRoot, manifest)),
+        glossary: resolveLangGlossary(manifestDir, projectRoot, manifest),
+        titleText: manifest.pageTitleText,
+        locales: langLocales
+      });
+      manifest.languages = mergeAutoLangKeys(derived.languages, manifest.languages);
+      autoLangReport = derived.report;
+      langSpec = LANG.normalizeSpec(manifest.languages, manifest.name);
     }
     // 多语言绑定必须发生在 XML/Layout 生成之前：LangName 是页面节点与 MenuItem 的业务属性。
     if (langSpec) {
@@ -997,11 +1112,18 @@ function main() {
       pageTarget: manifest.pageTarget,
       mappingTag: mapping.mappingTag || null,
       languages: langSpec ? {
+        auto: autoLang,
         locales: langSpec.locales,
         keyCount: langSpec.keys.length,
         paths: langPaths,
-        bindings: langBindings
+        bindings: langBindings,
+        derivation: autoLangReport
       } : null,
+      // 多语言是可选项，但“静默跳过”会让页面变成没有 LangName 的空壳：
+      // 未提供 languages 时明确记录原因，便于交付时发现。
+      languageWarning: langSpec
+        ? null
+        : "manifest 未提供 languages：本次未生成语言字典，页面不会挂 LangName（多语言页面请设置 languages.auto=true）",
       excludedInstances: excludeInstances,
       layout: {
         status: manifest.layoutStatus,
@@ -1013,6 +1135,17 @@ function main() {
       adapter: "mtslg-iocontrol",
       hostShell: "maxwell-wpf",
       projectMode: scaffoldInfo.scaffold ? "scaffold" : "target-project",
+      languages: langSpec ? {
+        auto: autoLang,
+        locales: langSpec.locales,
+        keyCount: langSpec.keys.length,
+        provisionalKeys: autoLangReport ? autoLangReport.provisionalKeys.length : 0,
+        pendingTranslations: autoLangReport ? autoLangReport.pendingTranslations.length : 0,
+        autoNoLangRefs: autoLangReport ? autoLangReport.autoNoLangRefs.length : 0
+      } : null,
+      languageWarning: langSpec
+        ? null
+        : "manifest 未提供 languages：本次未生成语言字典，页面不会挂 LangName（多语言页面请设置 languages.auto=true）",
       generated: bundleGeneratedPaths(bundleInfo),
       backups
     }, null, 2));

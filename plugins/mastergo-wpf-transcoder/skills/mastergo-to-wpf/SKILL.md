@@ -117,7 +117,42 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 
 ## 页面多语言文件（当前 MTSLG 路线）
 
-每个页面一套语言字典，落在该页自己的目录：`Resources/Pages/{name}/{name}_{LOCALE}.xaml`（默认 `CN`、`EN`，与页面 XML、页面 Icon 同目录）。由 `gen-mtslg-page-lang.js` 发射，Bundle 通过 manifest 的 `languages` 字段驱动；未提供 `languages` 时行为与以前一致（不生成字典，也不启用下面的引用门禁）。
+每个页面一套语言字典，落在该页自己的目录：`Resources/Pages/{name}/{name}_{LOCALE}.xaml`（默认 `CN`、`EN`，与页面 XML、页面 Icon 同目录）。由 `gen-mtslg-page-lang.js` 发射，Bundle 通过 manifest 的 `languages` 字段驱动；**新建页面必须开启语言键自动派生**（见下节），未提供 `languages` 时 Bundle 不生成字典、不启用引用门禁，并在审计 `languageWarning` 中明确记录“页面不会挂 LangName”，不得当作已完成多语言的页面交付。
+
+```json
+"languages": {
+  "auto": true,
+  "locales": ["CN", "EN"],
+  "keyCatalog": ["Resources/Files/Language/MaxWellClient_CN.xaml", "Resources/Files/Language/MaxWellClient_EN.xaml"],
+  "bindByText": true,
+  "requireLangName": true,
+  "noLangRefs": ["1:42"],
+  "keys": []
+}
+```
+
+### 语言键自动派生（新建页面默认路径）
+
+`languages.auto=true` 时，Bundle 在 XML/Layout 生成前调用 `gen-mtslg-lang-keys-from-dsl.js`，从当前页 DSL/mapping/Layout 菜单项**机械派生** LanguageKey，不再要求调用方逐条登记。派生规则固定、可复现：
+
+1. 页面标题 → `{页面名}PageTitle`，文案取 `textAudit` 的 `page-title`，没有则取 DSL 根节点名。
+2. Layout 菜单项 → `MenuItem{名称}`，语义名优先取菜单 `Icon` 资源名去掉 `Geometry` 后缀。
+3. 页面内容节点（`valueSource=dsl.text`）→ `{页面名}{名称}`，语义名按以下优先级回退：
+   1. 目标项目已登记语言字典里**同文案**的既有 key（`keyCatalog` 指向的 CN/EN 文件）→ 直接复用并记为 `scope=shared`；`MenuItem*` 命名空间的键不给页面内容节点复用。
+   2. 节点 `Icon` 资源名去掉 `Geometry` 后缀（IconButton / 带图标按钮天然带英文语义名）。
+   3. `langGlossary` 术语表（`{ "中文文案": "EnglishIdentifier" }`，可内联或给 JSON 文件路径）。
+   4. 纯 ASCII 文案（`AUX.` → `AUX`）。
+   5. DSL 图层英文名（过滤 `Dir`/`F1`/`CH1` 之类的结构噪音）。
+   6. 兜底 `{页面名}Text{NN}`：页面内唯一、稳定，标记 `provisional`，必须列入待改名清单。
+4. 名称冲突由生成器按稳定数字后缀处理（`HomeStart`、`HomeStart2`），不静默覆盖。
+5. **中英文一致的文本不编造语言键**：不含中文且不含英文字母的文本 —— 纯数字、符号、正负步进标签（`+5`/`-1`/`±0.5`）、百分比、版本号、序列号、IP、日期时间、功能键 `F1` —— 在 CN 与 EN 里写法完全相同，一律自动进入 `noLangRefs`，并在审计里逐条给出豁免原因；这类节点只写 `Value`，不挂 `LangName`。例外：Layout `MenuItem` 必须挂 `LangName`，菜单名仍会派生 key。
+
+自动派生结果的交付要求：
+
+- **英文（及其它语言）文案默认用中文占位**（`EN = CN`），逐条记入 `languages.derivation.pendingTranslations`；目标项目字典里已有该 key 的真实英文时直接采用，不再标待翻译。占位翻译属于显式占位，不是机器翻译，交付说明必须单列“待翻译清单”。
+- `provisionalKeys`（临时键）与 `autoNoLangRefs`（自动豁免）必须在交付说明里列全，供工程师改名与确认；不得因为门禁通过就隐去。
+- `languages.keys[]` 显式提供的条目优先级最高：按 `key`、`sourceRef`/`sourceRefs`、`menuIndex` 覆盖机械派生结果。
+- 需要人工指定语义名时，优先补 `langGlossary`（文案级复用）或显式 `keys[]`，不要靠改生成器。
 
 ```json
 "languages": {
@@ -143,9 +178,10 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 - **新生成页面必须挂全 `LangName`**（`requireLangName` 默认 `true`）：设计稿里有文案的控件（`valueSource=dsl.text` 的节点）和带 `Name` 的 `MenuItem` 都必须引用到一个已登记的 key，否则整套生成失败并回滚。错误信息会逐条列出缺 key 的节点/菜单项。
 - **按文案自动匹配**（`bindByText` 默认 `true`）：设计稿是中文，LanguageKey 的 `CN` 文案与控件设计文本**逐字相等**时自动绑定并写入 `LangName`，不需要为每个按钮手写 `sourceRef`。同一文案对应多个 key 属于歧义，脚本不猜，直接失败并要求用 `sourceRef` 显式指定。
 - 显式引用优先于自动匹配：`sourceRef` 绑定页面节点、`menuIndex` 绑定 Layout `MenuItem`；页面标题由 `{页面名}PageTitle` 直接决定，不需要在 key 上写 `role`。节点或菜单项已有不同的 `LangName` 时直接失败，不静默覆盖。
-- 动态值/数量/序列号等**不需要翻译**的文本，必须在 `noLangRefs` 里按 DSL ref 显式豁免，并在交付说明中列出；不得为了让门禁通过而给这类文本编造 key。
+- 动态值/数量/序列号等**不需要翻译**的文本，必须在 `noLangRefs` 里按 DSL ref 显式豁免，并在交付说明中列出；不得为了让门禁通过而给这类文本编造 key。开启自动派生后这类节点由生成器机械识别并写入 `noLangRefs`，`noLangRefs` 里的显式条目仍会合并保留。
 - **引用闭环硬门禁**：页面 XML、Layout `MenuItem`、`<Page LangName>` 中出现的每个 `LangName` 都必须存在于本页语言字典，否则整套生成失败并回滚。没有目标项目键目录时，禁止用未登记的 key 充当占位。
-- `LangName` 是附加属性：`TextBlock` 的 `Value` 仍按设计文本发射（provenance 要求 `Value == sourceText`），运行时以 `LangName` 为准。语言字典里的文本来自设计稿或用户确认的翻译，不能由脚本生成或机翻。
+- `LangName` 是附加属性：`TextBlock` 必须**同时**发射 `Value` 和 `LangName`（`Value` 仍按设计文本发射，provenance 要求 `Value == sourceText`），运行时以 `LangName` 为准。**按钮族同样必须有 `LangName`**：带文案的 `IconButton` / `Button` / `StatusButton` 一律挂 `LangName`，不得只发 `Value` 或只发 `Icon`。
+- 语言字典里的**英文等非设计语言文案**只能来自设计稿、目标项目已登记字典或用户确认的翻译；除上面的“中文占位”模式外，脚本不得生成或机翻其它语言文案。
 
 ## 页面输出目录
 
@@ -237,12 +273,13 @@ AI 必须同时读取原始 DSL、`visibility.json` 和正式组件映射，按�
 - `resolve-mastergo-visibility.js`：组件映射前强制运行；输出所有节点的有效可见性，供 AI 生成 mapping/textAudit。
 - 显隐事实只读取当前组件实例的 `componentInfo.properties`；仅当明确的显示槽位属性（如“显示文案”“显示icon”“显示主标题”“显示F”）为布尔 `false` 时隐藏对应槽位。节点自身的 `visible/visibility` 及其他泛化属性不参与当前页面显隐判定。
 - `scan-mtslg-keys.ps1`：只有存在目标 MTSLG 运行时目录、需要确认 Style/Icon/LangName/IOName/IOCommand 等键时运行；静态映射没有目标目录时不运行。
+- `gen-mtslg-lang-keys-from-dsl.js`：`languages.auto=true` 时由 Bundle 在 XML 生成前自动调用；也可单独运行以预先审阅派生键（`--report` 输出待翻译/临时键/自动豁免清单）。不负责翻译，只做机械派生。
 - `classify-mastergo-groups.js`：DSL 中存在未明确语义的 GROUP、容器或组合层级时运行；已由正式组件模板命中的实例不重复运行。
 - `scan-icon-coords.js`：Icon XAML 已生成且包含 Geometry 时运行；页面没有 Geometry 时跳过。
 - `audit-mtslg-feishu-map.js`：组件映射文档或模板 JSON 修改后运行，用于检查文档覆盖，不是页面生成步骤。
 - `cap-window.ps1` / `cap-window2.ps1`：运行时宿主加载成功后做视觉截图验证；不能替代 XML/provenance 校验。
 - `sync-to-mt.ps1`：静态 XML、来源、坐标、键和运行时加载验证完成，并且用户要求部署到运行目录后运行；不能作为生成步骤自动调用。
-主 Bundle 的固定调用顺序是：模板解析 → XML 生成 → provenance/坐标校验 → Icon discovery/生成 → Layout → WPF 宿主 → 最终校验。辅助脚本不得被误认为已自动包含在 Bundle 中。
+主 Bundle 的固定调用顺序是：模板解析 → 语言键派生（`languages.auto`）→ LangName 绑定 → XML 生成 → provenance/坐标校验 → Icon discovery/生成 → Layout → WPF 宿主 → 最终校验。辅助脚本不得被误认为已自动包含在 Bundle 中。
 
 ## 交付和验证
 

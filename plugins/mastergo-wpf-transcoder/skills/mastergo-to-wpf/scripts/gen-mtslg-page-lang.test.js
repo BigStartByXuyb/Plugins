@@ -101,4 +101,21 @@ assert.strictEqual(textIndexSpec.bindByText, true, "bindByText 默认开启");
 assert.strictEqual(textIndexSpec.requireLangName, true, "requireLangName 默认开启");
 assert.deepStrictEqual(textIndexSpec.noLangRefs, []);
 
+// sourceRefs：同一文案在本页出现多次时，一个 key 可以绑定多个节点（sourceRef 的复数形式）。
+const multiSpec = LANG.normalizeSpec({
+  keys: [{
+    key: "DemoRecipeCommonOK",
+    text: { CN: "确定", EN: "OK" },
+    sourceRef: "1:1",
+    sourceRefs: ["1:1", "1:2", "1:2"]
+  }]
+}, "DemoRecipe");
+assert.deepStrictEqual(multiSpec.keys[0].sourceRefs, ["1:1", "1:2"], "sourceRefs 必须去重并保持顺序");
+assert.strictEqual(multiSpec.keys[0].sourceRef, "1:1");
+assert.throws(
+  () => LANG.normalizeSpec({
+    keys: [{ key: "DemoRecipeBadRefs", text: { CN: "确定", EN: "OK" }, sourceRefs: ["1:1", ""] }]
+  }, "DemoRecipe"),
+  /sourceRefs 必须是 DSL ref 字符串数组/);
+
 console.log("PASS MTSLG page language dictionary regression test");

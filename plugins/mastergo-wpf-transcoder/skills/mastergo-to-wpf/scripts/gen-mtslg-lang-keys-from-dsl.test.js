@@ -1,0 +1,225 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("assert");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { spawnSync } = require("child_process");
+
+const script = path.join(__dirname, "gen-mtslg-lang-keys-from-dsl.js");
+const LANG = require(path.join(__dirname, "gen-mtslg-page-lang.js"));
+const KEYS = require(script);
+
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "mtslg-lang-keys-"));
+const write = (name, data) => {
+  const file = path.join(root, name);
+  fs.writeFileSync(file, typeof data === "string" ? data : JSON.stringify(data, null, 2), "utf8");
+  return file;
+};
+
+// 目标项目已登记语言字典：一个 CN 文件 + 一个 EN 文件。
+const catalogCn = write("Client_CN.xaml", [
+  '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"',
+  '                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+  '                    xmlns:sys="clr-namespace:System;assembly=mscorlib">',
+  '    <sys:String x:Key="PCHeaderSoftwareVersion">软件版本</sys:String>',
+  '    <sys:String x:Key="MenuItemParamMaintain">参数维护</sys:String>',
+  '    <sys:String x:Key="CommonOK">确定</sys:String>',
+  "    <!--<sys:String x:Key=\"LegacyRemoved\">已废弃</sys:String>-->",
+  "</ResourceDictionary>",
+  ""
+].join("\n"));
+const catalogEn = write("Client_EN.xaml", [
+  '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"',
+  '                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+  '                    xmlns:sys="clr-namespace:System;assembly=mscorlib">',
+  '    <sys:String x:Key="PCHeaderSoftwareVersion">Software Version</sys:String>',
+  '    <sys:String x:Key="MenuItemParamMaintain">Parameter</sys:String>',
+  '    <sys:String x:Key="CommonOK">OK</sys:String>',
+  "</ResourceDictionary>",
+  ""
+].join("\n"));
+
+const mapping = {
+  contentOriginY: 192,
+  rootRef: "p",
+  textAudit: [{ sourceRef: "p/1158:1", sourceText: "配方管理", role: "page-title", decision: "omit" }],
+  nodes: [
+    // IconButton：语义名来自 Icon 资源名。
+    { sourceRef: "p/btn-auto", controlType: "IconButton", sourceText: "全自动操作", valueSource: "dsl.text", attrs: { Value: "全自动操作", Icon: "AutoOperationGeometry" } },
+    // 步骤按钮：正负号短标签必须生成语言键，不能被当成动态值。
+    { sourceRef: "p/btn-plus5", controlType: "Button", sourceText: "+5", valueSource: "dsl.text", attrs: { Value: "+5" } },
+    { sourceRef: "p/btn-minus5", controlType: "Button", sourceText: "-5", valueSource: "dsl.text", attrs: { Value: "-5" } },
+    // 与目标项目字典同文案 → 复用已登记 key，并且 English 用真实翻译。
+    { sourceRef: "p/tb-version", controlType: "TextBlock", sourceText: "软件版本", valueSource: "dsl.text", attrs: { Value: "软件版本" } },
+    // 命中的是 MenuItem 命名空间的键 → 页面内容不得借用，退回 Icon 派生。
+    { sourceRef: "p/btn-param", controlType: "IconButton", sourceText: "参数维护", valueSource: "dsl.text", attrs: { Value: "参数维护", Icon: "ParameterMaintenanceGeometry" } },
+    // 同一共享文案出现两次 → 一个 key 绑定两个节点。
+    { sourceRef: "p/tb-ok-a", controlType: "TextBlock", sourceText: "确定", valueSource: "dsl.text", attrs: { Value: "确定" } },
+    { sourceRef: "p/tb-ok-b", controlType: "TextBlock", sourceText: "确定", valueSource: "dsl.text", attrs: { Value: "确定" } },
+    // 同名同来源 → 需要稳定数字后缀。
+    { sourceRef: "p/btn-dup-a", controlType: "IconButton", sourceText: "设备维护", valueSource: "dsl.text", attrs: { Value: "设备维护", Icon: "DeviceMaintenanceGeometry" } },
+    { sourceRef: "p/btn-dup-b", controlType: "IconButton", sourceText: "设备维护", valueSource: "dsl.text", attrs: { Value: "设备维护", Icon: "DeviceMaintenanceGeometry" } },
+    // 纯 ASCII 文案：没有 Icon 也要有语义名。
+    { sourceRef: "p/tb-aux", controlType: "TextBlock", sourceText: "AUX.", valueSource: "dsl.text", attrs: { Value: "AUX." } },
+    // 兜底：中文 + 无 Icon + 图层名不可用。
+    { sourceRef: "p/tb-unknown", controlType: "TextBlock", sourceText: "工件边缘录入", valueSource: "dsl.text", attrs: { Value: "工件边缘录入" } },
+    // 动态值：不得编造语言键。
+    { sourceRef: "p/tb-sn", controlType: "TextBlock", sourceText: "4830259438956554", valueSource: "dsl.text", attrs: { Value: "4830259438956554" } },
+    { sourceRef: "p/tb-ver2", controlType: "TextBlock", sourceText: "1.0.11.2222222", valueSource: "dsl.text", attrs: { Value: "1.0.11.2222222" } },
+    { sourceRef: "p/tb-model", controlType: "TextBlock", sourceText: "DFL7362", valueSource: "dsl.text", attrs: { Value: "DFL7362" } },
+    { sourceRef: "p/tb-pct", controlType: "TextBlock", sourceText: "9.0%", valueSource: "dsl.text", attrs: { Value: "9.0%" } },
+    { sourceRef: "p/tb-hotkey", controlType: "TextBlock", sourceText: "F1", valueSource: "dsl.text", attrs: { Value: "F1" } },
+    // 非 dsl.text 的节点不参与语言键派生。
+    { sourceRef: "p/cam", controlType: "Camera", sourceText: "相机", valueSource: "dsl.name", attrs: {} }
+  ]
+};
+const mappingPath = write("mapping.json", mapping);
+
+const dsl = {
+  dsl: {
+    nodes: [{
+      type: "INSTANCE",
+      id: "p",
+      name: "配方管理",
+      children: [
+        { type: "TEXT", id: "p/btn-param/1371:1", name: "参数维护", children: [] },
+        { type: "TEXT", id: "p/tb-unknown", name: "Group 2525", children: [] }
+      ]
+    }]
+  }
+};
+const dslPath = write("dsl.snapshot.json", dsl);
+
+const layoutManifest = {
+  menuItems: [
+    { sourceRef: "m/1", name: "参数维护", icon: "ParameterMaintainGeometry", index: 1 },
+    { sourceRef: "m/2", name: "AUX.", icon: "", index: 2 },
+    { sourceRef: "m/3", name: "", icon: "", index: 3 }
+  ]
+};
+const layoutPath = write("layout-manifest.json", layoutManifest);
+
+const outPath = path.join(root, "lang.json");
+const reportPath = path.join(root, "lang.report.json");
+const run = spawnSync(process.execPath, [
+  script,
+  "--page", "DemoRecipe",
+  "--mapping", mappingPath,
+  "--dsl", dslPath,
+  "--layout-manifest", layoutPath,
+  "--key-catalog", catalogCn,
+  "--key-catalog", catalogEn,
+  "--out", outPath,
+  "--report", reportPath
+], { encoding: "utf8" });
+assert.strictEqual(run.status, 0, run.stderr);
+
+const languages = JSON.parse(fs.readFileSync(outPath, "utf8"));
+const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+const keys = new Map(languages.keys.map((entry) => [entry.key, entry]));
+const keyByRef = new Map();
+for (const entry of languages.keys) {
+  const refs = [];
+  if (entry.sourceRef) refs.push(entry.sourceRef);
+  if (Array.isArray(entry.sourceRefs)) refs.push(...entry.sourceRefs);
+  for (const ref of refs) keyByRef.set(ref, entry.key);
+}
+const emittedKeys = languages.keys.map((entry) => entry.key).join(", ");
+
+// 1) 页面标题：命名约定固定，文案来自 textAudit 的 page-title。
+assert.strictEqual(languages.keys[0].key, "DemoRecipePageTitle");
+assert.strictEqual(languages.keys[0].role, "page-title");
+assert.strictEqual(languages.keys[0].text.CN, "配方管理");
+assert.strictEqual(languages.keys[0].text.EN, "配方管理", "没有真实英文时用中文占位");
+
+// 2) 菜单项：Icon 派生语义名；没有 Icon 时用 ASCII 文案；空名称菜单项不产键。
+assert.ok(keys.has("MenuItemParameterMaintain"), "MenuItem 应由 Icon 派生语义名");
+assert.strictEqual(keys.get("MenuItemParameterMaintain").menuIndex, 1);
+assert.ok(keys.has("MenuItemAUX"), "没有 Icon 的菜单项应回退到 ASCII 文案");
+assert.ok(!languages.keys.some((entry) => entry.menuIndex === 3), "空名称菜单项不产键");
+
+// 3) 内容节点：Icon 派生、ASCII 派生、兜底临时键；数字/符号类不产键。
+assert.strictEqual(keyByRef.get("p/btn-auto"), "DemoRecipeAutoOperation");
+assert.strictEqual(keyByRef.get("p/tb-aux"), "DemoRecipeAUX");
+assert.strictEqual(keyByRef.get("p/tb-unknown"), "DemoRecipeText01", "无可用语义源时用稳定的临时键");
+assert.ok(!keys.has("p/cam"), "非 dsl.text 节点不产键");
+
+// 4) 目标项目已登记 key：内容节点复用（scope=shared），MenuItem 命名空间不得被内容节点借用。
+assert.strictEqual(keyByRef.get("p/tb-version"), "PCHeaderSoftwareVersion");
+assert.strictEqual(keys.get("PCHeaderSoftwareVersion").scope, "shared");
+assert.strictEqual(keys.get("PCHeaderSoftwareVersion").text.EN, "Software Version", "已有真实英文时直接采用");
+assert.ok(!report.pendingTranslations.some((item) => item.key === "PCHeaderSoftwareVersion"),
+  "有真实英文时不应标记待翻译");
+assert.strictEqual(keyByRef.get("p/btn-param"), "DemoRecipeParameterMaintenance",
+  "内容节点不得复用 MenuItem 命名空间的键，应退回 Icon 派生");
+
+// 5) 同一共享文案出现两次 → 一个 key 绑定多个节点。
+assert.strictEqual(keyByRef.get("p/tb-ok-a"), "CommonOK", "keys=" + emittedKeys);
+assert.strictEqual(keyByRef.get("p/tb-ok-b"), "CommonOK", "keys=" + emittedKeys);
+assert.deepStrictEqual(keys.get("CommonOK").sourceRefs, ["p/tb-ok-a", "p/tb-ok-b"]);
+
+// 6) 同名同来源 → 稳定数字后缀，且不静默覆盖。
+assert.strictEqual(keyByRef.get("p/btn-dup-a"), "DemoRecipeDeviceMaintenance");
+assert.strictEqual(keyByRef.get("p/btn-dup-b"), "DemoRecipeDeviceMaintenance2");
+assert.ok(report.duplicateKeys.some((item) => item.key === "DemoRecipeDeviceMaintenance2"));
+
+// 7) 不需要翻译的文本：全部进 noLangRefs 并带原因，绝不编造语言键。
+//    数字与符号在 CN/EN 里写法一致，同样不生成语言键。
+for (const ref of ["p/tb-sn", "p/tb-ver2", "p/tb-model", "p/tb-pct", "p/tb-hotkey", "p/btn-plus5", "p/btn-minus5"]) {
+  assert.ok(languages.noLangRefs.includes(ref), ref + " 必须进入 noLangRefs");
+  assert.ok(!keyByRef.has(ref), ref + " 不得生成语言键");
+  assert.ok(report.autoNoLangRefs.some((item) => item.sourceRef === ref && item.reason),
+    ref + " 必须在报告里给出豁免原因");
+}
+
+// 8) 语言文件里的文案不允许缺语言；EN 占位必须标记待翻译。
+for (const entry of languages.keys) {
+  assert.strictEqual(typeof entry.text.CN, "string");
+  assert.strictEqual(typeof entry.text.EN, "string");
+}
+assert.ok(report.pendingTranslations.length >= languages.keys.length - 3,
+  "缺真实英文的 key 都必须标记 pendingTranslation");
+
+// 9) 端到端：派生结果直接喂给语言字典发射器，CN/EN 的 key 集合与顺序必须一致。
+const spec = LANG.normalizeSpec(languages, "DemoRecipe");
+assert.strictEqual(spec.titleKey, "DemoRecipePageTitle");
+assert.strictEqual(spec.keys.length, languages.keys.length);
+const langOutDir = path.join(root, "lang-out");
+const langRun = spawnSync(process.execPath, [
+  path.join(__dirname, "gen-mtslg-page-lang.js"),
+  "--page", "DemoRecipe",
+  "--manifest", outPath,
+  "--out-dir", langOutDir
+], { encoding: "utf8" });
+assert.strictEqual(langRun.status, 0, langRun.stderr);
+const cnKeys = LANG.readDictionaryKeys(fs.readFileSync(path.join(langOutDir, "DemoRecipe_CN.xaml"), "utf8"));
+const enKeys = LANG.readDictionaryKeys(fs.readFileSync(path.join(langOutDir, "DemoRecipe_EN.xaml"), "utf8"));
+assert.deepStrictEqual(cnKeys, enKeys, "CN/EN 的 x:Key 必须完全一致");
+assert.deepStrictEqual(cnKeys, spec.keys.map((entry) => entry.key));
+assert.match(fs.readFileSync(path.join(langOutDir, "DemoRecipe_CN.xaml"), "utf8"),
+  /<sys:String x:Key="PCHeaderSoftwareVersion">软件版本<\/sys:String>/);
+assert.match(fs.readFileSync(path.join(langOutDir, "DemoRecipe_EN.xaml"), "utf8"),
+  /<sys:String x:Key="PCHeaderSoftwareVersion">Software Version<\/sys:String>/);
+
+// 10) 单元级判定：动态值 vs 真实文案。
+assert.strictEqual(KEYS.isDynamicText("+5").dynamic, true, "数字/符号中英文一致，不需要语言键");
+assert.strictEqual(KEYS.isDynamicText("-1").dynamic, true);
+assert.strictEqual(KEYS.isDynamicText("±0.5").dynamic, true);
+assert.strictEqual(KEYS.isDynamicText("9.0%").dynamic, true);
+assert.strictEqual(KEYS.isDynamicText("1.0.11.2222222").dynamic, true);
+assert.strictEqual(KEYS.isDynamicText("2026/03/01 12:00:23").dynamic, true);
+assert.strictEqual(KEYS.isDynamicText("全自动操作").dynamic, false);
+assert.strictEqual(KEYS.isDynamicText("Notch位置调整").dynamic, false);
+assert.strictEqual(KEYS.isDynamicText("AUX.").dynamic, false);
+assert.strictEqual(KEYS.semanticFromIcon("AutoOperationGeometry"), "AutoOperation");
+assert.strictEqual(KEYS.semanticFromIcon(""), "");
+assert.strictEqual(KEYS.signNumberSuffix("+0.5"), "Plus0Dot5");
+assert.strictEqual(KEYS.asciiSuffix("AUX."), "AUX");
+assert.strictEqual(KEYS.asciiSuffix("工件边缘录入"), "");
+
+// 11) 页面名必须是英文标识符，否则直接失败。
+assert.throws(() => KEYS.deriveLangSpec({ pageName: "配方", mapping }), /页面名必须是英文标识符/);
+
+console.log("PASS MTSLG page language key derivation regression test");

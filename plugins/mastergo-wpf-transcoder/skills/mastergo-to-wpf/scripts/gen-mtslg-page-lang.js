@@ -112,6 +112,21 @@ function normalizeSpec(spec, pageName) {
       group: typeof entry.group === "string" ? entry.group : "",
       values,
       ...(typeof entry.sourceRef === "string" && entry.sourceRef ? { sourceRef: entry.sourceRef } : {}),
+      // 同一文案在本页出现多次时，一个 key 可以绑定多个节点：sourceRefs 是 sourceRef 的复数形式。
+      ...(Array.isArray(entry.sourceRefs) && entry.sourceRefs.length > 0
+        ? {
+            sourceRefs: (function () {
+              const refs = [];
+              for (const ref of entry.sourceRefs) {
+                if (typeof ref !== "string" || !ref) {
+                  fail("LanguageKey " + key + " 的 sourceRefs 必须是 DSL ref 字符串数组");
+                }
+                if (refs.indexOf(ref) === -1) refs.push(ref);
+              }
+              return refs;
+            })()
+          }
+        : {}),
       ...(entry.menuIndex === undefined || entry.menuIndex === null
         ? {} : { menuIndex: Number(entry.menuIndex) }),
       ...(typeof entry.role === "string" && entry.role ? { role: entry.role } : {}),
