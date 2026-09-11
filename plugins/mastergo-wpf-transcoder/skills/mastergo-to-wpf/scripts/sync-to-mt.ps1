@@ -102,8 +102,15 @@ if (-not (Test-Path $BackupDir)) {
     else { New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null }
 }
 
-$files = Get-ChildItem -Path $FromDir -Filter *.xml -File
+# 页面按「一页一目录」存放（Resources/Pages/<页面名>/<页面名>Page.xml），
+# 运行时页面目录是平面的，所以递归枚举后按文件名平铺同步。
+$files = Get-ChildItem -Path $FromDir -Filter *.xml -File -Recurse
 if ($files.Count -eq 0) { Write-Output "FromDir 下无 .xml 文件，无需同步"; exit 0 }
+
+$duplicateNames = $files | Group-Object Name | Where-Object { $_.Count -gt 1 }
+if ($duplicateNames) {
+    throw "FromDir 下存在同名页面文件，平铺同步会互相覆盖: " + (($duplicateNames | ForEach-Object { $_.Name }) -join ", ")
+}
 
 # ---------- SVN 状态摘要（不自动 commit） ----------
 function Find-SvnRoot($dir) {

@@ -120,7 +120,7 @@ const result = spawnSync(process.execPath, [script,
   "--map", path.join(root, "map.json"),
   "--page-target", "FixturePage",
   "--page-lang-name", "",
-  "--layout-path", "Resources/Files/Layout.xml",
+  "--layout-path", "Resources/Layout/Layout.xml",
   "--out", out,
   "--report", report,
 ], { encoding: "utf8" });

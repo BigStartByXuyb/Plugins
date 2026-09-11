@@ -180,11 +180,14 @@ function loadManifest(manifestPath) {
     fail("area 无效: " + manifest.area);
   }
   const namespaceArea = area.split("/").map(namespaceSegment).join(".");
+  // 页面多语言资源字典：与页面 XML/Icon 同目录，形如 Resources/Pages/<页面名>/<页面名>_<语言>.xaml。
+  const langPaths = (Array.isArray(manifest.langPaths) ? manifest.langPaths : [])
+    .map(function (relative) { return safeRelativePath(relative, "langPath"); });
   // 只有真正的新建页面才强制约定路径；modify-existing / replace-existing 必须沿用项目已声明的真实路径。
   if (!["modify-existing", "replace-existing"].includes(manifest.operation)) {
     const expectedPaths = {
-      iconPath: "Resources/Icons/" + pageName + "Icons.xaml",
-      pageXmlPath: "Common/Pages/" + pageName + "Page.xml",
+      iconPath: "Resources/Pages/" + pageName + "/" + pageName + "Icons.xaml",
+      pageXmlPath: "Resources/Pages/" + pageName + "/" + pageName + "Page.xml",
       viewPath: "UI/" + area + "/View/" + pageName + "View.xaml",
       codeBehindPath: "UI/" + area + "/View/" + pageName + "View.xaml.cs",
       viewModelPath: "UI/" + area + "/ViewModel/" + pageName + "ViewModel.cs"
@@ -194,13 +197,19 @@ function loadManifest(manifestPath) {
         fail("新建页面的 " + field + " 必须使用约定路径: " + expectedPaths[field]);
       }
     });
+    const langPrefix = "Resources/Pages/" + pageName + "/" + pageName + "_";
+    langPaths.forEach(function (relative) {
+      if (relative.indexOf(langPrefix) !== 0 || !/\.xaml$/i.test(relative)) {
+        fail("新建页面的多语言文件必须使用约定路径: " + langPrefix + "<语言>.xaml");
+      }
+    });
   }
   const includeIcon = Boolean(manifest.includeIcon || manifest.iconPath);
   const iconPath = includeIcon
-    ? safeRelativePath(manifest.iconPath || "Resources/Icons/" + pageName + "Icons.xaml", "iconPath")
+    ? safeRelativePath(manifest.iconPath || "Resources/Pages/" + pageName + "/" + pageName + "Icons.xaml", "iconPath")
     : null;
   const pageXmlPath = safeRelativePath(
-    manifest.pageXmlPath || "Common/Pages/" + xmlPageName + ".xml", "pageXmlPath");
+    manifest.pageXmlPath || "Resources/Pages/" + pageName + "/" + xmlPageName + ".xml", "pageXmlPath");
   const hostPaths = inferHostPaths(manifest, projectRoot, csprojText, viewName, viewModelName);
   const viewRelative = hostPaths.viewRelative;
   const codeBehindRelative = hostPaths.codeBehindRelative;
@@ -211,11 +220,13 @@ function loadManifest(manifestPath) {
     { kind: "Compile", relative: viewModelRelative }
   ];
   if (iconPath) files.push({ kind: "Page", relative: iconPath });
+  langPaths.forEach(function (relative) { files.push({ kind: "Page", relative }); });
   files.push({ kind: "Content", relative: pageXmlPath });
   return {
     projectRoot, csprojPath, csprojText, rootNamespace, area, namespaceArea,
     operation: manifest.operation || "new",
     pageName, viewName, viewModelName, xmlPageName, iconPath, pageXmlPath,
+    langPaths,
     viewRelative, codeBehindRelative, viewModelRelative,
     designWidth: manifest.designWidth || 1280, designHeight: manifest.designHeight || 1024,
     files

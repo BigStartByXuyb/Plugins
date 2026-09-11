@@ -19,8 +19,26 @@ const COORDS_SCRIPT = path.join(SCRIPT_DIR, "check-iocontrol-coords.js");
 const MAPPING_SCRIPT = path.join(SCRIPT_DIR, "gen-mtslg-mapping-from-dsl.js");
 const TEMPLATE_RESOLVER_SCRIPT = path.join(SCRIPT_DIR, "resolve-mtslg-template-mapping.js");
 const ICON_DISCOVERY_SCRIPT = path.join(SCRIPT_DIR, "discover-mtslg-page-icon-map.js");
+const LANG_SCRIPT = path.join(SCRIPT_DIR, "gen-mtslg-page-lang.js");
+const LANG = require("./gen-mtslg-page-lang");
 const DEFAULT_TEMPLATE_MAP = path.resolve(SCRIPT_DIR, "..", "references", "adapters", "mtslg-iocontrol", "mtslg-iocontrol-map.json");
 const NEW_PAGE_MAPPING_TAG = "新页面完整DSL映射";
+
+// MTSLG 页面产物路径约定（与目标项目真实结构一致）：
+//   Resources/Pages/<页面名>/<页面名>Page.xml
+//   Resources/Pages/<页面名>/<页面名>Icons.xaml
+//   Resources/Layout/Layout.xml
+// 每个页面独占一个目录，页面 XML 与页面 Icon 同目录；View/ViewModel 仍在 UI/<区域>/ 下。
+const PAGE_ROOT = "Resources/Pages";
+const LAYOUT_DIR = "Resources/Layout";
+const DEFAULT_LAYOUT_PATH = LAYOUT_DIR + "/Layout.xml";
+function pageFolderFor(pageName) { return PAGE_ROOT + "/" + pageName; }
+function defaultPageXmlPath(pageName) { return pageFolderFor(pageName) + "/" + pageName + "Page.xml"; }
+function defaultIconPath(pageName) { return pageFolderFor(pageName) + "/" + pageName + "Icons.xaml"; }
+function defaultLangPath(pageName, locale) { return pageFolderFor(pageName) + "/" + pageName + "_" + locale + ".xaml"; }
+function pageLangPaths(pageName, locales) {
+  return locales.map(function (locale) { return defaultLangPath(pageName, locale); });
+}
 
 function fail(message) { throw new Error(message); }
 
@@ -56,8 +74,8 @@ function normalizePageManifest(manifest) {
 
   const existingMode = ["modify-existing", "replace-existing"].includes(manifest.operation);
   const expected = {
-    pageXmlPath: "Common/Pages/" + name + "Page.xml",
-    iconPath: "Resources/Icons/" + name + "Icons.xaml",
+    pageXmlPath: defaultPageXmlPath(name),
+    iconPath: defaultIconPath(name),
     viewPath: "UI/" + manifest.area.replace(/\\/g, "/") + "/View/" + name + "View.xaml",
     codeBehindPath: "UI/" + manifest.area.replace(/\\/g, "/") + "/View/" + name + "View.xaml.cs",
     viewModelPath: "UI/" + manifest.area.replace(/\\/g, "/") + "/ViewModel/" + name + "ViewModel.cs"
@@ -79,6 +97,7 @@ function normalizePageManifest(manifest) {
   manifest.viewPath = manifest.viewPath || expected.viewPath;
   manifest.codeBehindPath = manifest.codeBehindPath || expected.codeBehindPath;
   manifest.viewModelPath = manifest.viewModelPath || expected.viewModelPath;
+  manifest.layoutPath = manifest.layoutPath || DEFAULT_LAYOUT_PATH;
   return manifest;
 }
 
@@ -154,10 +173,10 @@ function scaffoldFrameworkConfig(manifest) {
     scaffold: true,
     source_root: manifest.sourceRoot || "",
     index_root: manifest.indexRoot || "",
-    pages_root: manifest.pagesRoot || "Common/Pages",
-    icons_root: manifest.iconsRoot || "Resources/Icons",
+    pages_root: manifest.pagesRoot || PAGE_ROOT,
+    icons_root: manifest.iconsRoot || PAGE_ROOT,
     resource_roots: Array.isArray(manifest.resourceRoots) ? manifest.resourceRoots : [],
-    layout_file: manifest.layoutPath || "Resources/Files/Layout.xml",
+    layout_file: manifest.layoutPath || DEFAULT_LAYOUT_PATH,
     key_catalog: manifest.keyCatalog || "",
     generated_root: manifest.generatedRoot || "Generated",
     runtime_bindings: "pending"
@@ -194,7 +213,7 @@ function ensureScaffold(manifest) {
   }
   manifest.frameworkConfigPath = configRelative;
   const dirs = [
-    "Common/Pages", "Resources/Icons", "Resources/Files", "Generated",
+    PAGE_ROOT, LAYOUT_DIR, pageFolderFor(manifest.name), "Generated",
     "UI/" + String(manifest.area || "F2-Manual") + "/View",
     "UI/" + String(manifest.area || "F2-Manual") + "/ViewModel"
   ];
@@ -398,6 +417,191 @@ function validateResidentGroupEvidence(mapping, manifest) {
   }
 }
 
+// 多语言绑定：语言清单是 LanguageKey 的唯一真值源，控件与菜单只“引用”它，不另写一份 key。
+// 引用方式：sourceRef（页面节点）、menuIndex（Layout MenuItem）、role=page-title（页面标题键）。
+function applyLangBindings(mapping, manifest, langSpec) {
+  const applied = [];
+  const problems = [];
+  const nodes = Array.isArray(mapping.nodes) ? mapping.nodes : [];
+  const menuItems = Array.isArray(manifest.menuItems) ? manifest.menuItems : [];
+  const ambiguous = new Set();
+  const entryByKey = new Map(langSpec.keys.map(function (entry) { return [entry.key, entry]; }));
+  const isShared = function (entry) { return entry && entry.scope === "shared"; };
+  // LanguageKey 命名约定：页面内容 {页面名}{名称}、菜单项 MenuItem{名称}、
+  // 页面标题 {页面名}PageTitle（由 Layout <Page LangName> 引用）。
+  const checkNodeKey = function (entry, ref) {
+    if (isShared(entry) || entry.key === langSpec.titleKey ||
+        entry.key.indexOf(langSpec.pageName) === 0) return;
+    problems.push("LanguageKey " + entry.key + " 不符合页面内容命名约定（应为 " +
+      langSpec.pageName + "<名称>）: 节点 " + ref);
+  };
+  const checkMenuKey = function (entry, index) {
+    if (isShared(entry) || entry.key.indexOf(LANG.MENU_PREFIX) === 0) return;
+    problems.push("LanguageKey " + entry.key + " 不符合菜单项命名约定（应为 " +
+      LANG.MENU_PREFIX + "<名称>）: MenuItem Index=" + index);
+  };
+  if (langSpec.requireLangName) {
+    if (!entryByKey.has(langSpec.titleKey)) {
+      problems.push("缺少页面标题 LanguageKey：" + langSpec.titleKey +
+        "（Layout <Page LangName> 必须引用该 key）");
+    } else if (manifest.pageLangName && manifest.pageLangName !== langSpec.titleKey) {
+      problems.push("页面标题键冲突：manifest.pageLangName=\"" + manifest.pageLangName +
+        "\" 与命名约定 \"" + langSpec.titleKey + "\" 不一致");
+    } else if (!manifest.pageLangName) {
+      manifest.pageLangName = langSpec.titleKey;
+      applied.push(langSpec.titleKey + " -> Layout <Page LangName>");
+    }
+  }
+  for (const entry of langSpec.keys) {
+    if (entry.sourceRef) {
+      const node = nodes.find(function (n) { return (n.sourceRef || n.ref) === entry.sourceRef; });
+      if (!node) {
+        problems.push("LanguageKey " + entry.key + " 的 sourceRef 未命中页面节点：" + entry.sourceRef);
+      } else {
+        const current = node.attrs && node.attrs.LangName;
+        if (typeof current === "string" && current !== "" && current !== entry.key) {
+          problems.push("节点 " + entry.sourceRef + " 已有 LangName=\"" + current +
+            "\"，与语言清单 \"" + entry.key + "\" 冲突");
+        } else {
+          node.attrs = Object.assign({}, node.attrs, { LangName: entry.key });
+          applied.push(entry.key + " -> 节点 " + entry.sourceRef);
+        }
+      }
+    }
+    if (entry.menuIndex !== undefined) {
+      const item = menuItems.find(function (menuItem) {
+        return Number(menuItem.index) === entry.menuIndex;
+      });
+      if (!item) {
+        problems.push("LanguageKey " + entry.key + " 的 menuIndex 未命中菜单项：" + entry.menuIndex);
+      } else if (typeof item.langName === "string" && item.langName !== "" && item.langName !== entry.key) {
+        problems.push("MenuItem Index=" + entry.menuIndex + " 已有 LangName=\"" + item.langName +
+          "\"，与语言清单 \"" + entry.key + "\" 冲突");
+      } else {
+        item.langName = entry.key;
+        applied.push(entry.key + " -> MenuItem Index=" + entry.menuIndex);
+      }
+    }
+  }
+
+  // 自动绑定：设计稿是中文，LanguageKey 的 CN 文案与节点设计文本逐字相等才绑定。
+  // 同一文案对应多个 key 属于歧义，必须由 sourceRef 显式指定，脚本不猜。
+  if (langSpec.bindByText) {
+    const byText = LANG.indexKeysByText(langSpec);
+    const bindOne = function (text, ref, describe, assign) {
+      const candidates = byText.get(text) || [];
+      if (candidates.length === 1) {
+        assign(candidates[0]);
+        applied.push(candidates[0] + " -> " + describe + "（按文案匹配）");
+      } else if (candidates.length > 1) {
+        ambiguous.add(ref);
+        problems.push("文案 \"" + text + "\"（" + describe + "）对应多个 LanguageKey: " +
+          candidates.join(", ") + "；请用 sourceRef 显式指定");
+      }
+    };
+    for (const node of nodes) {
+      if (node.valueSource !== "dsl.text" || typeof node.sourceText !== "string") continue;
+      if (node.attrs && typeof node.attrs.LangName === "string" && node.attrs.LangName !== "") continue;
+      const ref = node.sourceRef || node.ref;
+      bindOne(node.sourceText, ref, "节点 " + ref, function (key) {
+        node.attrs = Object.assign({}, node.attrs, { LangName: key });
+      });
+    }
+    for (const item of menuItems) {
+      if (!item || typeof item.name !== "string" || item.name === "") continue;
+      if (typeof item.langName === "string" && item.langName !== "") continue;
+      bindOne(item.name, "menu:" + item.index, "MenuItem Index=" + item.index, function (key) {
+        item.langName = key;
+      });
+    }
+  }
+
+  // 强制门禁：生成页面里所有设计文本都必须挂 LangName，除非显式列入 noLangRefs。
+  if (langSpec.requireLangName) {
+    // 命名约定复核：所有最终 LangName 都必须落在 页面标题/菜单项/页面内容 三类里，
+    // 包括 mapping 自带或 merge 保留下来的 LangName。
+    for (const node of nodes) {
+      const key = node.attrs && node.attrs.LangName;
+      if (typeof key !== "string" || key === "") continue;
+      const entry = entryByKey.get(key);
+      if (entry) checkNodeKey(entry, node.sourceRef || node.ref);
+    }
+    for (const item of menuItems) {
+      if (!item || typeof item.langName !== "string" || item.langName === "") continue;
+      const entry = entryByKey.get(item.langName);
+      if (entry) checkMenuKey(entry, item.index);
+    }
+    const exempt = new Set(langSpec.noLangRefs);
+    const missing = [];
+    for (const node of nodes) {
+      if (node.valueSource !== "dsl.text") continue;
+      if (node.attrs && typeof node.attrs.LangName === "string" && node.attrs.LangName !== "") continue;
+      const ref = node.sourceRef || node.ref;
+      if (exempt.has(ref) || ambiguous.has(ref)) continue;
+      missing.push("节点 " + ref + " \"" + String(node.sourceText || "") + "\"");
+    }
+    for (const item of menuItems) {
+      if (!item || typeof item.name !== "string" || item.name === "") continue;
+      if (typeof item.langName === "string" && item.langName !== "") continue;
+      if (ambiguous.has("menu:" + item.index)) continue;
+      missing.push("MenuItem Index=" + item.index + " \"" + item.name + "\"");
+    }
+    if (missing.length > 0) {
+      problems.push("以下文本没有可引用的 LanguageKey，而生成页面要求文本控件必须挂 LangName：\n      " +
+        missing.join("\n      ") +
+        "\n    处理方式：把文案登记到 manifest.languages.keys；动态值等不需要翻译的节点写入 languages.noLangRefs 豁免。");
+    }
+  }
+
+  if (problems.length > 0) {
+    fail("多语言绑定失败：\n  - " + problems.join("\n  - "));
+  }
+  return applied;
+}
+
+// 多语言交付门禁：各语言 key 必须完全一致；页面/菜单引用的 LangName 必须存在于本页字典。
+function validateLangOutputs(info) {
+  if (!info.langSpec) return null;
+  const dictionaries = info.langPaths.map(function (relative) {
+    const absolute = path.join(info.projectRoot, ...relative.split("/"));
+    const text = requireFile(absolute, "页面多语言文件");
+    return { relative, keys: LANG.readDictionaryKeys(text) };
+  });
+  const reference = dictionaries[0];
+  if (reference.keys.length !== info.langSpec.keys.length) {
+    fail("多语言文件 key 数量与语言清单不一致: " + reference.relative + "，期望 " +
+      info.langSpec.keys.length + "，实际 " + reference.keys.length);
+  }
+  for (const dictionary of dictionaries.slice(1)) {
+    const same = dictionary.keys.length === reference.keys.length &&
+      dictionary.keys.every(function (key, index) { return key === reference.keys[index]; });
+    if (!same) {
+      fail("各语言 key 必须完全一致（含顺序）: " + reference.relative + " vs " + dictionary.relative);
+    }
+  }
+  const known = new Set(reference.keys);
+  const referenced = new Set();
+  const langNameRe = /\bLangName="([^"]*)"/g;
+  let match;
+  while ((match = langNameRe.exec(info.pageXml)) !== null) {
+    if (match[1]) referenced.add(match[1]);
+  }
+  (info.layoutMenuItems || []).forEach(function (item) {
+    if (item && typeof item.langName === "string" && item.langName) referenced.add(item.langName);
+  });
+  if (typeof info.pageLangName === "string" && info.pageLangName) referenced.add(info.pageLangName);
+  const missing = [...referenced].filter(function (key) { return !known.has(key); });
+  if (missing.length > 0) {
+    fail("LangName 引用了本页多语言文件中不存在的 key：" + missing.join(", ") +
+      "（LanguageKey 必须先登记在 manifest.languages.keys 中）");
+  }
+  return {
+    locales: info.langSpec.locales,
+    keyCount: reference.keys.length,
+    referencedKeys: [...referenced].length
+  };
+}
+
 function validateBundleOutputs(info) {
   const pageXml = requireFile(info.pageXmlPath, "页面 XML");
   if (!/<IOContorl\b/.test(pageXml) || !/<\/IOContorl>\s*$/.test(pageXml)) {
@@ -488,8 +692,21 @@ function validateBundleOutputs(info) {
     }
   }
 
+  // 多语言：各语言 key 必须完全一致，且 LangName 必须命中本页字典。
+  validateLangOutputs({
+    projectRoot: info.projectRoot,
+    langSpec: info.langSpec,
+    langPaths: info.langPaths || [],
+    pageXml,
+    layoutMenuItems: info.layoutMenuItems,
+    pageLangName: info.pageLangName
+  });
+
   const csproj = fs.readFileSync(info.csprojPath, "utf8").replace(/\\/g, "/");
-  [info.pageXmlPath, info.iconPath].concat(info.hostPaths).concat([info.layoutPath]).forEach(function (filePath) {
+  const langAbsolute = (info.langPaths || []).map(function (relative) {
+    return path.join(info.projectRoot, ...relative.split("/"));
+  });
+  [info.pageXmlPath, info.iconPath].concat(info.hostPaths).concat([info.layoutPath]).concat(langAbsolute).forEach(function (filePath) {
     const include = projectRelative(info.projectRoot, filePath).replace(/\\/g, "/");
     if (!csproj.toLowerCase().includes(include.toLowerCase())) {
       fail("csproj 未注册生成文件: " + include);
@@ -509,7 +726,7 @@ function bundleGeneratedPaths(info) {
     info.iconMapAudit,
     info.bundleAudit,
     info.csprojPath
-  ];
+  ].concat(info.langPaths || []);
   if (info.scaffold) files.push(info.frameworkConfigPath);
   return files.map(function (filePath) {
     return projectRelative(info.projectRoot, filePath);
@@ -545,6 +762,11 @@ function main() {
   const manifestFile = path.resolve(args.manifestPath);
   const manifestDir = path.dirname(manifestFile);
   const manifest = normalizePageManifest(readJson(manifestFile));
+  // 多语言是可选能力：只在 manifest 提供 languages 时生成 CN/EN 字典并强制 LangName 引用闭环。
+  const langSpec = manifest.languages === undefined || manifest.languages === null
+    ? null
+    : LANG.normalizeSpec(manifest.languages, manifest.name);
+  const langPaths = langSpec ? pageLangPaths(manifest.name, langSpec.locales) : [];
   const existingMode = ["modify-existing", "replace-existing"].includes(manifest.operation);
   const scaffoldInfo = ensureScaffold(manifest);
   const projectRoot = scaffoldInfo.projectRoot;
@@ -555,7 +777,7 @@ function main() {
 
   const pageXmlPath = resolvePath(projectRoot, manifest.pageXmlPath, "pageXmlPath");
   const iconPath = resolvePath(projectRoot, manifest.iconPath, "iconPath");
-  const layoutPath = resolvePath(projectRoot, manifest.layoutPath, "layoutPath");
+  const layoutPath = resolvePath(projectRoot, manifest.layoutPath || DEFAULT_LAYOUT_PATH, "layoutPath");
   const mappingPath = resolveInput(manifestDir, projectRoot, manifest.mappingPath, "mappingPath");
   const svgPath = resolveInput(manifestDir, projectRoot, manifest.svgPath, "svgPath");
   const iconMapPath = resolveInput(manifestDir, projectRoot, manifest.iconMapPath, "iconMapPath");
@@ -594,12 +816,15 @@ function main() {
     resolvePath(projectRoot, hostPaths.view, "viewPath"),
     resolvePath(projectRoot, hostPaths.codeBehind, "codeBehindPath"),
     resolvePath(projectRoot, hostPaths.viewModel, "viewModelPath")];
+  const langTargets = langPaths.map(function (relative) {
+    return resolvePath(projectRoot, relative, "langPath");
+  });
   const generatedDir = path.join(projectRoot, "Generated");
   const mappingAudit = path.join(generatedDir, manifest.pageName + ".mapping.json");
   const iconMapAudit = path.join(generatedDir, manifest.pageName + ".icon-map.json");
   const bundleAudit = path.join(generatedDir, manifest.pageName + ".bundle.manifest.json");
   const auditTargets = [mappingAudit, iconMapAudit, bundleAudit];
-  const blocked = outputTargets.concat(auditTargets).filter(fs.existsSync);
+  const blocked = outputTargets.concat(langTargets).concat(auditTargets).filter(fs.existsSync);
   if (!args.overwrite && blocked.length) {
     fail("目标文件已存在，未覆盖: " + blocked.join(", ") + "；请停止并确认是否修改已有页面");
   }
@@ -617,8 +842,9 @@ function main() {
   const hostManifest = path.join(tempRoot, "host.json");
   const created = [];
   const backups = [];
+  let langBindings = [];
   const originalCsproj = fs.readFileSync(csprojPath, "utf8");
-  const snapshots = snapshotFiles(outputTargets.concat([layoutPath, mappingAudit, iconMapAudit, bundleAudit, csprojPath])
+  const snapshots = snapshotFiles(outputTargets.concat(langTargets).concat([layoutPath, mappingAudit, iconMapAudit, bundleAudit, csprojPath])
     .concat(scaffoldInfo.frameworkConfigPath ? [scaffoldInfo.frameworkConfigPath] : []));
 
   try {
@@ -632,6 +858,11 @@ function main() {
       ? 192 : Number(mapping.contentOriginY);
     if (contentOriginY !== 192) {
       fail("contentOriginY 必须固定为 192");
+    }
+    // 多语言绑定必须发生在 XML/Layout 生成之前：LangName 是页面节点与 MenuItem 的业务属性。
+    if (langSpec) {
+      langBindings = applyLangBindings(mapping, manifest, langSpec);
+      fs.writeFileSync(tempMapping, JSON.stringify(mapping, null, 2) + "\n", "utf8");
     }
     run(XML_SCRIPT, ["--fresh", tempMapping, "--out", tempXml].concat(
       templateMapPath ? ["--map", templateMapPath] : []));
@@ -648,6 +879,13 @@ function main() {
       ? resolveInput(manifestDir, projectRoot, manifest.dslPath, "dslPath")
       : null;
     run(ICON_SCRIPT, [svgPath, tempIconMap, tempIcon].concat(iconDslPath ? [iconDslPath] : []));
+
+    const tempLang = path.join(tempRoot, "lang.json");
+    const tempLangDir = path.join(tempRoot, "lang");
+    if (langSpec) {
+      fs.writeFileSync(tempLang, JSON.stringify(manifest.languages, null, 2), "utf8");
+      run(LANG_SCRIPT, ["--page", manifest.name, "--manifest", tempLang, "--out-dir", tempLangDir]);
+    }
 
     let layoutSource = null;
     if (fs.existsSync(layoutPath)) {
@@ -684,13 +922,18 @@ function main() {
       pageXmlPath: manifest.pageXmlPath,
       viewPath: hostPaths.view,
       codeBehindPath: hostPaths.codeBehind,
-      viewModelPath: hostPaths.viewModel
+      viewModelPath: hostPaths.viewModel,
+      langPaths
     };
     fs.writeFileSync(hostManifest, JSON.stringify(host, null, 2), "utf8");
     run(HOST_SCRIPT, ["--manifest", hostManifest].concat(args.overwrite ? ["--overwrite"] : []));
 
     copyOutput(tempXml, pageXmlPath, args.overwrite, created, backups);
     copyOutput(tempIcon, iconPath, args.overwrite, created, backups);
+    langPaths.forEach(function (relative) {
+      copyOutput(path.join(tempLangDir, path.basename(relative)),
+        resolvePath(projectRoot, relative, "langPath"), args.overwrite, created, backups);
+    });
     copyLayoutOutput(tempLayout, layoutPath, args.overwrite, created, backups);
 
     const changedCsproj = ensureLayoutContent(csprojPath, layoutPath);
@@ -713,6 +956,9 @@ function main() {
       mapping,
       layoutMenuItems: manifest.menuItems,
       layoutStatus: manifest.layoutStatus,
+      langPaths,
+      langSpec,
+      pageLangName: manifest.pageLangName,
       tempRoot,
       templateMapPath
     });
@@ -728,7 +974,8 @@ function main() {
       hostPaths: outputTargets.slice(2),
       mappingAudit,
       iconMapAudit,
-      bundleAudit
+      bundleAudit,
+      langPaths
     };
     writeAuditOutput(bundleAudit, JSON.stringify({
       adapter: "mtslg-iocontrol",
@@ -742,6 +989,12 @@ function main() {
       csprojChanged: changedCsproj,
       pageTarget: manifest.pageTarget,
       mappingTag: mapping.mappingTag || null,
+      languages: langSpec ? {
+        locales: langSpec.locales,
+        keyCount: langSpec.keys.length,
+        paths: langPaths,
+        bindings: langBindings
+      } : null,
       layout: {
         status: manifest.layoutStatus,
         evidence: manifest.layoutEvidence,

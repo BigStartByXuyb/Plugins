@@ -109,9 +109,9 @@ fs.writeFileSync(manifest, JSON.stringify({
   viewModelPath: "UI/F2-Teach/ViewModel/F2NewPageViewModel.cs",
   pageTarget: "F2NewPage",
   pageLangName: "F2NewPageTitle",
-  pageXmlPath: "Common/Pages/F2NewPagePage.xml",
-  iconPath: "Resources/Icons/F2NewPageIcons.xaml",
-  layoutPath: "Resources/Files/Layout.xml",
+  pageXmlPath: "Resources/Pages/F2NewPage/F2NewPagePage.xml",
+  iconPath: "Resources/Pages/F2NewPage/F2NewPageIcons.xaml",
+  layoutPath: "Resources/Layout/Layout.xml",
   mappingPath: mapping,
   dslPath: dslSnapshot,
   visibilityPath: visibility,
@@ -132,19 +132,28 @@ for (const relative of [
   "UI/F2-Teach/View/F2NewPageView.xaml",
   "UI/F2-Teach/View/F2NewPageView.xaml.cs",
   "UI/F2-Teach/ViewModel/F2NewPageViewModel.cs",
-  "Common/Pages/F2NewPagePage.xml",
-  "Resources/Icons/F2NewPageIcons.xaml",
-  "Resources/Files/Layout.xml",
+  "Resources/Pages/F2NewPage/F2NewPagePage.xml",
+  "Resources/Pages/F2NewPage/F2NewPageIcons.xaml",
+  "Resources/Layout/Layout.xml",
   "Generated/F2NewPage.mapping.json",
   "Generated/F2NewPage.icon-map.json",
   "Generated/F2NewPage.bundle.manifest.json"
 ]) {
   assert.ok(fs.existsSync(path.join(project, ...relative.split("/"))), relative);
 }
-assert.match(fs.readFileSync(path.join(project, "Resources/Icons/F2NewPageIcons.xaml"), "utf8"), /ActionGeometry/);
-assert.match(fs.readFileSync(path.join(project, "Common/Pages/F2NewPagePage.xml"), "utf8"), /Value="\+5"/);
-assert.doesNotMatch(fs.readFileSync(path.join(project, "Common/Pages/F2NewPagePage.xml"), "utf8"), /IOName="/);
-assert.match(fs.readFileSync(path.join(project, "Resources/Files/Layout.xml"), "utf8"), /Index="1"/);
+// 一页一目录：页面 XML 与页面 Icon 必须同处 Resources/Pages/<页面名>/。
+assert.deepStrictEqual(
+  fs.readdirSync(path.join(project, "Resources", "Pages", "F2NewPage")).sort(),
+  ["F2NewPageIcons.xaml", "F2NewPagePage.xml"]
+);
+// 旧约定路径不得再生成。
+for (const stale of ["Common/Pages/F2NewPagePage.xml", "Resources/Icons/F2NewPageIcons.xaml", "Resources/Files/Layout.xml"]) {
+  assert.ok(!fs.existsSync(path.join(project, ...stale.split("/"))), "旧输出路径不应再生成: " + stale);
+}
+assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPageIcons.xaml"), "utf8"), /ActionGeometry/);
+assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPagePage.xml"), "utf8"), /Value="\+5"/);
+assert.doesNotMatch(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPagePage.xml"), "utf8"), /IOName="/);
+assert.match(fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), "utf8"), /Index="1"/);
 assert.match(fs.readFileSync(csproj, "utf8"), /F2NewPagePage\.xml|F2NewPageIcons\.xaml/);
 const iconMapAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/F2NewPage.icon-map.json"), "utf8"));
 assert.ok(Array.isArray(iconMapAudit.candidates));
@@ -166,8 +175,8 @@ noIconManifest.pageLangName = "NoIconPageTitle";
 noIconManifest.viewPath = "UI/F2-Teach/View/NoIconPageView.xaml";
 noIconManifest.codeBehindPath = "UI/F2-Teach/View/NoIconPageView.xaml.cs";
 noIconManifest.viewModelPath = "UI/F2-Teach/ViewModel/NoIconPageViewModel.cs";
-noIconManifest.pageXmlPath = "Common/Pages/NoIconPagePage.xml";
-noIconManifest.iconPath = "Resources/Icons/NoIconPageIcons.xaml";
+noIconManifest.pageXmlPath = "Resources/Pages/NoIconPage/NoIconPagePage.xml";
+noIconManifest.iconPath = "Resources/Pages/NoIconPage/NoIconPageIcons.xaml";
 noIconManifest.iconMapPath = emptyIconMap;
 noIconManifest.menuItems = [];
 noIconManifest.layoutStatus = "none";
@@ -177,7 +186,7 @@ fs.writeFileSync(noIconManifestPath, JSON.stringify(noIconManifest, null, 2), "u
 result = spawnSync(process.execPath, [script, "--manifest", noIconManifestPath], { encoding: "utf8" });
 assert.strictEqual(result.status, 0, result.stderr);
 assert.doesNotMatch(
-  fs.readFileSync(path.join(project, "Resources/Icons/NoIconPageIcons.xaml"), "utf8"),
+  fs.readFileSync(path.join(project, "Resources/Pages/NoIconPage/NoIconPageIcons.xaml"), "utf8"),
   /<Geometry\b/,
   "没有实际 Icon 引用的页面允许生成空 ResourceDictionary"
 );
@@ -189,8 +198,8 @@ auditCollision.pageLangName = "AuditCollisionTitle";
 auditCollision.viewPath = "UI/F2-Teach/View/AuditCollisionView.xaml";
 auditCollision.codeBehindPath = "UI/F2-Teach/View/AuditCollisionView.xaml.cs";
 auditCollision.viewModelPath = "UI/F2-Teach/ViewModel/AuditCollisionViewModel.cs";
-auditCollision.pageXmlPath = "Common/Pages/AuditCollisionPage.xml";
-auditCollision.iconPath = "Resources/Icons/AuditCollisionIcons.xaml";
+auditCollision.pageXmlPath = "Resources/Pages/AuditCollision/AuditCollisionPage.xml";
+auditCollision.iconPath = "Resources/Pages/AuditCollision/AuditCollisionIcons.xaml";
 const auditCollisionPath = path.join(root, "audit-collision.json");
 fs.mkdirSync(path.join(project, "Generated"), { recursive: true });
 fs.writeFileSync(path.join(project, "Generated/AuditCollision.mapping.json"), "{}", "utf8");
@@ -198,7 +207,7 @@ fs.writeFileSync(auditCollisionPath, JSON.stringify(auditCollision, null, 2), "u
 result = spawnSync(process.execPath, [script, "--manifest", auditCollisionPath], { encoding: "utf8" });
 assert.notStrictEqual(result.status, 0, "已存在审计文件时不得在没有 --overwrite 的情况下覆盖");
 assert.match(result.stderr + result.stdout, /审计文件已存在|未覆盖/);
-assert.ok(!fs.existsSync(path.join(project, "Common/Pages/AuditCollisionPage.xml")));
+assert.ok(!fs.existsSync(path.join(project, "Resources/Pages/AuditCollision/AuditCollisionPage.xml")));
 
 // 空项目脚手架：目标目录可以尚不存在，但必须生成完整文件结构；只做静态校验，不编译或加载 WPF。
 const scaffoldProject = path.join(root, "EmptyScaffold");
@@ -211,9 +220,9 @@ fs.writeFileSync(scaffoldManifest, JSON.stringify({
   area: "F2-Teach",
   pageTarget: "ScaffoldPage",
   pageLangName: "ScaffoldPageTitle",
-  pageXmlPath: "Common/Pages/ScaffoldPage.xml",
-  iconPath: "Resources/Icons/ScaffoldIcons.xaml",
-  layoutPath: "Resources/Files/Layout.xml",
+  pageXmlPath: "Resources/Pages/Scaffold/ScaffoldPage.xml",
+  iconPath: "Resources/Pages/Scaffold/ScaffoldIcons.xaml",
+  layoutPath: "Resources/Layout/Layout.xml",
   mappingPath: mapping,
   dslPath: dslSnapshot,
   visibilityPath: visibility,
@@ -231,9 +240,9 @@ for (const relative of [
   "UI/F2-Teach/View/ScaffoldView.xaml",
   "UI/F2-Teach/View/ScaffoldView.xaml.cs",
   "UI/F2-Teach/ViewModel/ScaffoldViewModel.cs",
-  "Common/Pages/ScaffoldPage.xml",
-  "Resources/Icons/ScaffoldIcons.xaml",
-  "Resources/Files/Layout.xml",
+  "Resources/Pages/Scaffold/ScaffoldPage.xml",
+  "Resources/Pages/Scaffold/ScaffoldIcons.xaml",
+  "Resources/Layout/Layout.xml",
   "Generated/Scaffold.mapping.json",
   "Generated/Scaffold.icon-map.json",
   "Generated/Scaffold.bundle.manifest.json"
@@ -247,6 +256,10 @@ assert.strictEqual(scaffoldConfig.source_root, "");
 assert.strictEqual(scaffoldConfig.index_root, "");
 assert.deepStrictEqual(scaffoldConfig.resource_roots, []);
 assert.strictEqual(scaffoldConfig.key_catalog, "");
+// 脚手架声明的运行路径必须与目标项目真实结构一致。
+assert.strictEqual(scaffoldConfig.pages_root, "Resources/Pages");
+assert.strictEqual(scaffoldConfig.icons_root, "Resources/Pages");
+assert.strictEqual(scaffoldConfig.layout_file, "Resources/Layout/Layout.xml");
 const scaffoldAudit = JSON.parse(fs.readFileSync(
   path.join(scaffoldProject, "Generated/Scaffold.bundle.manifest.json"), "utf8"
 ));
@@ -267,8 +280,8 @@ incompleteManifest.pageTarget = "NoLayoutState";
 incompleteManifest.viewPath = "UI/F2-Teach/View/NoLayoutStateView.xaml";
 incompleteManifest.codeBehindPath = "UI/F2-Teach/View/NoLayoutStateView.xaml.cs";
 incompleteManifest.viewModelPath = "UI/F2-Teach/ViewModel/NoLayoutStateViewModel.cs";
-incompleteManifest.pageXmlPath = "Common/Pages/NoLayoutStatePage.xml";
-incompleteManifest.iconPath = "Resources/Icons/NoLayoutStateIcons.xaml";
+incompleteManifest.pageXmlPath = "Resources/Pages/NoLayoutState/NoLayoutStatePage.xml";
+incompleteManifest.iconPath = "Resources/Pages/NoLayoutState/NoLayoutStateIcons.xaml";
 incompleteManifest.menuItems = [];
 delete incompleteManifest.layoutStatus;
 delete incompleteManifest.layoutEvidence;
@@ -277,7 +290,7 @@ fs.writeFileSync(incompleteManifestPath, JSON.stringify(incompleteManifest, null
 result = spawnSync(process.execPath, [script, "--manifest", incompleteManifestPath], { encoding: "utf8" });
 assert.notStrictEqual(result.status, 0, "缺少 Layout 状态时不得继续生成 bundle");
 assert.match(result.stderr + result.stdout, /layoutStatus|Layout/i);
-assert.ok(!fs.existsSync(path.join(project, "Common/Pages/NoLayoutStatePage.xml")));
+assert.ok(!fs.existsSync(path.join(project, "Resources/Pages/NoLayoutState/NoLayoutStatePage.xml")));
 
 const brokenManifest = path.join(root, "broken-bundle.json");
 const brokenProject = path.join(root, "Broken.Pages");
@@ -288,9 +301,9 @@ fs.writeFileSync(brokenManifest, JSON.stringify({
   csproj: "Broken.Pages.csproj",
   pageName: "BrokenPage",
   area: "F2-Teach",
-  pageXmlPath: "Common/Pages/BrokenPagePage.xml",
-  iconPath: "Resources/Icons/BrokenPageIcons.xaml",
-  layoutPath: "Resources/Files/Layout.xml",
+  pageXmlPath: "Resources/Pages/BrokenPage/BrokenPagePage.xml",
+  iconPath: "Resources/Pages/BrokenPage/BrokenPageIcons.xaml",
+  layoutPath: "Resources/Layout/Layout.xml",
   mappingPath: mapping,
   svgPath: svg,
   iconMapPath: path.join(root, "missing-icon-map.json"),
@@ -300,7 +313,146 @@ fs.writeFileSync(brokenManifest, JSON.stringify({
 result = spawnSync(process.execPath, [script, "--manifest", brokenManifest], { encoding: "utf8" });
 assert.notStrictEqual(result.status, 0);
 assert.match(result.stderr + result.stdout, /新建页面必须提供当前页面的 dslPath 和 visibilityPath/);
-assert.ok(!fs.existsSync(path.join(brokenProject, "Common/Pages/BrokenPage.xml")));
-assert.ok(!fs.existsSync(path.join(brokenProject, "Resources/Files/Layout.xml")));
+assert.ok(!fs.existsSync(path.join(brokenProject, "Resources/Pages/BrokenPage/BrokenPage.xml")));
+assert.ok(!fs.existsSync(path.join(brokenProject, "Resources/Layout/Layout.xml")));
+
+// 多语言：CN/EN 字典生成 + 按文案自动匹配 LangName + 未挂 key 必须失败 + 豁免生效。
+const readLangKeys = (text) => {
+  const keys = [];
+  const re = /<sys:String\b[^>]*\bx:Key="([^"]*)"[^>]*>/g;
+  let match;
+  while ((match = re.exec(text)) !== null) keys.push(match[1]);
+  return keys;
+};
+const langBase = JSON.parse(fs.readFileSync(manifest, "utf8"));
+const langPageTextKeys = [
+  { key: "LangDemoPlusFive", group: "页面内容", text: { CN: "+5", EN: "+5" } },
+  { key: "LangDemoMinusFive", group: "页面内容", text: { CN: "-5", EN: "-5" } },
+  { key: "LangDemoPlusOne", group: "页面内容", text: { CN: "+1", EN: "+1" } },
+  { key: "LangDemoMinusOne", group: "页面内容", text: { CN: "-1", EN: "-1" } },
+  { key: "LangDemoValue", group: "页面内容", text: { CN: "9.0%", EN: "9.0%" } },
+  { key: "LangDemoDirection", group: "页面内容", text: { CN: "Dir", EN: "Dir" } }
+];
+function langManifestFor(pageName, languages) {
+  const item = JSON.parse(JSON.stringify(langBase));
+  item.pageName = pageName;
+  item.pageTarget = pageName;
+  item.pageLangName = pageName + "PageTitle";
+  item.viewPath = "UI/F2-Teach/View/" + pageName + "View.xaml";
+  item.codeBehindPath = "UI/F2-Teach/View/" + pageName + "View.xaml.cs";
+  item.viewModelPath = "UI/F2-Teach/ViewModel/" + pageName + "ViewModel.cs";
+  item.pageXmlPath = "Resources/Pages/" + pageName + "/" + pageName + "Page.xml";
+  item.iconPath = "Resources/Pages/" + pageName + "/" + pageName + "Icons.xaml";
+  item.languages = languages;
+  return item;
+}
+
+// 正向：文案自动匹配（不写 sourceRef），页面里所有文本控件都必须挂上 LangName。
+const langManifest = langManifestFor("LangDemo", {
+  locales: ["CN", "EN"],
+  keys: [
+    { key: "LangDemoPageTitle", group: "页面标题", text: { CN: "多语言示例", EN: "Language Demo" }, role: "page-title" },
+    { key: "MenuItemOperation", group: "页面底部菜单名称", text: { CN: "操作", EN: "Operation" }, menuIndex: 1 },
+    ...langPageTextKeys
+  ]
+});
+const langManifestPath = path.join(root, "lang-bundle.json");
+fs.writeFileSync(langManifestPath, JSON.stringify(langManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", langManifestPath], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+const langPageDir = path.join(project, "Resources", "Pages", "LangDemo");
+assert.deepStrictEqual(fs.readdirSync(langPageDir).sort(),
+  ["LangDemoIcons.xaml", "LangDemoPage.xml", "LangDemo_CN.xaml", "LangDemo_EN.xaml"]);
+const langCn = fs.readFileSync(path.join(langPageDir, "LangDemo_CN.xaml"), "utf8");
+const langEn = fs.readFileSync(path.join(langPageDir, "LangDemo_EN.xaml"), "utf8");
+assert.match(langCn, /<sys:String x:Key="LangDemoPageTitle">多语言示例<\/sys:String>/);
+assert.match(langEn, /<sys:String x:Key="LangDemoPageTitle">Language Demo<\/sys:String>/);
+assert.deepStrictEqual(readLangKeys(langCn), readLangKeys(langEn), "CN/EN 的 key 必须完全一致");
+assert.deepStrictEqual(readLangKeys(langCn), langManifest.languages.keys.map((key) => key.key));
+const langPageXml = fs.readFileSync(path.join(langPageDir, "LangDemoPage.xml"), "utf8");
+const langPageBlocks = langPageXml.split("<IOContorl").slice(1).filter((block) => /Value="/.test(block));
+assert.ok(langPageBlocks.length >= 6, "示例页应包含多个带文案的控件");
+langPageBlocks.forEach((block) => {
+  assert.match(block, /LangName="/, "带文案的控件必须挂 LangName，实际: " + block.split("\n")[1]);
+});
+assert.match(langPageXml, /LangName="LangDemoPlusFive"/, "应按 CN 文案自动匹配到 key");
+const langLayout = fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), "utf8");
+assert.match(langLayout, /<Page Target="LangDemo" LangName="LangDemoPageTitle">/);
+assert.match(langLayout, /LangName="MenuItemOperation"/, "MenuItem 必须引用语言文件中的 key");
+const langCsproj = fs.readFileSync(csproj, "utf8");
+assert.match(langCsproj, /<Page Include="Resources\\Pages\\LangDemo\\LangDemo_CN\.xaml">/);
+assert.match(langCsproj, /<Page Include="Resources\\Pages\\LangDemo\\LangDemo_EN\.xaml">/);
+const langAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/LangDemo.bundle.manifest.json"), "utf8"));
+assert.strictEqual(langAudit.languages.keyCount, 8);
+assert.deepStrictEqual(langAudit.languages.locales, ["CN", "EN"]);
+assert.ok(langAudit.languages.bindings.some((line) => /按文案匹配/.test(line)), "审计需记录自动匹配结果");
+
+// 负例：有文案没登记 key → 必须失败并回滚，错误信息要指出是哪些节点。
+const badLangManifest = langManifestFor("LangBad", {
+  locales: ["CN", "EN"],
+  keys: [
+    { key: "LangBadPageTitle", group: "页面标题", text: { CN: "标题", EN: "Title" }, role: "page-title" }
+  ]
+});
+badLangManifest.menuItems = [{ name: "操作", icon: "", index: 1 }];
+const badLangPath = path.join(root, "lang-bad.json");
+fs.writeFileSync(badLangPath, JSON.stringify(badLangManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", badLangPath], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "文本没有 LangName 时必须失败");
+assert.match(result.stderr + result.stdout, /必须挂 LangName/);
+assert.match(result.stderr + result.stdout, /body-text\/inner\/minus5/);
+assert.ok(!fs.existsSync(path.join(project, "Resources/Pages/LangBad/LangBadPage.xml")),
+  "多语言门禁失败后不得留下页面产物");
+
+// 负例：菜单项引用了一个不符合 MenuItem 前缀的 key → 命名约定不通过。
+const badMenuManifest = langManifestFor("LangBadMenu", {
+  locales: ["CN", "EN"],
+  keys: [
+    { key: "LangBadMenuPageTitle", group: "页面标题", text: { CN: "标题", EN: "Title" } },
+    { key: "LangBadMenuContent", group: "页面内容", text: { CN: "操作", EN: "Operation" } }
+  ]
+});
+badMenuManifest.menuItems = [{ name: "操作", icon: "", index: 1, langName: "LangBadMenuContent" }];
+badMenuManifest.languages.noLangRefs = [
+  "body-text/inner/plus5", "body-text/inner/minus5", "body-text/inner/plus1",
+  "body-text/inner/minus1", "body-text/inner/value-group/value", "body-text/inner/value-group/direction"
+];
+const badMenuPath = path.join(root, "lang-bad-menu.json");
+fs.writeFileSync(badMenuPath, JSON.stringify(badMenuManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", badMenuPath], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "菜单项 key 必须以 MenuItem 开头");
+assert.match(result.stderr + result.stdout, /不符合菜单项命名约定/);
+
+// 负例：缺少 {页面名}PageTitle → Layout <Page LangName> 没有可引用的 key。
+const noTitleManifest = langManifestFor("LangNoTitle", {
+  locales: ["CN", "EN"],
+  noLangRefs: badMenuManifest.languages.noLangRefs,
+  keys: [{ key: "MenuItemOperation", group: "页面底部菜单名称", text: { CN: "操作", EN: "Operation" }, menuIndex: 1 }]
+});
+noTitleManifest.pageLangName = "";
+const noTitlePath = path.join(root, "lang-no-title.json");
+fs.writeFileSync(noTitlePath, JSON.stringify(noTitleManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", noTitlePath], { encoding: "utf8" });
+assert.notStrictEqual(result.status, 0, "缺少页面标题 key 时必须失败");
+assert.match(result.stderr + result.stdout, /缺少页面标题 LanguageKey：LangNoTitlePageTitle/);
+
+// 豁免：动态值节点显式写入 noLangRefs 后可以放行。
+const exemptManifest = langManifestFor("LangExempt", {
+  locales: ["CN", "EN"],
+  noLangRefs: ["body-text/inner/value-group/value", "body-text/inner/value-group/direction"],
+  keys: [
+    { key: "LangExemptPageTitle", group: "页面标题", text: { CN: "豁免示例", EN: "Exempt" }, role: "page-title" },
+    { key: "MenuItemOperation", group: "页面底部菜单名称", text: { CN: "操作", EN: "Operation" }, menuIndex: 1 },
+    ...langPageTextKeys.slice(0, 4).map((item) => ({ ...item, key: item.key.replace("LangDemo", "LangExempt") }))
+  ]
+});
+const exemptPath = path.join(root, "lang-exempt.json");
+fs.writeFileSync(exemptPath, JSON.stringify(exemptManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", exemptPath], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+const exemptXml = fs.readFileSync(path.join(project, "Resources/Pages/LangExempt/LangExemptPage.xml"), "utf8");
+const exemptBlocks = exemptXml.split("<IOContorl").slice(1).filter((block) => /Value="9\.0%"/.test(block));
+assert.strictEqual(exemptBlocks.length, 1);
+assert.doesNotMatch(exemptBlocks[0], /LangName="/, "被豁免的动态值节点不应挂 LangName");
 
 console.log("PASS MasterGo page bundle regression test");

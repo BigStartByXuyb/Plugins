@@ -12,7 +12,7 @@ const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mw-wpf-page-'));
 const csprojPath = path.join(projectRoot, 'Demo.Pages.csproj');
 const manifestPath = path.join(projectRoot, 'page.json');
 
-fs.writeFileSync(csprojPath, `<?xml version="1.0" encoding="utf-8"?>\n<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n  <PropertyGroup>\n    <RootNamespace>Demo.Pages</RootNamespace>\n  </PropertyGroup>\n  <ItemGroup>\n    <Compile Include="Properties\\AssemblyInfo.cs" />\n  </ItemGroup>\n  <ItemGroup>\n    <Page Include="Resources\\Files\\Language.xaml">\n      <Generator>MSBuild:Compile</Generator>\n      <SubType>Designer</SubType>\n    </Page>\n  </ItemGroup>\n  <ItemGroup>\n    <Page Include="UI\\F2-Teach\\View\\ExistingView.xaml">\n      <Generator>MSBuild:Compile</Generator>\n      <SubType>Designer</SubType>\n    </Page>\n    <Compile Include="UI\\F2-Teach\\ViewModel\\ExistingViewModel.cs" />\n  </ItemGroup>\n  <ItemGroup>\n    <Content Include="Common\\Pages\\ExistingPage.xml" />\n  </ItemGroup>\n</Project>\n`, 'utf8');
+fs.writeFileSync(csprojPath, `<?xml version="1.0" encoding="utf-8"?>\n<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n  <PropertyGroup>\n    <RootNamespace>Demo.Pages</RootNamespace>\n  </PropertyGroup>\n  <ItemGroup>\n    <Compile Include="Properties\\AssemblyInfo.cs" />\n  </ItemGroup>\n  <ItemGroup>\n    <Page Include="Resources\\Pages\\Existing\\Existing_CN.xaml">\n      <Generator>MSBuild:Compile</Generator>\n      <SubType>Designer</SubType>\n    </Page>\n  </ItemGroup>\n  <ItemGroup>\n    <Page Include="UI\\F2-Teach\\View\\ExistingView.xaml">\n      <Generator>MSBuild:Compile</Generator>\n      <SubType>Designer</SubType>\n    </Page>\n    <Compile Include="UI\\F2-Teach\\ViewModel\\ExistingViewModel.cs" />\n  </ItemGroup>\n  <ItemGroup>\n    <Content Include="Resources\\Pages\\Existing\\ExistingPage.xml" />\n  </ItemGroup>\n</Project>\n`, 'utf8');
 fs.writeFileSync(manifestPath, JSON.stringify({
   projectRoot,
   csproj: 'Demo.Pages.csproj',
@@ -22,8 +22,8 @@ fs.writeFileSync(manifestPath, JSON.stringify({
   codeBehindPath: 'UI/F2-Teach/View/F2NewOperationView.xaml.cs',
   viewModelPath: 'UI/F2-Teach/ViewModel/F2NewOperationViewModel.cs',
   includeIcon: true,
-  iconPath: 'Resources/Icons/F2NewOperationIcons.xaml',
-  pageXmlPath: 'Common/Pages/F2NewOperationPage.xml'
+  iconPath: 'Resources/Pages/F2NewOperation/F2NewOperationIcons.xaml',
+  pageXmlPath: 'Resources/Pages/F2NewOperation/F2NewOperationPage.xml'
 }, null, 2), 'utf8');
 
 let result = spawnSync(process.execPath, [script, '--manifest', manifestPath], { encoding: 'utf8' });
@@ -38,7 +38,7 @@ assert.ok(fs.existsSync(viewModelPath));
 
 const view = fs.readFileSync(viewPath, 'utf8');
 assert.match(view, /x:Class="Demo\.Pages\.F2_Teach\.View\.F2NewOperationView"/);
-assert.match(view, /Resources\/Icons\/F2NewOperationIcons\.xaml/);
+assert.match(view, /Resources\/Pages\/F2NewOperation\/F2NewOperationIcons\.xaml/);
 assert.match(view, /XmlPagePath="F2NewOperationPage"/);
 assert.match(fs.readFileSync(codeBehindPath, 'utf8'), /partial class F2NewOperationView : UserControl/);
 assert.match(fs.readFileSync(viewModelPath, 'utf8'), /class F2NewOperationViewModel : IOScreen, IPage/);
@@ -48,8 +48,8 @@ let csproj = fs.readFileSync(csprojPath, 'utf8');
 assert.match(csproj, /<Compile Include="UI\\F2-Teach\\View\\F2NewOperationView\.xaml\.cs"\s*\/>/);
 assert.match(csproj, /<Compile Include="UI\\F2-Teach\\ViewModel\\F2NewOperationViewModel\.cs"\s*\/>/);
 assert.match(csproj, /<Page Include="UI\\F2-Teach\\View\\F2NewOperationView\.xaml">/);
-assert.match(csproj, /<Page Include="Resources\\Icons\\F2NewOperationIcons\.xaml">/);
-assert.match(csproj, /<Content Include="Common\\Pages\\F2NewOperationPage\.xml"\s*\/>/);
+assert.match(csproj, /<Page Include="Resources\\Pages\\F2NewOperation\\F2NewOperationIcons\.xaml">/);
+assert.match(csproj, /<Content Include="Resources\\Pages\\F2NewOperation\\F2NewOperationPage\.xml"\s*\/>/);
 
 result = spawnSync(process.execPath, [script, '--manifest', manifestPath], { encoding: 'utf8' });
 assert.notStrictEqual(result.status, 0);
@@ -82,8 +82,8 @@ fs.writeFileSync(manifestPath, JSON.stringify({
   codeBehindPath: 'UI/F2-Teach/View/F2NewOperationView.xaml.cs',
   viewModelPath: 'UI/F2-Teach/ViewModel/F2NewOperationViewModel.cs',
   includeIcon: true,
-  iconPath: 'Resources/Icons/F2NewOperationIcons.xaml',
-  pageXmlPath: 'Common/Pages/F2NewOperationPage.xml'
+  iconPath: 'Resources/Pages/F2NewOperation/F2NewOperationIcons.xaml',
+  pageXmlPath: 'Resources/Pages/F2NewOperation/F2NewOperationPage.xml'
 }, null, 2), 'utf8');
 result = spawnSync(process.execPath, [script, '--manifest', manifestPath, '--overwrite'], { encoding: 'utf8' });
 assert.strictEqual(result.status, 0, result.stderr);

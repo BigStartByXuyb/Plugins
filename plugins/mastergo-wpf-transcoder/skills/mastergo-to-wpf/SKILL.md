@@ -104,7 +104,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 
 ## 页面 Icon 文件（当前 MTSLG 路线）
 
-每个页面使用自己的 Icon 文件，文件名固定由页面 `name` 派生为 `Resources/Icons/{name}Icons.xaml`；View 只能引用本页面的该文件。新页面不得复用或覆盖其他页面的 Icon 文件。`gen-mtslg-page-icons.js` 只负责创建当前页面的新 ResourceDictionary，目标文件已存在时失败，不执行 Icon 合并。
+每个页面使用自己的 Icon 文件，文件名固定由页面 `name` 派生为 `Resources/Pages/{name}/{name}Icons.xaml`，与页面 XML 同处该页专属目录；View 只能引用本页面的该文件。新页面不得复用或覆盖其他页面的 Icon 文件。`gen-mtslg-page-icons.js` 只负责创建当前页面的新 ResourceDictionary，目标文件已存在时失败，不执行 Icon 合并。
 
 `extractSvg` 只返回 PATH 自身的 `d` + `transform`，**几何完全相同的复用实例会被去重**（典型场景：同一个方向图标被旋转/翻转复用，例如「向上/向下」只差组级 `flipV`、「向左/向右」只差组级 `rotate`），因此某些方向按钮拿不到条目，页面就会出现「有图标槽位但无 Icon」的节点。补救方式：给 `gen-mtslg-page-icons.js` 传入第 4 个参数（DSL 快照路径 `dsl.snapshot.json`），并在页面图标映射里把这类条目写成 `"fromDsl": true`：
 
@@ -113,6 +113,38 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 - 该模式属于几何推断，交付前必须做一次视觉核对；如果同一组图标在 DSL 里几何完全相同（例如「向左」与「向右」完全一致），说明设计侧缺少独立图形，应标记待确认并要求设计补图，不得自行镜像或猜测朝向。
 
 每个页面必须单独维护一个 Icon 文件。转换时先从当前页 MasterGo PATH/SVG 自动发现候选；图标映射输入逐项提供目标项目已确认或页面内生成的英文资源名、中文注释名和 DSL 来源，禁止从图层 ID、坐标或几何外观直接拼出 `MGIcon_<layer-id>` 形式的资源名。资源名必须是英文标识符且在当前页面唯一；重复名称由生成器按稳定数字后缀处理。没有目标项目键时，允许使用页面内唯一的临时 Geometry 键，状态标记为 `provisional` 并保留 sourceId/sourceRef。只有未被任何实际 Icon 槽位引用的 PATH 候选才进入 `candidates/unmapped` 而不进入 XAML。XAML 注释只写中文名称，溯源和 `keyStatus` 写入 mapping/manifest。`mw-wpf` 的页面以 `StaticResource` 引用该页 Geometry；`mtslg-iocontrol` 的 Layout 仅引用该页 Icon 文件中已生成的键。
+
+## 页面多语言文件（当前 MTSLG 路线）
+
+每个页面一套语言字典，落在该页自己的目录：`Resources/Pages/{name}/{name}_{LOCALE}.xaml`（默认 `CN`、`EN`，与页面 XML、页面 Icon 同目录）。由 `gen-mtslg-page-lang.js` 发射，Bundle 通过 manifest 的 `languages` 字段驱动；未提供 `languages` 时行为与以前一致（不生成字典，也不启用下面的引用门禁）。
+
+```json
+"languages": {
+  "locales": ["CN", "EN"],
+  "bindByText": true,
+  "requireLangName": true,
+  "noLangRefs": ["1:42"],
+  "keys": [
+    { "key": "DemoRecipePageTitle", "text": { "CN": "配方管理", "EN": "Recipe" } },
+    { "key": "MenuItemRecipe", "text": { "CN": "配方", "EN": "Recipe" } },
+    { "key": "DemoRecipeName", "text": { "CN": "配方名称", "EN": "Recipe Name" } }
+  ]
+}
+```
+
+- **LanguageKey 命名约定（强制，与目标项目现有语言文件一致）**：
+  - 页面标题 `{页面名}PageTitle`（如 `HomeContentPageTitle`），由 Layout 的 `<Page Target="HomeContent" LangName="HomeContentPageTitle">` 引用；缺少这个 key 直接失败。
+  - 菜单项 `MenuItem{名称}`（如 `MenuItemLaserSetting`），由 Layout 的 `<MenuItem LangName="...">` 引用。
+  - 页面内容 `{页面名}{名称}`（如 `HomeContentFullAutoOperation`），由页面 XML 内的控件引用。
+  - 跨页面共享字典的 key 必须显式写 `"scope": "shared"`，否则按页面内 key 校验前缀。
+  - `group` 不写时按上述三类自动推导；XAML 输出顺序固定为 页面标题 → 页面底部菜单名称 → 页面内容。
+- `languages.keys[]` 是 `LangName` 的**唯一真值源**：key 必须是英文标识符且页面内唯一；每个 locale 都必须为每个 key 提供文案，缺一个直接失败；生成后逐文件回读校验，保证**各语言文件的 `x:Key` 集合与顺序完全一致**。
+- **新生成页面必须挂全 `LangName`**（`requireLangName` 默认 `true`）：设计稿里有文案的控件（`valueSource=dsl.text` 的节点）和带 `Name` 的 `MenuItem` 都必须引用到一个已登记的 key，否则整套生成失败并回滚。错误信息会逐条列出缺 key 的节点/菜单项。
+- **按文案自动匹配**（`bindByText` 默认 `true`）：设计稿是中文，LanguageKey 的 `CN` 文案与控件设计文本**逐字相等**时自动绑定并写入 `LangName`，不需要为每个按钮手写 `sourceRef`。同一文案对应多个 key 属于歧义，脚本不猜，直接失败并要求用 `sourceRef` 显式指定。
+- 显式引用优先于自动匹配：`sourceRef` 绑定页面节点、`menuIndex` 绑定 Layout `MenuItem`；页面标题由 `{页面名}PageTitle` 直接决定，不需要在 key 上写 `role`。节点或菜单项已有不同的 `LangName` 时直接失败，不静默覆盖。
+- 动态值/数量/序列号等**不需要翻译**的文本，必须在 `noLangRefs` 里按 DSL ref 显式豁免，并在交付说明中列出；不得为了让门禁通过而给这类文本编造 key。
+- **引用闭环硬门禁**：页面 XML、Layout `MenuItem`、`<Page LangName>` 中出现的每个 `LangName` 都必须存在于本页语言字典，否则整套生成失败并回滚。没有目标项目键目录时，禁止用未登记的 key 充当占位。
+- `LangName` 是附加属性：`TextBlock` 的 `Value` 仍按设计文本发射（provenance 要求 `Value == sourceText`），运行时以 `LangName` 为准。语言字典里的文本来自设计稿或用户确认的翻译，不能由脚本生成或机翻。
 
 ## 页面输出目录
 
@@ -124,7 +156,8 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
   2. 目标项目 `.csproj` 中已声明的 `Content Include` 页面目录、`Page Include` 图标目录和 `Content Include` 的 `Layout.xml` 路径；
   3. 项目源码、宿主配置和已确认的运行目录共同给出的唯一路径；
   4. 仅在无法唯一确定运行目录，或用户明确要求静态产物时，才使用 `Generated/`。
-- 对没有 `framework.config.json` 的新项目，`.csproj` 的路径声明是运行路径证据，不得因为缺少 `framework.config.json` 或既有 `Layout.xml` 就把整套页面降级到 `Generated/`。例如项目声明 `Common\\Pages\\*.xml`、`Resources\\Icons\\*.xaml` 和 `Resources\\Files\\Layout.xml` 时，正式产物必须分别写入这三个目录。
+- **一页一目录（MTSLG 固定约定）**：页面产物按页写入 `Resources/Pages/{name}/`——页面 XML 为 `Resources/Pages/{name}/{name}Page.xml`，页面 Icon 为 `Resources/Pages/{name}/{name}Icons.xaml`；Layout 写入 `Resources/Layout/Layout.xml`。View/ViewModel 仍写入目标项目声明的 `UI/<区域>/View` 与 `UI/<区域>/ViewModel`。目标 `.csproj`/`framework.config.json` 已声明的真实路径优先于本约定。
+- 对没有 `framework.config.json` 的新项目，`.csproj` 的路径声明是运行路径证据，不得因为缺少 `framework.config.json` 或既有 `Layout.xml` 就把整套页面降级到 `Generated/`。例如项目声明 `Resources\\Pages\\<页面名>\\*Page.xml`、`Resources\\Pages\\<页面名>\\*Icons.xaml` 和 `Resources\\Layout\\Layout.xml` 时，正式产物必须分别写入这些路径。
 - `Generated/` 只保存 mapping/provenance、MCP manifest、图标提取清单、验证脚本和验证结果等溯源/审计文件，不作为 MTSLG 运行时默认加载目录。
 - 正式页面或图标文件已经存在时，生成器必须先备份；只有用户明确要求“重新生成/覆盖”时才替换，禁止静默覆盖。新建的 `Layout.xml` 也必须写入项目声明的正式路径。
 - 所有输出模式的 MasterGo 业务页面根级 Y 坐标都固定向上归一化 192px，且只扣除一次；顶部栏、底部栏和 Layout Header 不参与该偏移。对 MTSLG，这个归一化值进入 IOContorl 的根级 `Top`；对 MW WPF，它只是页面内容坐标的输入基准，最终 `Canvas/Grid` 等布局属性仍必须由目标 WPF 容器和项目事实确定，不能把 IOContorl XML 的 `Top` 属性直接当成 WPF 布局实现。

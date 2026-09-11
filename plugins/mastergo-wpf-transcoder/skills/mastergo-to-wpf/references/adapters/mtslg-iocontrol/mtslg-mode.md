@@ -9,7 +9,7 @@
 - 部署根目录：唯一生效的配置树；存在多个副本时逐一确认加载关系。
 - 页面目录：`{PageName}Page.xml` 的实际输出目录与命名规则。
 - 页面注册：页面 Target、菜单项与目标页面文件的关联方式。
-- 多语言目录：每种语言的资源文件、键命名规则与重载/重启要求。
+- 多语言目录：每种语言的资源文件、键命名规则与重载/重启要求。MTSLG 页面默认按页维护一套 `Resources/Pages/{name}/{name}_{LOCALE}.xaml`（默认 CN/EN），各语言 key 必须完全一致；运行时控件/菜单通过 `LangName` 引用这些 key。
 - 资源键来源：Style、Icon、LangName、IOName 与 IOCommand 的可核验来源。
 - 页面文件骨架：见第 2 节；组件固定模板、节点结构与字段来源以同目录的飞书组件库映射规范为唯一来源。
 - 内容区坐标：`contentOriginX`、固定 `contentOriginY=192`、设计稿标题处理与目标画布尺寸。
@@ -207,3 +207,4 @@
 | `cap-window.ps1` / `cap-window2.ps1` | 截图验证（运行宿主与输出路径由适配记录提供） | 双模式共用 |
 | `discover-mtslg-page-icon-map.js` | 从当前页面 mapping 的真实 PATH/SVG 发现候选，保留已确认资源键并输出 `candidates/unmapped` 审计 | 双模式共用 |
 | `gen-mtslg-page-icons.js` | 从发现结果和逐项确认的图标映射生成当前页面 Icon 文件；未确认候选不发射 | 双模式共用 |
+| `gen-mtslg-page-lang.js` | 从语言清单发射当前页面的 `{name}_{LOCALE}.xaml` 多语言字典，强制各语言 key 完全一致 | MTSLG |

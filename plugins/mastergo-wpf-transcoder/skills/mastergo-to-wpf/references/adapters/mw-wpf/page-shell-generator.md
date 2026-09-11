@@ -16,8 +16,8 @@ scripts/gen-mw-wpf-page.js 用一个页面清单生成独立页面的固定 WPF 
       "area": "F2-Teach",
       "pageName": "F2ManualOperation",
       "includeIcon": true,
-      "iconPath": "Resources/Icons/F2ManualOperationIcon.xaml",
-      "pageXmlPath": "Common/Pages/F2ManualOperationPage.xml",
+      "iconPath": "Resources/Pages/F2ManualOperation/F2ManualOperationIcons.xaml",
+      "pageXmlPath": "Resources/Pages/F2ManualOperation/F2ManualOperationPage.xml",
       "viewPath": "UI/F2-Teach/View/F2ManualOperationView.xaml",
       "codeBehindPath": "UI/F2-Teach/View/F2ManualOperationView.xaml.cs",
       "viewModelPath": "UI/F2-Teach/ViewModel/F2ManualOperationViewModel.cs"

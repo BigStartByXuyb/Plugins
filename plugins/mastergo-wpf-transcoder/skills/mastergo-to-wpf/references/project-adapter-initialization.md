@@ -49,9 +49,9 @@ The exact field names may be extended by an adapter, but paths must be project-r
   "mode": "mtslg-iocontrol",
   "source_root": "./Framework",
   "index_root": "./docs/ai-index",
-  "pages_root": "./Config/Common/Pages",
+  "pages_root": "./Resources/Pages",
   "resource_roots": ["./Resources"],
-  "layout_file": "./Config/Common/Layout.xml",
+  "layout_file": "./Resources/Layout/Layout.xml",
   "key_catalog": "./docs/mtslg-keys.json"
 }
 ```
