@@ -267,16 +267,20 @@ function outputWidth(node) {
   return node.w;
 }
 
-// 属性渲染顺序：对齐 HomeContentPage.xml 惯例（业务属性在前、几何在后）
+// 属性渲染顺序（目标项目页面既有惯例）：
+//   身份/类型/样式 → Icon → 文本(TopLeftContent/Value/Header) → LangName →
+//   运行时字段(PageName/IO*) → 控件尺寸(Width/Height) → 图标尺寸(IconWidth/IconHeight) → 位置(Left/Top)
 const ATTR_ORDER = [
-  'ID', 'ControlType', 'Style', 'Icon', 'IconWidth', 'IconHeight', 'LangName', 'PageName', 'TopLeftContent', 'Value',
-  'Header', 'IOName', 'IOCommand', 'IOParam', 'IOStyle', 'IOState', 'IOEnable', 'IOVisible',
-  'IOGroup', 'IsAutoRead', 'IsAutoWrite', 'IsAutoRefresh', 'IsWriteIO', 'IsSave',
+  'ID', 'ControlType', 'Style', 'Icon', 'IconText', 'TopLeftContent', 'Value', 'Header', 'LangName',
+  'PageName', 'IOName', 'IOCommand', 'IOVisible', 'IOEnable', 'IOParam', 'IOStyle', 'IOState', 'IOGroup',
+  'UserRightId',
+  'IsAutoRead', 'IsAutoWrite', 'IsAutoRefresh', 'IsWriteIO', 'IsSave',
   'IsShowDialog', 'DialogMessage', 'IsShowStatus', 'IsNeedRedMark', 'StatusBrush',
   'Foreground', 'FontSize', 'Orientation', 'ItemsSourceFile', 'DisplayMemberPath',
   'SelectedValuePath', 'Filter', 'DefaultValue', 'MinValue', 'MaxValue', 'MinRange',
   'MaxRange', 'DecimalPlaces', 'Keypad', 'MaxLength', 'DisableRow', 'DesignPanelID',
-  'ParameterName', 'Left', 'Top', 'Width', 'Height',
+  'ParameterName',
+  'Width', 'Height', 'IconWidth', 'IconHeight', 'Left', 'Top',
 ];
 const GEOM_ATTRS = ['Left', 'Top', 'Width', 'Height'];
 

@@ -7,12 +7,15 @@
 const fs = require("fs");
 const path = require("path");
 
+// MenuItem 属性顺序：与页面 XML 同一约定
+//   Name → Icon → TopLeftContent/Index → LangName → PageName/IO* → UserRightId → IconWidth/IconHeight
+// 即页面里的公共参数在 Layout 中保持相同的相对顺序（Icon 在前、LangName 在文本之后、
+// 运行时字段居中、图标尺寸靠后）。
 const ATTR_FIELDS = [
-  ["Name", "name"], ["LangName", "langName"], ["Icon", "icon"],
-  ["IconWidth", "iconWidth"], ["IconHeight", "iconHeight"],
-  ["TopLeftContent", "topLeftContent"], ["Index", "index"],
-  ["PageName", "pageName"], ["IOCommand", "ioCommand"], ["IOVisible", "ioVisible"],
-  ["IOEnable", "ioEnable"], ["UserRightId", "userRightId"]
+  ["Name", "name"], ["Icon", "icon"], ["TopLeftContent", "topLeftContent"], ["Index", "index"],
+  ["LangName", "langName"], ["PageName", "pageName"], ["IOCommand", "ioCommand"], ["IOVisible", "ioVisible"],
+  ["IOEnable", "ioEnable"], ["UserRightId", "userRightId"],
+  ["IconWidth", "iconWidth"], ["IconHeight", "iconHeight"]
 ];
 
 // MenuItem 常驻属性：与页面 XML 的按钮族（PageName/IOVisible/IOCommand 恒写）同一策略，

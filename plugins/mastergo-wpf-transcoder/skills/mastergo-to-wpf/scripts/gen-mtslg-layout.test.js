@@ -31,8 +31,9 @@ assert.match(text, /<Page Target="F2NewPage" LangName="F2NewPageTitle">/);
 assert.match(text, /<Layout>[\s\S]*<Header>[\s\S]*<Body>[\s\S]*<Pages>[\s\S]*<Page Target="F2NewPage"[\s\S]*<\/Pages>[\s\S]*<LeftToolBox \/>[\s\S]*<ToolBox \/>[\s\S]*<\/Body>[\s\S]*<Footer \/>[\s\S]*<\/Layout>/);
 // MenuItem 常驻属性：LangName / PageName / Value / IOCommand / IOVisible 恒写（来源缺失时为空字符串）；
 // 图标尺寸与页面 XML 按钮族同一规则：有 Icon 必须有 iconSize，取整后写 IconWidth/IconHeight。
-assert.match(text, /Name="第一项" LangName="" Icon="FirstGeometry" IconWidth="35" IconHeight="33" TopLeftContent="F1" Index="1" PageName="" IOCommand="" IOVisible=""/);
-assert.match(text, /LangName="" Icon="SecondGeometry" IconWidth="40" IconHeight="40" TopLeftContent="F2" Index="2" PageName="" IOCommand="" IOVisible=""/);
+// 属性顺序与页面 XML 同一约定：Name → Icon → TopLeftContent/Index → LangName → PageName/IO* → IconWidth/IconHeight。
+assert.match(text, /Name="第一项" Icon="FirstGeometry" TopLeftContent="F1" Index="1" LangName="" PageName="" IOCommand="" IOVisible="" IconWidth="35" IconHeight="33"/);
+assert.match(text, /Icon="SecondGeometry" TopLeftContent="F2" Index="2" LangName="" PageName="" IOCommand="" IOVisible="" IconWidth="40" IconHeight="40"/);
 assert.doesNotMatch(text, /IOEnable=|UserRightId=/);
 // MenuItem 不写 Value（菜单文本只放在 Name）
 assert.doesNotMatch(text, /Value=/);
@@ -60,7 +61,7 @@ result = spawnSync(process.execPath, [script, "--manifest", emptyFieldsManifest]
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(emptyFieldsLayout, "utf8");
 assert.match(text, /<Page Target="EmptyFieldsPage" LangName="">/);
-assert.match(text, /Name="" LangName="" Icon="" TopLeftContent="" Index="1" PageName="" IOCommand="" IOVisible="" IOEnable="" UserRightId=""/);
+assert.match(text, /Name="" Icon="" TopLeftContent="" Index="1" LangName="" PageName="" IOCommand="" IOVisible="" IOEnable="" UserRightId=""/);
 
 const emptyCompleteManifest = path.join(root, "empty-complete.json");
 fs.writeFileSync(emptyCompleteManifest, JSON.stringify({
@@ -141,7 +142,7 @@ result = spawnSync(process.execPath, [script, "--manifest", manifest, "--overwri
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(layout, "utf8");
 assert.strictEqual((text.match(/<Page\s+Target="F2NewPage"/g) || []).length, 1);
-assert.match(text, /Name="第一项" LangName="" Icon="FirstGeometry" IconWidth="35" IconHeight="33" TopLeftContent="F1" Index="1" PageName="" IOCommand="" IOVisible=""/);
+assert.match(text, /Name="第一项" Icon="FirstGeometry" TopLeftContent="F1" Index="1" LangName="" PageName="" IOCommand="" IOVisible="" IconWidth="35" IconHeight="33"/);
 assert.doesNotMatch(text, /Name="旧页面"/);
 
 // 右下角常驻分组（右侧底部-常驻button）内的实例不生成 MenuItem：
@@ -163,8 +164,8 @@ result = spawnSync(process.execPath, [script, "--manifest", residentManifest], {
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(residentLayout, "utf8");
 assert.strictEqual((text.match(/<MenuItem /g) || []).length, 2, "常驻分组内的实例不得生成 MenuItem");
-assert.match(text, /Name="第一项" LangName="" Icon="FirstGeometry" IconWidth="35" IconHeight="33" Index="1" PageName="" IOCommand="" IOVisible=""/);
-assert.match(text, /Name="第二项" LangName="" Icon="SecondGeometry" IconWidth="40" IconHeight="40" Index="2" PageName="" IOCommand="" IOVisible=""/);
+assert.match(text, /Name="第一项" Icon="FirstGeometry" Index="1" LangName="" PageName="" IOCommand="" IOVisible="" IconWidth="35" IconHeight="33"/);
+assert.match(text, /Name="第二项" Icon="SecondGeometry" Index="2" LangName="" PageName="" IOCommand="" IOVisible="" IconWidth="40" IconHeight="40"/);
 
 const residentMismatch = path.join(root, "resident-mismatch.json");
 fs.writeFileSync(residentMismatch, JSON.stringify({
@@ -211,7 +212,7 @@ fs.writeFileSync(residentAttrsManifest, JSON.stringify({
 result = spawnSync(process.execPath, [script, "--manifest", residentAttrsManifest], { encoding: "utf8" });
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(residentAttrsLayout, "utf8");
-assert.match(text, /Name="激光设置" LangName="" Icon="" Index="1" PageName="" IOCommand="" IOVisible=""/);
+assert.match(text, /Name="激光设置" Icon="" Index="1" LangName="" PageName="" IOCommand="" IOVisible=""/);
 
 // 显式给出 LangName / PageName 时保留真实值。
 const explicitAttrsManifest = path.join(root, "menu-explicit-attrs.json");
@@ -227,7 +228,7 @@ fs.writeFileSync(explicitAttrsManifest, JSON.stringify({
 result = spawnSync(process.execPath, [script, "--manifest", explicitAttrsManifest], { encoding: "utf8" });
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(explicitAttrsLayout, "utf8");
-assert.match(text, /Name="激光设置" LangName="Menu\.Laser" Icon="" Index="1" PageName="LaserPage"/);
+assert.match(text, /Name="激光设置" Icon="" Index="1" LangName="Menu\.Laser" PageName="LaserPage"/);
 
 // 可用 menuItemAlwaysAttrs 追加恒写字段（扩展性）。
 const extraAttrsManifest = path.join(root, "menu-extra-attrs.json");
@@ -243,7 +244,7 @@ fs.writeFileSync(extraAttrsManifest, JSON.stringify({
 result = spawnSync(process.execPath, [script, "--manifest", extraAttrsManifest], { encoding: "utf8" });
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(extraAttrsLayout, "utf8");
-assert.match(text, /LangName="" Icon="" Index="1" PageName="" IOCommand="" IOVisible="" IOEnable=""/);
+assert.match(text, /Icon="" Index="1" LangName="" PageName="" IOCommand="" IOVisible="" IOEnable=""/);
 
 // 有 Icon 但没有 iconSize 必须失败（禁止猜图标尺寸），与页面 XML 按钮族同一门禁。
 const missingIconSizeManifest = path.join(root, "menu-missing-icon-size.json");
@@ -275,7 +276,7 @@ fs.writeFileSync(mapManifest, JSON.stringify({
 result = spawnSync(process.execPath, [script, "--manifest", mapManifest, "--map", mapPath], { encoding: "utf8" });
 assert.strictEqual(result.status, 0, result.stderr);
 text = fs.readFileSync(mapLayout, "utf8");
-assert.match(text, /LangName="" Icon="" Index="1" IOEnable=""/,
+assert.match(text, /Icon="" Index="1" LangName="" IOEnable=""/,
   "常驻属性集合必须来自模板表（LangName + IOEnable，且不再补 PageName/IOCommand/IOVisible）");
 assert.doesNotMatch(text, /PageName=|IOCommand=|IOVisible=/,
   "模板表未声明的常驻属性不得发射");

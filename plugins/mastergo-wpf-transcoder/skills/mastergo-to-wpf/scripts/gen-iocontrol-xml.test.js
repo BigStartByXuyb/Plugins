@@ -95,6 +95,22 @@ assert.match(iconButtonTag, /IconWidth="97"/, 'IconWidth 必须取图标图形�
 assert.match(iconButtonTag, /IconHeight="66"/, 'IconHeight 必须取图标图形节点 bbox 并取整');
 assert.match(iconButtonTag, /PageName="Jump:Home"/, '真实 PageName 必须按映射发射');
 assert.match(iconButtonTag, /IOCommand=""/, '带图标按钮同样要补空 IOCommand 占位');
+// 属性顺序固定（目标项目页面惯例）：
+//   身份 → Icon → 文本 → LangName → 运行时字段 → 控件尺寸 → 图标尺寸 → 位置
+function attrNamesOf(tag) {
+  return [...tag.matchAll(/([A-Za-z_][A-Za-z0-9_]*)="/g)].map((match) => match[1]);
+}
+function assertAttrOrder(tag, order, label) {
+  const names = attrNamesOf(tag);
+  const actual = names.filter((name) => order.includes(name));
+  const expected = order.filter((name) => names.includes(name));
+  assert.deepStrictEqual(actual, expected, label + ' 属性顺序不符：' + names.join(', '));
+}
+const PAGE_ATTR_ORDER = [
+  'ID', 'ControlType', 'Style', 'Icon', 'IconText', 'TopLeftContent', 'Value', 'Header', 'LangName',
+  'PageName', 'IOName', 'IOCommand', 'IOVisible', 'IOEnable', 'IOParam', 'IOStyle', 'IOState', 'IOGroup',
+  'Width', 'Height', 'IconWidth', 'IconHeight', 'Left', 'Top'
+];
 const statusTag = (buttonXml.match(/<IOContorl[^>]*ControlType="StatusButton"[\s\S]*?\/>/) || [''])[0];
 assert.ok(statusTag, 'fresh 输出必须包含 StatusButton 节点');
 assert.match(statusTag, /PageName=""/, 'StatusButton 必须同样发射空 PageName 占位');
@@ -104,6 +120,10 @@ assert.ok(!/IconWidth=|IconHeight=/.test(statusTag), '无图标的 StatusButton 
 const textTag = (buttonXml.match(/<IOContorl[^>]*ControlType="TextBlock"[\s\S]*?\/>/) || [''])[0];
 assert.ok(textTag, 'fresh 输出必须包含 TextBlock 节点');
 assert.ok(!/PageName=|IconWidth=|IconHeight=/.test(textTag), '非按钮族控件不得获得按钮族固定参数');
+assertAttrOrder(iconButtonTag, PAGE_ATTR_ORDER, '带图标 IconButton');
+assertAttrOrder(buttonTag, PAGE_ATTR_ORDER, '无图标 IconButton');
+assertAttrOrder(statusTag, PAGE_ATTR_ORDER, 'StatusButton');
+assertAttrOrder(textTag, PAGE_ATTR_ORDER, 'TextBlock');
 assert.match(textTag, /Width="NaN"/, 'TextBlock 的 Width 必须固定为 NaN');
 assert.match(textTag, /Height="40"/, 'TextBlock 的 Height 必须固定为 40');
 

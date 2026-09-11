@@ -219,6 +219,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 - 组件实例优先于原始图层；未登记的业务组合必须标记待确认。
 - 未确认的运行时字段只能写入 mapping manifest 或 XML 注释，禁止把“待人工绑定”作为可见 `Value`、伪造 `IOName` 或伪造 `IOCommand`。
 - 按钮族（`IconButton` / `Button` / `StatusButton`）按固定参数发射：`PageName`、`IOVisible`、`IOCommand` 无论能否取到来源都恒写，取不到时写空字符串值；`IconWidth`/`IconHeight` 只在按钮确有图标槽位时发射，取**图标图形节点自身 bbox**（不是控件宽高），没有图标槽位时不发射 `Icon`/`IconWidth`/`IconHeight`；映射带 `Icon` 却没有图标尺寸来源时生成器直接失败。组件族匹配使用“组件集名 + 公开属性名 + 真实属性值”，图层名称只作核对、不参与匹配。
+- **属性顺序固定（页面 XML 与 Layout 统一）**：`ID` → `ControlType` → `Style` → `Icon` → 文本（`TopLeftContent` / `Value` / `Header`）→ `LangName` → 运行时字段（`PageName` / `IOName` / `IOCommand` / `IOVisible` / `IOEnable` / 其余 `IO*`）→ 控件尺寸（`Width` / `Height`）→ 图标尺寸（`IconWidth` / `IconHeight`）→ 位置（`Left` / `Top`）。Layout 的 `MenuItem` 按同一约定排列：`Name` → `Icon` → `TopLeftContent` → `Index` → `LangName` → `PageName` / `IO*` → `UserRightId` → `IconWidth` / `IconHeight`。`gen-iocontrol-xml.js` 的 `ATTR_ORDER` 与 `gen-mtslg-layout.js` 的 `ATTR_FIELDS` 是唯一真值源，不得按单个页面另排顺序。
 - 设计稿中顶部栏、底部栏和其他公共外壳按宿主边界剥离；保留节点统一换算到内容区坐标，并记录被剥离节点。
 
 ### 组件内部内容与来源
