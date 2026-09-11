@@ -421,8 +421,8 @@ function validateResidentGroupEvidence(mapping, manifest) {
 
 // 多语言绑定：语言清单是 LanguageKey 的唯一真值源，控件与菜单只“引用”它，不另写一份 key。
 // 引用方式：sourceRef（页面节点）、menuIndex（Layout MenuItem）、role=page-title（页面标题键）。
-// 目标项目已登记语言字典：CN 文件建索引，同目录 EN 文件提供真实英文文案。
-function resolveLangCatalogs(manifestDir, projectRoot, manifest) {
+// 目标项目已登记语言字典：返回文件路径列表，由语言键派生器按文件名主干配对 CN/EN。
+function resolveLangCatalogPaths(manifestDir, projectRoot, manifest) {
   // 语言字典既可以写在顶层 keyCatalog（与扫描器审计字段一致），也可以写在 languages.keyCatalog。
   const raw = [manifest.keyCatalog, manifest.languages && manifest.languages.keyCatalog];
   const items = [];
@@ -433,20 +433,11 @@ function resolveLangCatalogs(manifestDir, projectRoot, manifest) {
     }
   }
   if (items.length === 0) return [];
-  const cnTexts = [];
-  let enText = "";
-  for (const item of items) {
-    if (typeof item !== "string" || !item.trim()) continue;
+  return items.map(function (item) {
     const file = resolveInput(manifestDir, projectRoot, item, "keyCatalog");
     if (!fs.existsSync(file)) fail("keyCatalog 文件不存在: " + file);
-    const text = fs.readFileSync(file, "utf8");
-    if (/_EN\.xaml$/i.test(file)) {
-      if (!enText) enText = text;
-    } else {
-      cnTexts.push(text);
-    }
-  }
-  return cnTexts.map(function (cn) { return { cn, en: enText }; });
+    return file;
+  });
 }
 
 function resolveLangGlossary(manifestDir, projectRoot, manifest) {
@@ -456,6 +447,20 @@ function resolveLangGlossary(manifestDir, projectRoot, manifest) {
   if (typeof value !== "string") fail("langGlossary 必须是术语表对象或 JSON 文件路径");
   const file = resolveInput(manifestDir, projectRoot, value, "langGlossary");
   if (!fs.existsSync(file)) fail("langGlossary 文件不存在: " + file);
+  return readJson(file);
+}
+
+// 英文（及其它语言）译文清单：{ 中文文案: 译文 }，可由 AI/工程师产出后以文件或内联对象给出。
+// 脚本不翻译，只机械套用；缺译文的条目仍按中文占位并在审计里标记待翻译。
+function resolveLangTranslations(manifestDir, projectRoot, manifest) {
+  const value = manifest.languages && manifest.languages.translations;
+  if (!value) return {};
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+  if (typeof value !== "string") {
+    fail("languages.translations 必须是 { 中文文案: 译文 } 对象或 JSON 文件路径");
+  }
+  const file = resolveInput(manifestDir, projectRoot, value, "languages.translations");
+  if (!fs.existsSync(file)) fail("languages.translations 文件不存在: " + file);
   return readJson(file);
 }
 
@@ -972,8 +977,9 @@ function main() {
         mapping,
         dsl: langDsl,
         menuItems: Array.isArray(manifest.menuItems) ? manifest.menuItems : [],
-        keyCatalog: LANG_KEYS.buildKeyCatalog(resolveLangCatalogs(manifestDir, projectRoot, manifest)),
+        keyCatalog: LANG_KEYS.buildKeyCatalogFromFiles(resolveLangCatalogPaths(manifestDir, projectRoot, manifest)),
         glossary: resolveLangGlossary(manifestDir, projectRoot, manifest),
+        translations: resolveLangTranslations(manifestDir, projectRoot, manifest),
         titleText: manifest.pageTitleText,
         locales: langLocales
       });
@@ -1139,6 +1145,12 @@ function main() {
         auto: autoLang,
         locales: langSpec.locales,
         keyCount: langSpec.keys.length,
+        translated: autoLangReport
+          ? {
+              fromCatalog: autoLangReport.translatedFromCatalog,
+              fromInput: autoLangReport.translatedFromInput
+            }
+          : null,
         provisionalKeys: autoLangReport ? autoLangReport.provisionalKeys.length : 0,
         pendingTranslations: autoLangReport ? autoLangReport.pendingTranslations.length : 0,
         autoNoLangRefs: autoLangReport ? autoLangReport.autoNoLangRefs.length : 0

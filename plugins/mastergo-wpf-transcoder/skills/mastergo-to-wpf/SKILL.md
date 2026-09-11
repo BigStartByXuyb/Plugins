@@ -124,6 +124,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
   "auto": true,
   "locales": ["CN", "EN"],
   "keyCatalog": ["Resources/Files/Language/MaxWellClient_CN.xaml", "Resources/Files/Language/MaxWellClient_EN.xaml"],
+  "translations": "Generated/Home.lang-translations.json",
   "bindByText": true,
   "requireLangName": true,
   "noLangRefs": ["1:42"],
@@ -149,7 +150,10 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 
 自动派生结果的交付要求：
 
-- **英文（及其它语言）文案默认用中文占位**（`EN = CN`），逐条记入 `languages.derivation.pendingTranslations`；目标项目字典里已有该 key 的真实英文时直接采用，不再标待翻译。占位翻译属于显式占位，不是机器翻译，交付说明必须单列“待翻译清单”。
+- **英文文案由 AI 翻译产出，并以 `languages.translations` 显式落盘**：AI 读取派生出清单里的中文 CN 文案，逐条给出英文译文，写成 `{ "中文文案": "English Text" }`（内联对象或 JSON 文件路径都可）。脚本不做翻译、也不调用机翻服务，只机械套用这份清单，保证译文可追溯、可复核、可回滚。
+- 英文取值优先级：**目标项目已登记字典同 key 的英文（工程已确认）> `translations` 译文 > 中文占位**。前两者命中数分别记在 `languages.derivation.translatedFromCatalog` 与 `translatedFromInput`。
+- 确实没能翻译的条目会保留中文占位并逐条记入 `languages.derivation.pendingTranslations`；交付说明必须单列这份“待翻译清单”，不得把中文占位当已完成翻译交付。
+- 数字、符号、编号等中英文一致的文本已在第 5 条豁免，不出现在待翻译清单里。
 - `provisionalKeys`（临时键）与 `autoNoLangRefs`（自动豁免）必须在交付说明里列全，供工程师改名与确认；不得因为门禁通过就隐去。
 - `languages.keys[]` 显式提供的条目优先级最高：按 `key`、`sourceRef`/`sourceRefs`、`menuIndex` 覆盖机械派生结果。
 - 需要人工指定语义名时，优先补 `langGlossary`（文案级复用）或显式 `keys[]`，不要靠改生成器。
@@ -181,7 +185,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 - 动态值/数量/序列号等**不需要翻译**的文本，必须在 `noLangRefs` 里按 DSL ref 显式豁免，并在交付说明中列出；不得为了让门禁通过而给这类文本编造 key。开启自动派生后这类节点由生成器机械识别并写入 `noLangRefs`，`noLangRefs` 里的显式条目仍会合并保留。
 - **引用闭环硬门禁**：页面 XML、Layout `MenuItem`、`<Page LangName>` 中出现的每个 `LangName` 都必须存在于本页语言字典，否则整套生成失败并回滚。没有目标项目键目录时，禁止用未登记的 key 充当占位。
 - `LangName` 是附加属性：`TextBlock` 必须**同时**发射 `Value` 和 `LangName`（`Value` 仍按设计文本发射，provenance 要求 `Value == sourceText`），运行时以 `LangName` 为准。**按钮族同样必须有 `LangName`**：带文案的 `IconButton` / `Button` / `StatusButton` 一律挂 `LangName`，不得只发 `Value` 或只发 `Icon`。
-- 语言字典里的**英文等非设计语言文案**只能来自设计稿、目标项目已登记字典或用户确认的翻译；除上面的“中文占位”模式外，脚本不得生成或机翻其它语言文案。
+- 语言字典里的**英文等非设计语言文案**只能来自设计稿、目标项目已登记字典或 AI/工程师产出的 `languages.translations` 译文清单；生成脚本本身不得做翻译或调用机翻服务，译文必须是可追溯的显式输入。AI 翻译是允许且默认要求的步骤：派生完成后必须为待翻译清单补齐译文，再重新生成页面。
 
 ## 页面输出目录
 

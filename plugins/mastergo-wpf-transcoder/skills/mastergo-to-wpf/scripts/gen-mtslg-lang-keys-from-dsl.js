@@ -25,8 +25,11 @@
  * IP、日期时间、功能键 F1 —— 即“不含中文且不含英文字母”的文本。
  * 例外：Layout 的 MenuItem 必须挂 LangName，所以菜单名仍会派生 key（命名也优先用 Icon 资源名）。
  *
- * 英文文案默认用中文占位（EN = CN），逐条标记 pendingTranslation；
- * 目标项目字典里已有该 key 的英文文案时直接采用，不标 pending。
+ * 【英文文案】取值优先级：
+ *   1. 目标项目已登记字典里同 key 的英文（工程已确认，优先）
+ *   2. --translations / languages.translations：中文文案 → 英文译文（由 AI 或工程师产出）
+ *   3. 都没有时用中文占位并标记 pendingTranslation，必须列入交付说明
+ * 本脚本不做翻译；译文是显式输入，脚本只机械套用，保证可追溯、可复核。
  *
  * 用法:
  *   node gen-mtslg-lang-keys-from-dsl.js \
@@ -35,6 +38,7 @@
  *     [--dsl <dsl.snapshot.json>] \
  *     [--layout-manifest <layout-manifest.json>] \
  *     [--key-catalog <CN.xaml> [--key-catalog <EN.xaml>]] \
+ *     [--translations <translations.json>] \
  *     [--glossary <glossary.json>] \
  *     [--title-text <页面标题文案>] \
  *     [--locales CN,EN] \
@@ -179,6 +183,29 @@ function buildKeyCatalog(dictionaryTexts) {
   return byText;
 }
 
+// 从目标项目语言文件按文件名主干配对 CN/EN
+// （MaxWellClient_CN.xaml ↔ MaxWellClient_EN.xaml、MaxwellFramework_CN.xaml ↔ MaxwellFramework_EN.xaml）。
+function buildKeyCatalogFromFiles(filePaths, readText) {
+  const reader = typeof readText === "function" ? readText : function (file) {
+    try { return fs.readFileSync(file, "utf8"); } catch (error) { return ""; }
+  };
+  const pairs = new Map();
+  for (const file of Array.isArray(filePaths) ? filePaths : []) {
+    if (typeof file !== "string" || !file.trim()) continue;
+    const match = /_(EN|CN)\.xaml$/i.exec(file);
+    const stem = match ? file.slice(0, file.length - match[0].length) : file;
+    if (!pairs.has(stem)) pairs.set(stem, { cn: "", en: "" });
+    const slot = pairs.get(stem);
+    if (match && match[1].toUpperCase() === "EN") slot.en = reader(file);
+    else slot.cn = reader(file);
+  }
+  const dictionaryTexts = [];
+  for (const pair of pairs.values()) {
+    if (pair.cn) dictionaryTexts.push(pair);
+  }
+  return buildKeyCatalog(dictionaryTexts);
+}
+
 // 从 DSL 快照里取根节点名，作为页面标题文案的机械来源。
 function readDslRootName(dsl) {
   if (!dsl || typeof dsl !== "object") return "";
@@ -231,6 +258,7 @@ function localesFrom(value) {
  *   dsl          可选：dsl.snapshot.json 内容
  *   menuItems    可选：Layout 菜单项数组（{ index, name, icon }）
  *   keyCatalog   可选：buildKeyCatalog() 的产物
+ *   translations 可选：{ 中文文案: 英文译文 }，由 AI / 工程师产出后显式传入
  *   glossary     可选：{ 中文文案: EnglishIdentifier }
  *   titleText    可选：页面标题文案（优先于 DSL 根节点名）
  *   locales      可选：语言列表，默认 ["CN", "EN"]
@@ -247,6 +275,19 @@ function deriveLangSpec(options) {
   const mapping = opts.mapping && typeof opts.mapping === "object" ? opts.mapping : {};
   const menuItems = Array.isArray(opts.menuItems) ? opts.menuItems : [];
   const glossary = opts.glossary && typeof opts.glossary === "object" ? opts.glossary : {};
+  // 译文清单：{ 中文文案: 英文译文 }，由 AI / 工程师产出，脚本只机械套用。
+  const translations = (function () {
+    const out = new Map();
+    const source = opts.translations;
+    if (!source || typeof source !== "object" || Array.isArray(source)) return out;
+    for (const key of Object.keys(source)) {
+      const cn = normalizeText(key);
+      const en = normalizeText(source[key]);
+      if (cn && en) out.set(cn, en);
+    }
+    return out;
+  })();
+  const usedTranslations = new Set();
   const catalog = opts.keyCatalog instanceof Map ? opts.keyCatalog : new Map();
   const refNames = buildRefNameIndex(opts.dsl);
 
@@ -264,6 +305,8 @@ function deriveLangSpec(options) {
     },
     provisionalKeys: [],
     pendingTranslations: [],
+    translatedFromCatalog: 0,
+    translatedFromInput: 0,
     sharedKeys: [],
     autoNoLangRefs: [],
     duplicateKeys: [],
@@ -281,22 +324,40 @@ function deriveLangSpec(options) {
     return key;
   };
 
-  // 英文文案：目标项目字典里有真实英文就用它，否则用中文占位并标记 pendingTranslation。
-  // 其它语言一律用中文占位并标记，脚本不做任何翻译推断。
+  // 英文文案优先级：目标项目已登记字典（工程已确认）→ translations（AI/工程师译文）→ 中文占位。
+  // 其它语言没有译文时一律用中文占位并标记，脚本不做任何翻译推断。
   const makeText = function (cnText, catalogEn) {
-    const real = normalizeText(catalogEn);
-    const hasReal = Boolean(real) && real !== normalizeText(cnText);
+    const cn = normalizeText(cnText);
+    // 只有中文文案才需要翻译；中英文一致的 ASCII 标签（AUX. / Diode）不算待翻译。
+    const needTranslation = /[\u4e00-\u9fa5]/.test(cn);
+    let english = "";
+    let source = "";
+    const fromCatalog = normalizeText(catalogEn);
+    if (fromCatalog && fromCatalog !== cn) {
+      english = fromCatalog;
+      source = "catalog";
+    }
+    if (!english && translations.has(cn)) {
+      const provided = translations.get(cn);
+      if (provided && provided !== cn) {
+        english = provided;
+        source = "input";
+        usedTranslations.add(cn);
+      }
+    }
     const text = { CN: cnText };
     let pending = false;
     for (const locale of locales) {
       if (locale === "CN") continue;
-      if (locale === "EN" && hasReal) {
-        text[locale] = real;
+      if (locale === "EN" && english) {
+        text[locale] = english;
       } else {
         text[locale] = cnText;
-        pending = true;
+        if (needTranslation) pending = true;
       }
     }
+    if (source === "catalog") report.translatedFromCatalog += 1;
+    if (source === "input") report.translatedFromInput += 1;
     return { text, pending };
   };
 
@@ -306,21 +367,15 @@ function deriveLangSpec(options) {
     || pageName;
   const titleKey = pageName + TITLE_SUFFIX;
   usedKeys.add(titleKey);
-  const titleEntry = {
-    key: titleKey,
-    group: TITLE_GROUP,
-    role: "page-title",
-    text: { CN: titleText }
-  };
-  for (const locale of locales) {
-    if (locale === "CN") continue;
-    titleEntry.text[locale] = titleText;
-  }
+  const titleMade = makeText(titleText, "");
+  const titleEntry = { key: titleKey, group: TITLE_GROUP, role: "page-title", text: titleMade.text };
   keys.push(titleEntry);
   report.sources.title = 1;
-  for (const locale of locales) {
-    if (locale === "CN") continue;
-    report.pendingTranslations.push({ key: titleKey, locale, text: titleText, sourceRef: "" });
+  if (titleMade.pending) {
+    for (const locale of locales) {
+      if (locale === "CN") continue;
+      report.pendingTranslations.push({ key: titleKey, locale, text: titleText, sourceRef: "" });
+    }
   }
 
   // 2) 菜单项：MenuItem{名称}，由 Layout <MenuItem LangName> 引用。
@@ -329,6 +384,38 @@ function deriveLangSpec(options) {
     const name = normalizeText(item.name);
     if (!name) continue;
     const index = item.index === undefined || item.index === null ? null : Number(item.index);
+    // 目标项目已登记菜单键优先复用：菜单项正是 MenuItem* 命名空间的拥有者。
+    const menuHits = (catalog.get(name) || []).filter(function (hit) {
+      return hit.key.indexOf(MENU_PREFIX) === 0;
+    });
+    if (menuHits.length === 1) {
+      const hit = menuHits[0];
+      const made = makeText(name, hit.EN);
+      const entry = {
+        key: hit.key,
+        group: MENU_GROUP,
+        text: made.text,
+        scope: "shared",
+        comment: "复用目标项目已登记语言键"
+      };
+      if (index !== null && Number.isFinite(index)) entry.menuIndex = index;
+      usedKeys.add(hit.key);
+      keys.push(entry);
+      report.sources.menu += 1;
+      report.sources.catalog += 1;
+      report.sharedKeys.push({ key: hit.key, menuIndex: index, text: name });
+      if (made.pending) {
+        for (const locale of locales) {
+          if (locale === "CN") continue;
+          report.pendingTranslations.push({ key: hit.key, locale, text: name, menuIndex: index });
+        }
+      }
+      continue;
+    }
+    if (menuHits.length > 1) {
+      report.warnings.push("菜单文案 \"" + name + "\" 在目标项目语言字典里命中多个 MenuItem key：" +
+        menuHits.map(function (hit) { return hit.key; }).join(", ") + "；已改用页面内派生键");
+    }
     let suffix = "";
     let source = "";
     const iconName = semanticFromIcon(item.icon);
@@ -522,6 +609,7 @@ function parseArgs(argv) {
     else if (flag === "--dsl") args.dsl = argv[++i];
     else if (flag === "--layout-manifest") args.layoutManifest = argv[++i];
     else if (flag === "--key-catalog") args.keyCatalog.push(argv[++i]);
+    else if (flag === "--translations") args.translations = argv[++i];
     else if (flag === "--glossary") args.glossary = argv[++i];
     else if (flag === "--title-text") args.titleText = argv[++i];
     else if (flag === "--locales") args.locales = argv[++i];
@@ -554,24 +642,19 @@ function main() {
   const dsl = args.dsl ? readJson(args.dsl, "DSL 快照") : null;
   const layoutManifest = args.layoutManifest ? readJson(args.layoutManifest, "Layout 清单") : null;
   const glossary = args.glossary ? readJson(args.glossary, "术语表") : {};
+  const translations = args.translations ? readJson(args.translations, "译文清单") : {};
   const menuItems = layoutManifest && Array.isArray(layoutManifest.menuItems)
     ? layoutManifest.menuItems
     : (Array.isArray(args.menuItems) ? args.menuItems : []);
-  // 目标项目语言字典：CN 文件建索引，EN 文件提供真实英文文案（成对时自动配对）。
-  const cnFiles = args.keyCatalog.filter(function (file) { return !/_EN\.xaml$/i.test(file); });
-  const enFiles = args.keyCatalog.filter(function (file) { return /_EN\.xaml$/i.test(file); });
-  const enText = enFiles.length > 0 ? readTextIfExists(enFiles[0]) : "";
-  const paired = cnFiles.map(function (file) {
-    return { cn: readTextIfExists(file), en: enText };
-  });
   const titleText = normalizeText(args.titleText) || titleFromMapping(mapping);
   const derived = deriveLangSpec({
     pageName: args.page,
     mapping,
     dsl,
     menuItems,
-    keyCatalog: buildKeyCatalog(paired),
+    keyCatalog: buildKeyCatalogFromFiles(args.keyCatalog, readTextIfExists),
     glossary,
+    translations,
     titleText,
     locales: localesFrom(args.locales)
   });
@@ -587,6 +670,8 @@ function main() {
     sources: derived.report.sources,
     provisionalKeys: derived.report.provisionalKeys.length,
     autoNoLangRefs: derived.report.autoNoLangRefs.length,
+    translatedFromCatalog: derived.report.translatedFromCatalog,
+    translatedFromInput: derived.report.translatedFromInput,
     pendingTranslations: derived.report.pendingTranslations.length,
     out: args.out,
     report: args.report || null
@@ -634,6 +719,7 @@ module.exports = {
   asciiSuffix,
   parseDictionary,
   buildKeyCatalog,
+  buildKeyCatalogFromFiles,
   readDslRootName,
   buildRefNameIndex,
   titleFromMapping,

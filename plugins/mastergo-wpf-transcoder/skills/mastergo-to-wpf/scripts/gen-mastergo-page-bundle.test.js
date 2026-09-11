@@ -472,7 +472,12 @@ fs.writeFileSync(autoCatalog, [
 const autoManifest = langManifestFor("LangAuto", {
   auto: true,
   locales: ["CN", "EN"],
-  keyCatalog: autoCatalog
+  keyCatalog: autoCatalog,
+  // 英文译文由 AI 产出后显式落盘，脚本只机械套用。
+  translations: {
+    "界面内操作组": "Operation Group",
+    "操作": "Operation"
+  }
 });
 const autoManifestPath = path.join(root, "lang-auto.json");
 fs.writeFileSync(autoManifestPath, JSON.stringify(autoManifest, null, 2), "utf8");
@@ -484,6 +489,10 @@ assert.deepStrictEqual(fs.readdirSync(autoDir).sort(),
 const autoCn = fs.readFileSync(path.join(autoDir, "LangAuto_CN.xaml"), "utf8");
 const autoEn = fs.readFileSync(path.join(autoDir, "LangAuto_EN.xaml"), "utf8");
 assert.deepStrictEqual(readLangKeys(autoCn), readLangKeys(autoEn), "CN/EN 的 key 必须完全一致");
+assert.match(autoEn, /<sys:String x:Key="LangAutoPageTitle">Operation Group<\/sys:String>/,
+  "页面标题必须使用 translations 里的真实英文");
+assert.match(autoEn, /<sys:String x:Key="MenuItemAction">Operation<\/sys:String>/,
+  "菜单项必须使用 translations 里的真实英文");
 assert.match(autoCn, /<sys:String x:Key="LangAutoPageTitle">/, "页面标题键必须机械生成");
 assert.doesNotMatch(autoCn, /LangAutoPlus5/,
   "数字/符号文案（+5）中英文一致，不生成语言键");
@@ -508,8 +517,10 @@ const autoAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/LangA
 assert.strictEqual(autoAudit.languages.auto, true);
 assert.strictEqual(autoAudit.languageWarning, null);
 assert.ok(autoAudit.languages.keyCount >= 3, "应派生标题/菜单/内容三类键");
-assert.ok(autoAudit.languages.derivation.pendingTranslations.length > 0,
-  "缺真实英文的键必须在审计里标记待翻译");
+assert.strictEqual(autoAudit.languages.derivation.translatedFromInput, 2,
+  "标题与菜单的英文必须来自 translations");
+assert.strictEqual(autoAudit.languages.derivation.pendingTranslations.length, 0,
+  "该页中文文案已全部给出译文，不应再有待翻译项");
 assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text === "9.0%"),
   "动态值必须自动进入 noLangRefs 并记录原因");
 assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text === "+5"),

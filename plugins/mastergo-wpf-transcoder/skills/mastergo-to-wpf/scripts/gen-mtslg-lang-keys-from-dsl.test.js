@@ -101,6 +101,13 @@ const layoutManifest = {
 };
 const layoutPath = write("layout-manifest.json", layoutManifest);
 
+// AI/工程师产出的英文译文清单：脚本只机械套用，不做翻译。
+const translationsPath = write("translations.json", {
+  "配方管理": "Recipe Management",
+  "全自动操作": "Full Auto Operation",
+  "工件边缘录入": "Workpiece Edge Teaching"
+});
+
 const outPath = path.join(root, "lang.json");
 const reportPath = path.join(root, "lang.report.json");
 const run = spawnSync(process.execPath, [
@@ -111,6 +118,7 @@ const run = spawnSync(process.execPath, [
   "--layout-manifest", layoutPath,
   "--key-catalog", catalogCn,
   "--key-catalog", catalogEn,
+  "--translations", translationsPath,
   "--out", outPath,
   "--report", reportPath
 ], { encoding: "utf8" });
@@ -132,11 +140,12 @@ const emittedKeys = languages.keys.map((entry) => entry.key).join(", ");
 assert.strictEqual(languages.keys[0].key, "DemoRecipePageTitle");
 assert.strictEqual(languages.keys[0].role, "page-title");
 assert.strictEqual(languages.keys[0].text.CN, "配方管理");
-assert.strictEqual(languages.keys[0].text.EN, "配方管理", "没有真实英文时用中文占位");
+assert.strictEqual(languages.keys[0].text.EN, "Recipe Management", "标题译文来自 translations");
 
-// 2) 菜单项：Icon 派生语义名；没有 Icon 时用 ASCII 文案；空名称菜单项不产键。
-assert.ok(keys.has("MenuItemParameterMaintain"), "MenuItem 应由 Icon 派生语义名");
-assert.strictEqual(keys.get("MenuItemParameterMaintain").menuIndex, 1);
+// 2) 菜单项：目标项目已登记 MenuItem 键优先复用；没有登记时用 Icon 派生名或 ASCII 文案；空名称不产键。
+assert.ok(keys.has("MenuItemParamMaintain"), "MenuItem 应复用目标项目已登记的菜单键");
+assert.strictEqual(keys.get("MenuItemParamMaintain").menuIndex, 1);
+assert.strictEqual(keys.get("MenuItemParamMaintain").text.EN, "Parameter", "复用登记键时同时采用其英文文案");
 assert.ok(keys.has("MenuItemAUX"), "没有 Icon 的菜单项应回退到 ASCII 文案");
 assert.ok(!languages.keys.some((entry) => entry.menuIndex === 3), "空名称菜单项不产键");
 
@@ -145,6 +154,10 @@ assert.strictEqual(keyByRef.get("p/btn-auto"), "DemoRecipeAutoOperation");
 assert.strictEqual(keyByRef.get("p/tb-aux"), "DemoRecipeAUX");
 assert.strictEqual(keyByRef.get("p/tb-unknown"), "DemoRecipeText01", "无可用语义源时用稳定的临时键");
 assert.ok(!keys.has("p/cam"), "非 dsl.text 节点不产键");
+assert.strictEqual(keys.get("DemoRecipeAutoOperation").text.EN, "Full Auto Operation",
+  "内容节点译文来自 translations");
+assert.strictEqual(keys.get("DemoRecipeText01").text.EN, "Workpiece Edge Teaching",
+  "临时键同样必须有真实译文");
 
 // 4) 目标项目已登记 key：内容节点复用（scope=shared），MenuItem 命名空间不得被内容节点借用。
 assert.strictEqual(keyByRef.get("p/tb-version"), "PCHeaderSoftwareVersion");
@@ -174,13 +187,26 @@ for (const ref of ["p/tb-sn", "p/tb-ver2", "p/tb-model", "p/tb-pct", "p/tb-hotke
     ref + " 必须在报告里给出豁免原因");
 }
 
-// 8) 语言文件里的文案不允许缺语言；EN 占位必须标记待翻译。
+// 8) 语言文件里的文案不允许缺语言；没有译文来源的必须标记待翻译。
 for (const entry of languages.keys) {
   assert.strictEqual(typeof entry.text.CN, "string");
   assert.strictEqual(typeof entry.text.EN, "string");
 }
-assert.ok(report.pendingTranslations.length >= languages.keys.length - 3,
-  "缺真实英文的 key 都必须标记 pendingTranslation");
+assert.strictEqual(report.translatedFromCatalog, 3,
+  "字典命中（菜单 参数维护 / 软件版本 / 确定）应计入 translatedFromCatalog");
+assert.strictEqual(report.translatedFromInput, 3, "译文清单命中（标题 / 全自动操作 / 工件边缘录入）应计入 translatedFromInput");
+const pendingKeys = new Set(report.pendingTranslations.map((item) => item.key));
+for (const entry of languages.keys) {
+  const needsTranslation = /[\u4e00-\u9fa5]/.test(entry.text.CN);
+  if (entry.text.EN !== entry.text.CN) {
+    assert.ok(!pendingKeys.has(entry.key), entry.key + " 有真实译文时不得标记待翻译");
+  } else if (needsTranslation) {
+    assert.ok(pendingKeys.has(entry.key), entry.key + " 用中文占位时必须逐条标记待翻译");
+  } else {
+    assert.ok(!pendingKeys.has(entry.key),
+      entry.key + " 中英文一致的 ASCII 文案不应标记待翻译");
+  }
+}
 
 // 9) 端到端：派生结果直接喂给语言字典发射器，CN/EN 的 key 集合与顺序必须一致。
 const spec = LANG.normalizeSpec(languages, "DemoRecipe");
