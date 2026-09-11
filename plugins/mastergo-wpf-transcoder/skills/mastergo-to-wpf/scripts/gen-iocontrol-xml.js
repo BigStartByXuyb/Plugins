@@ -90,7 +90,7 @@ const contentOriginY = TOP_PUBLIC_BAR_Y + TOP_ARTIFACT_TITLE_Y;
 // 传入 --map 时读取该表；未传入或表中缺字段时退回下列内置默认（与表内容一致）。
 const DEFAULT_BUTTON_FAMILY = {
   controlTypes: ['IconButton', 'Button', 'StatusButton'],
-  alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand'],
+  alwaysWrittenAttrs: ['PageName', 'IOVisible', 'IOCommand', 'IOEnable'],
   iconSizeAttrs: ['IconWidth', 'IconHeight'],
 };
 const BUTTON_FAMILY_RULES = loadButtonFamilyRules(templateMapPath);

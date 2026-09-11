@@ -88,6 +88,7 @@ assert.ok(buttonTag, 'fresh 输出必须包含无图标按钮节点');
 assert.match(buttonTag, /PageName=""/, '无图标按钮缺少空 PageName 占位');
 assert.match(buttonTag, /IOVisible=""/, '无图标按钮缺少空 IOVisible 占位');
 assert.match(buttonTag, /IOCommand=""/, '无图标按钮缺少空 IOCommand 占位');
+assert.match(buttonTag, /IOEnable=""/, '无图标按钮缺少空 IOEnable 占位');
 assert.ok(!/IconWidth=|IconHeight=/.test(buttonTag), '无图标按钮不得发射 IconWidth/IconHeight');
 const iconButtonTag = (buttonXml.match(/<IOContorl[^>]*ID="BTN_2"[\s\S]*?\/>/) || [''])[0];
 assert.ok(iconButtonTag, 'fresh 输出必须包含带图标按钮节点');
@@ -95,6 +96,7 @@ assert.match(iconButtonTag, /IconWidth="97"/, 'IconWidth 必须取图标图形�
 assert.match(iconButtonTag, /IconHeight="66"/, 'IconHeight 必须取图标图形节点 bbox 并取整');
 assert.match(iconButtonTag, /PageName="Jump:Home"/, '真实 PageName 必须按映射发射');
 assert.match(iconButtonTag, /IOCommand=""/, '带图标按钮同样要补空 IOCommand 占位');
+assert.match(iconButtonTag, /IOEnable=""/, '带图标按钮同样要补空 IOEnable 占位');
 // 属性顺序固定（目标项目页面惯例）：
 //   身份 → Icon → 文本 → LangName → 运行时字段 → 控件尺寸 → 图标尺寸 → 位置
 function attrNamesOf(tag) {
@@ -116,6 +118,7 @@ assert.ok(statusTag, 'fresh 输出必须包含 StatusButton 节点');
 assert.match(statusTag, /PageName=""/, 'StatusButton 必须同样发射空 PageName 占位');
 assert.match(statusTag, /IOVisible=""/, 'StatusButton 必须同样发射空 IOVisible 占位');
 assert.match(statusTag, /IOCommand=""/, 'StatusButton 必须同样发射空 IOCommand 占位');
+assert.match(statusTag, /IOEnable=""/, 'StatusButton 必须同样发射空 IOEnable 占位');
 assert.ok(!/IconWidth=|IconHeight=/.test(statusTag), '无图标的 StatusButton 不得发射 IconWidth/IconHeight');
 const textTag = (buttonXml.match(/<IOContorl[^>]*ControlType="TextBlock"[\s\S]*?\/>/) || [''])[0];
 assert.ok(textTag, 'fresh 输出必须包含 TextBlock 节点');

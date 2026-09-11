@@ -30,7 +30,8 @@
     "alwaysWrittenAttrs": [
       "PageName",
       "IOVisible",
-      "IOCommand"
+      "IOCommand",
+      "IOEnable"
     ],
     "iconSizeAttrs": [
       "IconWidth",
