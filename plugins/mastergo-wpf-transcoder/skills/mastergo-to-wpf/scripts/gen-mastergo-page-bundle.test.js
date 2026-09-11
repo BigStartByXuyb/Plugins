@@ -108,7 +108,7 @@ fs.writeFileSync(manifest, JSON.stringify({
   codeBehindPath: "UI/F2-Teach/View/F2NewPageView.xaml.cs",
   viewModelPath: "UI/F2-Teach/ViewModel/F2NewPageViewModel.cs",
   pageTarget: "F2NewPage",
-  pageLangName: "F2NewPageTitle",
+  pageLangName: "F2NewPagePageTitle",
   pageXmlPath: "Resources/Pages/F2NewPage/F2NewPagePage.xml",
   iconPath: "Resources/Pages/F2NewPage/F2NewPageIcons.xaml",
   layoutPath: "Resources/Layout/Layout.xml",
@@ -144,7 +144,7 @@ for (const relative of [
 // 一页一目录：页面 XML 与页面 Icon 必须同处 Resources/Pages/<页面名>/。
 assert.deepStrictEqual(
   fs.readdirSync(path.join(project, "Resources", "Pages", "F2NewPage")).sort(),
-  ["F2NewPageIcons.xaml", "F2NewPagePage.xml"]
+  ["F2NewPageIcons.xaml", "F2NewPagePage.xml", "F2NewPage_CN.xaml", "F2NewPage_EN.xaml"]
 );
 // 旧约定路径不得再生成。
 for (const stale of ["Common/Pages/F2NewPagePage.xml", "Resources/Icons/F2NewPageIcons.xaml", "Resources/Files/Layout.xml"]) {
@@ -166,16 +166,22 @@ assert.deepStrictEqual(bundleAudit.layout, {
   evidence: { matchedBottomBarItems: 1, unresolvedBottomBarItems: 0 },
   menuItemCount: 1
 });
-// 未提供 languages 时不再静默：审计里必须留下“不会挂 LangName”的明确原因。
-assert.strictEqual(bundleAudit.languages, null);
-assert.match(bundleAudit.languageWarning, /未提供 languages/);
+// 多语言是默认能力：manifest 没写 languages 也必须自动生成 CN/EN 字典并挂 LangName。
+assert.strictEqual(bundleAudit.languagesDefaulted, true);
+assert.strictEqual(bundleAudit.languageDisabled, false);
+assert.strictEqual(bundleAudit.languageWarning, null);
+assert.strictEqual(bundleAudit.languages.locales.join(","), "CN,EN");
+assert.ok(bundleAudit.languages.keyCount >= 1, "默认多语言必须派生出语言键");
+assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPagePage.xml"), "utf8"), /LangName="/);
+assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPage_CN.xaml"), "utf8"), /F2NewPagePageTitle/);
+assert.match(fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), "utf8"), /<Page Target="F2NewPage" LangName="F2NewPagePageTitle">/);
 
 const emptyIconMap = path.join(root, "empty-icon-map.json");
 fs.writeFileSync(emptyIconMap, JSON.stringify({ icons: [] }, null, 2), "utf8");
 const noIconManifest = JSON.parse(fs.readFileSync(manifest, "utf8"));
 noIconManifest.pageName = "NoIconPage";
 noIconManifest.pageTarget = "NoIconPage";
-noIconManifest.pageLangName = "NoIconPageTitle";
+  noIconManifest.pageLangName = "NoIconPagePageTitle";
 noIconManifest.viewPath = "UI/F2-Teach/View/NoIconPageView.xaml";
 noIconManifest.codeBehindPath = "UI/F2-Teach/View/NoIconPageView.xaml.cs";
 noIconManifest.viewModelPath = "UI/F2-Teach/ViewModel/NoIconPageViewModel.cs";
@@ -198,7 +204,7 @@ assert.doesNotMatch(
 const auditCollision = JSON.parse(JSON.stringify(noIconManifest));
 auditCollision.pageName = "AuditCollision";
 auditCollision.pageTarget = "AuditCollision";
-auditCollision.pageLangName = "AuditCollisionTitle";
+  auditCollision.pageLangName = "AuditCollisionPageTitle";
 auditCollision.viewPath = "UI/F2-Teach/View/AuditCollisionView.xaml";
 auditCollision.codeBehindPath = "UI/F2-Teach/View/AuditCollisionView.xaml.cs";
 auditCollision.viewModelPath = "UI/F2-Teach/ViewModel/AuditCollisionViewModel.cs";
@@ -530,5 +536,19 @@ assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text
   "动态值必须自动进入 noLangRefs 并记录原因");
 assert.ok(autoAudit.languages.derivation.buttonFamilyKeys.some((item) => item.text === "+5"),
   "按钮族数值文案必须产键并在审计里记录原因");
+
+// 显式关闭多语言：必须给出 reason，审计记录 languageDisabled，且不生成字典、不挂 LangName。
+const langOffManifest = langManifestFor("LangOff", { disabled: true, reason: "该页确认不做多语言" });
+const langOffPath = path.join(root, "lang-off.json");
+fs.writeFileSync(langOffPath, JSON.stringify(langOffManifest, null, 2), "utf8");
+result = spawnSync(process.execPath, [script, "--manifest", langOffPath], { encoding: "utf8" });
+assert.strictEqual(result.status, 0, result.stderr);
+const langOffDir = path.join(project, "Resources", "Pages", "LangOff");
+assert.deepStrictEqual(fs.readdirSync(langOffDir).sort(), ["LangOffIcons.xaml", "LangOffPage.xml"]);
+assert.doesNotMatch(fs.readFileSync(path.join(langOffDir, "LangOffPage.xml"), "utf8"), /LangName="/);
+const langOffAudit = JSON.parse(fs.readFileSync(path.join(project, "Generated/LangOff.bundle.manifest.json"), "utf8"));
+assert.strictEqual(langOffAudit.languages, null);
+assert.strictEqual(langOffAudit.languageDisabled, true);
+assert.match(langOffAudit.languageDisabledReason, /确认不做多语言/);
 
 console.log("PASS MasterGo page bundle regression test");

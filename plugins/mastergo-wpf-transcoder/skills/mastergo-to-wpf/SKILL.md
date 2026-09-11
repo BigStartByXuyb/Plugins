@@ -117,7 +117,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 
 ## 页面多语言文件（当前 MTSLG 路线）
 
-每个页面一套语言字典，落在该页自己的目录：`Resources/Pages/{name}/{name}_{LOCALE}.xaml`（默认 `CN`、`EN`，与页面 XML、页面 Icon 同目录）。由 `gen-mtslg-page-lang.js` 发射，Bundle 通过 manifest 的 `languages` 字段驱动；**新建页面必须开启语言键自动派生**（见下节），未提供 `languages` 时 Bundle 不生成字典、不启用引用门禁，并在审计 `languageWarning` 中明确记录“页面不会挂 LangName”，不得当作已完成多语言的页面交付。
+每个页面一套语言字典，落在该页自己的目录：`Resources/Pages/{name}/{name}_{LOCALE}.xaml`（默认 `CN`、`EN`，与页面 XML、页面 Icon 同目录）。由 `gen-mtslg-page-lang.js` 发射，Bundle 通过 manifest 的 `languages` 字段驱动；**多语言是默认能力，不是可选项**：manifest 未提供 `languages` 时 Bundle 自动按 `languages.auto=true` + CN/EN 生成字典、派生语言键并强制 `LangName` 引用闭环（审计记 `languagesDefaulted=true`）；只有显式声明 `languages=false` 或 `languages:{disabled:true, reason:"…"}` 才会关闭，关闭原因写入审计 `languageDisabled`/`languageDisabledReason`，不得在未声明原因的情况下生成没有 LangName 的页面。
 
 ```json
 "languages": {

@@ -117,6 +117,24 @@ const BUTTON_FAMILY_CONTROL_TYPES = new Set(BUTTON_FAMILY_RULES.controlTypes);
 const BUTTON_ALWAYS_ATTRS = BUTTON_FAMILY_RULES.alwaysWrittenAttrs;
 const BUTTON_ICON_SIZE_ATTRS = BUTTON_FAMILY_RULES.iconSizeAttrs;
 const REQUIRED_ATTRS_BY_CONTROL_TYPE = loadControlTypeRequiredAttrs(templateMapPath);
+// 必写字段的默认值（映射无来源时使用）；未登记的字段写空字符串。
+const DEFAULT_ATTRS_BY_CONTROL_TYPE = loadControlTypeAttrDefaults(templateMapPath);
+
+function loadControlTypeAttrDefaults(mapPath) {
+  const fallback = { Border: { Value: '1' } };
+  if (!mapPath) return fallback;
+  let templateMap;
+  try { templateMap = JSON.parse(fs.readFileSync(mapPath, 'utf8')); }
+  catch (error) { throw new Error('读取模板表失败: ' + mapPath + ' - ' + error.message); }
+  const spec = templateMap.controlTypeAttrDefaults;
+  if (!spec || typeof spec !== 'object') return fallback;
+  const result = {};
+  for (const [type, attrs] of Object.entries(spec)) {
+    if (type.startsWith('_')) continue;
+    if (attrs && typeof attrs === 'object' && !Array.isArray(attrs)) result[type] = attrs;
+  }
+  return Object.keys(result).length ? result : fallback;
+}
 
 function loadControlTypeRequiredAttrs(mapPath) {
   if (!mapPath) return DEFAULT_CONTROL_TYPE_REQUIRED_ATTRS;
@@ -214,10 +232,13 @@ function applyRequiredAttrs(node, attrMap) {
   const type = node.controlType || (node.attrs && node.attrs.ControlType);
   const required = REQUIRED_ATTRS_BY_CONTROL_TYPE[type];
   if (!Array.isArray(required)) return;
+  const defaults = DEFAULT_ATTRS_BY_CONTROL_TYPE[type] || {};
   for (const key of required) {
     // LangName 例外：只有多语言绑定层给出真实 key 时才挂，动态值等豁免节点不写空占位。
     if (key === 'LangName') continue;
-    if (attrMap[key] === undefined || attrMap[key] === null) attrMap[key] = '';
+    if (attrMap[key] === undefined || attrMap[key] === null) {
+      attrMap[key] = Object.prototype.hasOwnProperty.call(defaults, key) ? String(defaults[key]) : '';
+    }
   }
 }
 

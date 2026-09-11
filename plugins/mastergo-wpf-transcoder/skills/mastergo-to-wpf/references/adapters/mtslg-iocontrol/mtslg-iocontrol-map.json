@@ -57,6 +57,10 @@
     "DataGrid": ["Value", "IOName", "IOEnable", "IOVisible"],
     "Camera": ["DesignPanelID", "Value", "IOName"]
   },
+  "controlTypeAttrDefaults": {
+    "_note": "必写字段在映射没有来源时使用的默认值；未在此登记的字段一律写空字符串。Border 的 Value 是线宽，设计侧模板约定默认 1。",
+    "Border": { "Value": "1" }
+  },
   "geometryAttrs": [
     "Left",
     "Top",

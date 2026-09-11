@@ -854,9 +854,24 @@ function main() {
   const manifestFile = path.resolve(args.manifestPath);
   const manifestDir = path.dirname(manifestFile);
   const manifest = normalizePageManifest(readJson(manifestFile));
-  // 多语言是可选能力：只在 manifest 提供 languages 时生成 CN/EN 字典并强制 LangName 引用闭环。
+  // 多语言是**默认能力**，不是可选项：
+  //   - manifest 未提供 languages → 默认按 languages.auto=true + CN/EN 生成字典并强制 LangName 闭环；
+  //   - 只有显式声明 languages=false 或 languages.disabled=true 才关闭，且必须给出 reason，
+  //     关闭原因写入审计（languageDisabled/languageDisabledReason），避免"忘了写"被当成"成功"。
   // languages.auto=true 时，LanguageKey 在读到 resolved mapping 后由 DSL 机械派生，
   // 不再要求调用方逐条登记键；显式提供的 keys 仍然优先。
+  const langDisabled = manifest.languages === false ||
+    (Boolean(manifest.languages) && typeof manifest.languages === "object" && !Array.isArray(manifest.languages)
+      && manifest.languages.disabled === true);
+  const langDisabledReason = langDisabled
+    ? String((manifest.languages && manifest.languages.reason) || manifest.languageDisabledReason
+      || "manifest 显式声明不生成语言字典").trim()
+    : null;
+  const langDefaulted = !langDisabled && (manifest.languages === undefined || manifest.languages === null);
+  if (langDefaulted) {
+    manifest.languages = { auto: true, locales: ["CN", "EN"], bindByText: true, requireLangName: true };
+  }
+  if (langDisabled) manifest.languages = null;
   const autoLang = Boolean(manifest.languages) && typeof manifest.languages === "object"
     && !Array.isArray(manifest.languages) && manifest.languages.auto === true;
   let langSpec = null;
@@ -1125,11 +1140,16 @@ function main() {
         bindings: langBindings,
         derivation: autoLangReport
       } : null,
-      // 多语言是可选项，但“静默跳过”会让页面变成没有 LangName 的空壳：
-      // 未提供 languages 时明确记录原因，便于交付时发现。
+      // 多语言默认开启（manifest 未写 languages 时自动按 auto + CN/EN 生成）；
+      // 只有显式 disabled 才会没有字典，且必须记录原因，避免“忘了写”被当成成功。
+      languagesDefaulted: langDefaulted,
+      languageDisabled: langDisabled,
+      languageDisabledReason: langDisabledReason,
       languageWarning: langSpec
         ? null
-        : "manifest 未提供 languages：本次未生成语言字典，页面不会挂 LangName（多语言页面请设置 languages.auto=true）",
+        : (langDisabled
+          ? null
+          : "manifest 未提供 languages：本次未生成语言字典，页面不会挂 LangName（多语言默认开启，请检查 languages 是否被显式关闭）"),
       excludedInstances: excludeInstances,
       layout: {
         status: manifest.layoutStatus,
@@ -1155,9 +1175,14 @@ function main() {
         pendingTranslations: autoLangReport ? autoLangReport.pendingTranslations.length : 0,
         autoNoLangRefs: autoLangReport ? autoLangReport.autoNoLangRefs.length : 0
       } : null,
+      languagesDefaulted: langDefaulted,
+      languageDisabled: langDisabled,
+      languageDisabledReason: langDisabledReason,
       languageWarning: langSpec
         ? null
-        : "manifest 未提供 languages：本次未生成语言字典，页面不会挂 LangName（多语言页面请设置 languages.auto=true）",
+        : (langDisabled
+          ? null
+          : "manifest 未提供 languages：本次未生成语言字典，页面不会挂 LangName（多语言默认开启，请检查 languages 是否被显式关闭）"),
       generated: bundleGeneratedPaths(bundleInfo),
       backups
     }, null, 2));

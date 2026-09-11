@@ -195,7 +195,7 @@ const REQUIRED_BY_TYPE = {
   CAM_1: ['DesignPanelID=""', 'Value=""', 'IOName=""'],
   GRD_1: ['Value=""', 'IOName=""', 'IOEnable=""', 'IOVisible=""'],
   BOX_1: ['Style=""', 'Header=""', 'IOEnable=""', 'IOVisible=""'],
-  BDR_1: ['Style=""', 'Value=""', 'IOEnable=""', 'IOVisible=""']
+  BDR_1: ['Style=""', 'Value="1"', 'IOEnable=""', 'IOVisible=""']
 };
 for (const [id, expected] of Object.entries(REQUIRED_BY_TYPE)) {
   const tag = tagOf(typedXml, id);
