@@ -24,6 +24,9 @@
  * 逐条列出原因：纯数字、符号、正负步进标签（+5 / -1 / ±0.5）、百分比、版本号、序列号、
  * IP、日期时间、功能键 F1 —— 即“不含中文且不含英文字母”的文本。
  * 例外：Layout 的 MenuItem 必须挂 LangName，所以菜单名仍会派生 key（命名也优先用 Icon 资源名）。
+ *      按钮族（IconButton / Button / StatusButton）带文案的节点同样必须挂 LangName，
+ *      因此数值/符号按钮（+5 / -1）也产键，结果记入报告 buttonFamilyKeys；
+ *      按钮族清单可用 --button-control-types 覆盖（默认 IconButton,Button,StatusButton）。
  *
  * 【英文文案】取值优先级：
  *   1. 目标项目已登记字典里同 key 的英文（工程已确认，优先）
@@ -290,6 +293,13 @@ function deriveLangSpec(options) {
   const usedTranslations = new Set();
   const catalog = opts.keyCatalog instanceof Map ? opts.keyCatalog : new Map();
   const refNames = buildRefNameIndex(opts.dsl);
+  // 按钮族：带文案的按钮一律挂 LangName（SKILL 语言规则），数值/符号按钮也不例外，
+  // 因此这一类节点不参与 isDynamicText 的自动豁免。
+  const buttonControlTypes = new Set(
+    Array.isArray(opts.buttonControlTypes) && opts.buttonControlTypes.length
+      ? opts.buttonControlTypes.map(String)
+      : ["IconButton", "Button", "StatusButton"]
+  );
 
   const usedKeys = new Set();
   const sharedByKey = new Map();
@@ -305,6 +315,7 @@ function deriveLangSpec(options) {
     },
     provisionalKeys: [],
     pendingTranslations: [],
+    buttonFamilyKeys: [],
     translatedFromCatalog: 0,
     translatedFromInput: 0,
     sharedKeys: [],
@@ -482,10 +493,21 @@ function deriveLangSpec(options) {
       : (typeof node.ref === "string" ? node.ref : "");
     if (!text || !ref) continue;
     const dynamic = isDynamicText(text);
-    if (dynamic.dynamic) {
+    const isButtonFamilyNode = buttonControlTypes.has(String(node.controlType || ""));
+    if (dynamic.dynamic && !isButtonFamilyNode) {
       if (noLangRefs.indexOf(ref) === -1) noLangRefs.push(ref);
       report.autoNoLangRefs.push({ sourceRef: ref, text, reason: dynamic.reason });
       continue;
+    }
+    if (dynamic.dynamic && isButtonFamilyNode) {
+      // 按钮族例外：带文案的 IconButton / Button / StatusButton 一律产键挂 LangName，
+      // 数值/符号文案（+5 / -1 / 9.0%）在 CN 与 EN 里写法一致，但仍按运行时约定发键。
+      report.buttonFamilyKeys.push({
+        sourceRef: ref,
+        text,
+        controlType: node.controlType,
+        reason: "按钮族带文案一律挂 LangName（数值/符号按钮也产键）：" + dynamic.reason
+      });
     }
 
     // 3.1 目标项目已登记 key：同一文案只命中一个 key 时直接复用（scope=shared）。
@@ -613,6 +635,7 @@ function parseArgs(argv) {
     else if (flag === "--glossary") args.glossary = argv[++i];
     else if (flag === "--title-text") args.titleText = argv[++i];
     else if (flag === "--locales") args.locales = argv[++i];
+    else if (flag === "--button-control-types") args.buttonControlTypes = String(argv[++i] || "").split(/[,\s]+/).filter(Boolean);
     else if (flag === "--out") args.out = argv[++i];
     else if (flag === "--report") args.report = argv[++i];
     else fail("未知参数: " + flag);
@@ -656,7 +679,8 @@ function main() {
     glossary,
     translations,
     titleText,
-    locales: localesFrom(args.locales)
+    locales: localesFrom(args.locales),
+    buttonControlTypes: args.buttonControlTypes
   });
   fs.mkdirSync(path.dirname(path.resolve(args.out)), { recursive: true });
   fs.writeFileSync(args.out, JSON.stringify(derived.languages, null, 2) + "\n", "utf8");

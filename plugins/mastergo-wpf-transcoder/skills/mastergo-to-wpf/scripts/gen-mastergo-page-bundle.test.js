@@ -495,20 +495,24 @@ assert.match(autoEn, /<sys:String x:Key="LangAutoPageTitle">Operation Group<\/sy
 assert.match(autoEn, /<sys:String x:Key="MenuItemAction">Operation<\/sys:String>/,
   "菜单项必须使用 translations 里的真实英文");
 assert.match(autoCn, /<sys:String x:Key="LangAutoPageTitle">/, "页面标题键必须机械生成");
-assert.doesNotMatch(autoCn, /LangAutoPlus5/,
-  "数字/符号文案（+5）中英文一致，不生成语言键");
+assert.match(autoCn, /<sys:String x:Key="LangAutoText\d+">\+5<\/sys:String>/,
+  "按钮族数值文案（+5）必须产键（CN/EN 文案一致）");
 assert.match(autoCn, /<sys:String x:Key="CommonDir">Dir<\/sys:String>/,
   "必须复用目标项目已登记的语言键");
 const autoXml = fs.readFileSync(path.join(autoDir, "LangAutoPage.xml"), "utf8");
 const autoBlocks = autoXml.split("<IOContorl").slice(1).filter((block) => /Value="/.test(block));
 assert.ok(autoBlocks.length >= 5, "自动产键示例页应包含多个带文案的控件");
 const autoBlocksWithoutLang = autoBlocks.filter((block) => !/LangName="/.test(block));
-assert.ok(autoBlocksWithoutLang.length >= 4, "步骤按钮等数字/符号文案不挂 LangName");
+assert.ok(autoBlocksWithoutLang.length >= 1, "动态值节点（如 9.0%）仍不挂 LangName");
 autoBlocksWithoutLang.forEach((block) => {
   const value = /Value="([^"]*)"/.exec(block)[1];
   assert.ok(!/[\u4e00-\u9fa5]/.test(value),
     "没有 LangName 的必须是中英文一致的数字/符号文本，实际: " + value);
+  assert.ok(!/ControlType="(IconButton|Button|StatusButton)"/.test(block),
+    "按钮族带文案一律挂 LangName，实际未挂: " + value);
 });
+const plus5Block = autoXml.split("<IOContorl").slice(1).find((block) => /Value="\+5"/.test(block));
+assert.match(plus5Block, /LangName="/, "按钮族数值文案（+5）必须挂 LangName");
 assert.match(autoXml, /LangName="CommonDir"/, "复用已登记键的节点必须挂上该 key");
 const autoLangLayout = fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), "utf8");
 assert.match(autoLangLayout, /<Page Target="LangAuto" LangName="LangAutoPageTitle">/);
@@ -524,7 +528,7 @@ assert.strictEqual(autoAudit.languages.derivation.pendingTranslations.length, 0,
   "该页中文文案已全部给出译文，不应再有待翻译项");
 assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text === "9.0%"),
   "动态值必须自动进入 noLangRefs 并记录原因");
-assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text === "+5"),
-  "数字/符号文案必须自动进入 noLangRefs");
+assert.ok(autoAudit.languages.derivation.buttonFamilyKeys.some((item) => item.text === "+5"),
+  "按钮族数值文案必须产键并在审计里记录原因");
 
 console.log("PASS MasterGo page bundle regression test");

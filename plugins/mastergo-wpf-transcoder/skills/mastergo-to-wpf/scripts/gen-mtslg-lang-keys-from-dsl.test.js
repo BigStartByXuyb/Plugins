@@ -152,11 +152,11 @@ assert.ok(!languages.keys.some((entry) => entry.menuIndex === 3), "空名称菜�
 // 3) 内容节点：Icon 派生、ASCII 派生、兜底临时键；数字/符号类不产键。
 assert.strictEqual(keyByRef.get("p/btn-auto"), "DemoRecipeAutoOperation");
 assert.strictEqual(keyByRef.get("p/tb-aux"), "DemoRecipeAUX");
-assert.strictEqual(keyByRef.get("p/tb-unknown"), "DemoRecipeText01", "无可用语义源时用稳定的临时键");
+assert.strictEqual(keyByRef.get("p/tb-unknown"), "DemoRecipeText03", "无可用语义源时用稳定的临时键");
 assert.ok(!keys.has("p/cam"), "非 dsl.text 节点不产键");
 assert.strictEqual(keys.get("DemoRecipeAutoOperation").text.EN, "Full Auto Operation",
   "内容节点译文来自 translations");
-assert.strictEqual(keys.get("DemoRecipeText01").text.EN, "Workpiece Edge Teaching",
+assert.strictEqual(keys.get("DemoRecipeText03").text.EN, "Workpiece Edge Teaching",
   "临时键同样必须有真实译文");
 
 // 4) 目标项目已登记 key：内容节点复用（scope=shared），MenuItem 命名空间不得被内容节点借用。
@@ -180,12 +180,23 @@ assert.ok(report.duplicateKeys.some((item) => item.key === "DemoRecipeDeviceMain
 
 // 7) 不需要翻译的文本：全部进 noLangRefs 并带原因，绝不编造语言键。
 //    数字与符号在 CN/EN 里写法一致，同样不生成语言键。
-for (const ref of ["p/tb-sn", "p/tb-ver2", "p/tb-model", "p/tb-pct", "p/tb-hotkey", "p/btn-plus5", "p/btn-minus5"]) {
+for (const ref of ["p/tb-sn", "p/tb-ver2", "p/tb-model", "p/tb-pct", "p/tb-hotkey"]) {
   assert.ok(languages.noLangRefs.includes(ref), ref + " 必须进入 noLangRefs");
   assert.ok(!keyByRef.has(ref), ref + " 不得生成语言键");
   assert.ok(report.autoNoLangRefs.some((item) => item.sourceRef === ref && item.reason),
     ref + " 必须在报告里给出豁免原因");
 }
+
+// 7.1) 按钮族例外：带文案的 IconButton / Button / StatusButton 一律挂 LangName，
+//      数值 / 符号按钮（+5、-5）也产键，不受“中英文一致文本不编造键”的豁免影响。
+for (const ref of ["p/btn-plus5", "p/btn-minus5"]) {
+  assert.ok(!languages.noLangRefs.includes(ref), ref + " 作为按钮族文案不得进入 noLangRefs");
+  assert.ok(keyByRef.has(ref), ref + "（按钮族带文案）必须生成语言键");
+  const entry = keys.get(keyByRef.get(ref));
+  assert.strictEqual(entry.text.EN, entry.text.CN, "数值按钮文案在 CN/EN 里写法一致");
+}
+assert.ok(report.buttonFamilyKeys.some((item) => item.sourceRef === "p/btn-plus5"),
+  "报告里必须记录按钮族数值键及其原因");
 
 // 8) 语言文件里的文案不允许缺语言；没有译文来源的必须标记待翻译。
 for (const entry of languages.keys) {
