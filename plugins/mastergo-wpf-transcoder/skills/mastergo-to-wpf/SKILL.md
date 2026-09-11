@@ -28,6 +28,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 4. 如果当前会话没有可调用的 `getDsl`，只检查已配置的官方 MasterGo MCP 服务（包括 `@mastergo/magic-mcp`）是否暴露该接口；仍不可调用时停止本次转换并报告原因。
 5. 如果一次性 `getDsl` 返回错误，停止本次转换并报告原因；不得改用其他设计数据接口、浏览器或截图继续生成。
 6. `extractSvg` 只能作为一次 `getDsl` 成功后的独立图标资源解析步骤，用于生成页面 Icon；它不得读取、替代或补充页面结构。页面生成必须继续走本 Skill 的单响应 DSL capture 和适配器 Bundle 流程。
+7. **调用方式固定（防止整页 DSL 进入上下文）**：必须通过 `scripts/call-mastergo-mcp.js` 调用 `getDsl`、`extractSvg` 及其他 MasterGo MCP 工具，响应**只落盘**（约定 `<runDir>/getDsl.json`、`<runDir>/extractSvg.json`），脚本 stdout 只保留一行摘要（工具名、路径、字节数）。**禁止**把整页 DSL/SVG 原文放进模型上下文、回复正文或日志；引用设计数据时只允许给条数、字节数、哈希等摘要信息。在会话里直接调用 MCP 工具导致整页 DSL 进入上下文，视为违反本门禁。
 
 先判断交付目标：
 
