@@ -175,6 +175,9 @@ assert.ok(bundleAudit.languages.keyCount >= 1, "默认多语言必须派生出�
 assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPagePage.xml"), "utf8"), /LangName="/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Pages/F2NewPage/F2NewPage_CN.xaml"), "utf8"), /F2NewPagePageTitle/);
 assert.match(fs.readFileSync(path.join(project, "Resources/Layout/Layout.xml"), "utf8"), /<Page Target="F2NewPage" LangName="F2NewPagePageTitle">/);
+// 译文/术语表是页面级产物：本场景没有提供译文与术语表输入，因此不应凭空生成这两个文件。
+assert.ok(!fs.existsSync(path.join(project, "Generated/F2NewPage.lang-translations.json")));
+assert.ok(!fs.existsSync(path.join(project, "Generated/F2NewPage.lang-glossary.json")));
 
 const emptyIconMap = path.join(root, "empty-icon-map.json");
 fs.writeFileSync(emptyIconMap, JSON.stringify({ icons: [] }, null, 2), "utf8");
@@ -536,6 +539,10 @@ assert.ok(autoAudit.languages.derivation.autoNoLangRefs.some((item) => item.text
   "动态值必须自动进入 noLangRefs 并记录原因");
 assert.ok(autoAudit.languages.derivation.buttonFamilyKeys.some((item) => item.text === "+5"),
   "按钮族数值文案必须产键并在审计里记录原因");
+// 译文清单必须作为本页产物落盘（不是插件里固定的共享文件）。
+const autoTranslationAudit = path.join(project, "Generated/LangAuto.lang-translations.json");
+assert.ok(fs.existsSync(autoTranslationAudit), "译文清单必须随本页生成落盘");
+assert.deepStrictEqual(JSON.parse(fs.readFileSync(autoTranslationAudit, "utf8")), autoManifest.languages.translations);
 
 // 显式关闭多语言：必须给出 reason，审计记录 languageDisabled，且不生成字典、不挂 LangName。
 const langOffManifest = langManifestFor("LangOff", { disabled: true, reason: "该页确认不做多语言" });

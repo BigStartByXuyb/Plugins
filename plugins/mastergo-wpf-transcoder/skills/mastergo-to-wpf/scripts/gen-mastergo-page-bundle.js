@@ -819,6 +819,8 @@ function bundleGeneratedPaths(info) {
     info.csprojPath
   ];
   if (info.scaffold) files.push(info.frameworkConfigPath);
+  if (info.langTranslationAudit) files.push(info.langTranslationAudit);
+  if (info.langGlossaryAudit) files.push(info.langGlossaryAudit);
   // 语言文件在清单里本来就是项目相对路径，不能再过 projectRelative（否则按 CWD 解析出错路径）。
   return files.map(function (filePath) {
     return projectRelative(info.projectRoot, filePath);
@@ -893,6 +895,10 @@ function main() {
   const existingMode = ["modify-existing", "replace-existing"].includes(manifest.operation);
   const scaffoldInfo = ensureScaffold(manifest);
   const projectRoot = scaffoldInfo.projectRoot;
+  // 译文清单与术语表属于**本页生成产物**（每次生成来自当前页面的输入），不是插件固定资产：
+  // 生成时同步落到该页审计目录 Generated/<Page>.lang-translations.json / .lang-glossary.json。
+  const langTranslationsInput = resolveLangTranslations(manifestDir, projectRoot, manifest);
+  const langGlossaryInput = resolveLangGlossary(manifestDir, projectRoot, manifest);
   const csprojPath = resolvePath(projectRoot, manifest.csproj, "csproj");
   if (!fs.existsSync(csprojPath)) fail("csproj 不存在: " + csprojPath);
   const csprojText = fs.readFileSync(csprojPath, "utf8");
@@ -947,6 +953,12 @@ function main() {
   const iconMapAudit = path.join(generatedDir, manifest.pageName + ".icon-map.json");
   const bundleAudit = path.join(generatedDir, manifest.pageName + ".bundle.manifest.json");
   const auditTargets = [mappingAudit, iconMapAudit, bundleAudit];
+  const langTranslationAudit = Object.keys(langTranslationsInput).length
+    ? path.join(generatedDir, manifest.pageName + ".lang-translations.json") : null;
+  const langGlossaryAudit = Object.keys(langGlossaryInput).length
+    ? path.join(generatedDir, manifest.pageName + ".lang-glossary.json") : null;
+  if (langTranslationAudit) auditTargets.push(langTranslationAudit);
+  if (langGlossaryAudit) auditTargets.push(langGlossaryAudit);
   const blocked = outputTargets.concat(langTargets).concat(auditTargets).filter(fs.existsSync);
   if (!args.overwrite && blocked.length) {
     fail("目标文件已存在，未覆盖: " + blocked.join(", ") + "；请停止并确认是否修改已有页面");
@@ -1083,6 +1095,17 @@ function main() {
     fs.mkdirSync(generatedDir, { recursive: true });
     copyOutput(tempMapping, mappingAudit, args.overwrite, created, backups);
     copyOutput(tempIconMap, iconMapAudit, args.overwrite, created, backups);
+    // 页面级多语言输入产物：本页的译文清单与术语表随生成一起落盘（便于逐页复核/回滚）。
+    if (langTranslationAudit) {
+      const tempTranslations = path.join(tempRoot, "lang-translations.json");
+      fs.writeFileSync(tempTranslations, JSON.stringify(langTranslationsInput, null, 2) + "\n", "utf8");
+      copyOutput(tempTranslations, langTranslationAudit, args.overwrite, created, backups);
+    }
+    if (langGlossaryAudit) {
+      const tempGlossary = path.join(tempRoot, "lang-glossary.json");
+      fs.writeFileSync(tempGlossary, JSON.stringify(langGlossaryInput, null, 2) + "\n", "utf8");
+      copyOutput(tempGlossary, langGlossaryAudit, args.overwrite, created, backups);
+    }
 
     validateBundleOutputs({
       projectRoot,
@@ -1118,7 +1141,9 @@ function main() {
       mappingAudit,
       iconMapAudit,
       bundleAudit,
-      langPaths
+      langPaths,
+      langTranslationAudit,
+      langGlossaryAudit
     };
     writeAuditOutput(bundleAudit, JSON.stringify({
       adapter: "mtslg-iocontrol",

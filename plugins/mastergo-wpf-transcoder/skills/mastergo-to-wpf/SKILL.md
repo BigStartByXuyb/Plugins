@@ -160,6 +160,7 @@ description: 当前将明确要求的 MasterGo 设计稿转换为 MTSLG IOContor
 自动派生结果的交付要求：
 
 - **英文文案由 AI 翻译产出，并以 `languages.translations` 显式落盘**：AI 读取派生出清单里的中文 CN 文案，逐条给出英文译文，写成 `{ "中文文案": "English Text" }`（内联对象或 JSON 文件路径都可）。脚本不做翻译、也不调用机翻服务，只机械套用这份清单，保证译文可追溯、可复核、可回滚。
+- **译文清单与术语表是「页面级生成产物」，不是插件固定资产**：每次生成按当前页面的 DSL/mapping 产出，并由 Bundle 同步落盘到该页审计目录 `Generated/{页面名}.lang-translations.json` 与 `Generated/{页面名}.lang-glossary.json`（未提供对应输入时不生成）。禁止把它们做成跨页面共享的固定文件；不同页面的译文与术语各自独立、可逐页复核与回滚。
 - 英文取值优先级：**目标项目已登记字典同 key 的英文（工程已确认）> `translations` 译文 > 中文占位**。前两者命中数分别记在 `languages.derivation.translatedFromCatalog` 与 `translatedFromInput`。
 - 确实没能翻译的条目会保留中文占位并逐条记入 `languages.derivation.pendingTranslations`；交付说明必须单列这份“待翻译清单”，不得把中文占位当已完成翻译交付。
 - 数字、符号、编号等中英文一致的文本已在第 5 条豁免，不出现在待翻译清单里。
