@@ -275,6 +275,7 @@ function renderViewModel(config) {
   const ns = config.rootNamespace + "." + config.namespaceArea + ".ViewModel";
   return [
     "using MaxWell.UIDesign;",
+    "using MaxwellFramework.Core.Events;",
     "using MaxwellFramework.Core.Interfaces;",
     "using MaxwellFramework.Core.Layout;",
     "using System.Windows;", "",
@@ -283,8 +284,19 @@ function renderViewModel(config) {
     "        public PageDesign pageDesign { get; set; }", "",
     "        public " + config.viewModelName + "()", "        {",
     "            Name = \"" + config.pageName + "\";", "        }", "",
+    "        protected override void OnViewLoaded()", "        {",
+    "            base.OnViewLoaded();", "        }", "",
     "        public void PageDesign_Loaded(object sender, RoutedEventArgs e)", "        {",
-    "            pageDesign = sender as PageDesign;", "        }", "    }", "}", ""
+    "            pageDesign = sender as PageDesign;", "        }", "",
+    "        /// <summary>", "        /// 按钮配置", "        /// </summary>",
+    "        /// <param name=\"message\"></param>",
+    "        public override void HandleButtonEvent(ButtonEvent message)", "        {",
+    "            if (message.IsMouseDown)", "            {",
+    "                switch (message.ButtonName)", "                {",
+    "                }", "            }", "        }", "",
+    "        /// <summary>", "        /// 确认按钮", "        /// </summary>",
+    "        public void OKCmd()", "        {",
+    "            pageDesign.SaveXml();", "        }", "    }", "}", ""
   ].join("\n");
 }
 

@@ -43,6 +43,17 @@ assert.match(view, /XmlPagePath="F2NewOperationPage"/);
 assert.match(fs.readFileSync(codeBehindPath, 'utf8'), /partial class F2NewOperationView : UserControl/);
 assert.match(fs.readFileSync(viewModelPath, 'utf8'), /class F2NewOperationViewModel : IOScreen, IPage/);
 assert.match(fs.readFileSync(viewModelPath, 'utf8'), /Name = "F2NewOperation"/);
+// 页面 ViewModel 固定方法集（与目标工程真实页面一致）：
+//   OnViewLoaded / PageDesign_Loaded / HandleButtonEvent / OKCmd
+const generatedViewModel = fs.readFileSync(viewModelPath, 'utf8');
+assert.match(generatedViewModel, /using MaxwellFramework\.Core\.Events;/, '必须导入 ButtonEvent 所在命名空间');
+assert.match(generatedViewModel, /public PageDesign pageDesign \{ get; set; \}/);
+assert.match(generatedViewModel, /protected override void OnViewLoaded\(\)\s*\{\s*base\.OnViewLoaded\(\);\s*\}/);
+assert.match(generatedViewModel, /public void PageDesign_Loaded\(object sender, RoutedEventArgs e\)/);
+assert.match(generatedViewModel, /public override void HandleButtonEvent\(ButtonEvent message\)/);
+assert.match(generatedViewModel, /if \(message\.IsMouseDown\)/);
+assert.match(generatedViewModel, /switch \(message\.ButtonName\)/);
+assert.match(generatedViewModel, /public void OKCmd\(\)\s*\{\s*pageDesign\.SaveXml\(\);\s*\}/);
 
 let csproj = fs.readFileSync(csprojPath, 'utf8');
 assert.match(csproj, /<Compile Include="UI\\F2-Teach\\View\\F2NewOperationView\.xaml\.cs"\s*\/>/);

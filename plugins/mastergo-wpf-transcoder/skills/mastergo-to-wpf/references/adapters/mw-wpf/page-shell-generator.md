@@ -25,6 +25,41 @@ scripts/gen-mw-wpf-page.js 用一个页面清单生成独立页面的固定 WPF 
 
 viewName、viewModelName、xmlPageName、rootNamespace 可选；缺省分别按页面名加 View、ViewModel、Page 推导，命名空间优先读取 .csproj 的 RootNamespace。若清单提供 `viewPath`、`codeBehindPath`、`viewModelPath`，脚本严格使用这些路径；否则优先从 `.csproj` 已有的同区域 `UI/<区域>/View` 声明推导，再检查项目目录，最后才使用 `Pages/` 通用兜底。
 
+## 生成的 ViewModel 固定成员
+
+`UI/<区域>/ViewModel/<Page>ViewModel.cs` 按目标工程真实页面（例如 `HomeContentViewModel`）的固定形状发射，除构造函数与 `pageDesign` 外恒含以下成员，缺一不可：
+
+```csharp
+using MaxWell.UIDesign;
+using MaxwellFramework.Core.Events;      // ButtonEvent 所在命名空间
+using MaxwellFramework.Core.Interfaces;
+using MaxwellFramework.Core.Layout;
+using System.Windows;
+
+public class <Page>ViewModel : IOScreen, IPage
+{
+    public PageDesign pageDesign { get; set; }
+
+    public <Page>ViewModel() { Name = "<Page>"; }
+
+    protected override void OnViewLoaded() { base.OnViewLoaded(); }
+
+    public void PageDesign_Loaded(object sender, RoutedEventArgs e) { pageDesign = sender as PageDesign; }
+
+    public override void HandleButtonEvent(ButtonEvent message)   // 按钮事件入口
+    {
+        if (message.IsMouseDown)
+        {
+            switch (message.ButtonName) { }
+        }
+    }
+
+    public void OKCmd() { pageDesign.SaveXml(); }                  // 确认按钮
+}
+```
+
+依据（框架事实，不可猜测）：`ButtonEvent` = `MaxwellFramework.Core.Events.ButtonEvent`；`IOScreen` 上 `OnViewLoaded` 为 `protected virtual`、`HandleButtonEvent(ButtonEvent)` 为 `public virtual`，因此这两个成员必须用 `override`。`OKCmd` 为页面确认按钮命令，如某页确认无此按钮，可在生成后由工程师删除。
+
 ## 执行
 
     node scripts/gen-mw-wpf-page.js --manifest .\page.json
