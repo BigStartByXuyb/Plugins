@@ -52,12 +52,12 @@ public class <Page>ViewModel : IOScreen, IPage
         {
             switch (message.ButtonName)
             {
-                case "新建示教":                                  // 本页底部 Layout Menu 的每个 MenuItem
-                    // TODO: 新建示教 按钮处理
-                    break;
-                case "对焦":
-                    // TODO: 对焦 按钮处理
-                    break;
+                    case "新建示教":                              // 本页底部 Layout Menu 的每个 MenuItem
+                        // TODO: 新建示教 按钮处理
+                        break;
+                    case "对焦":
+                        // TODO: 对焦 按钮处理
+                        break;
             }
         }
     }
@@ -74,6 +74,7 @@ public class <Page>ViewModel : IOScreen, IPage
 
 - 来源：清单里的 `menuItems`（Bundle 传的就是本页 Layout Menu 的 MenuItem 列表），取每项 `name`；也可用 `buttonNames: ["…"]` 直接给出。
 - 规则：按菜单顺序生成；重复名称只生成一次；**空名称的菜单项不生成 case**（Layout 里 `Name=""` 的占位项没有可用按钮名）。
+- 缩进：`case` 相对 `switch` 的 `{` 再缩进一层（4 空格），`case` 体（TODO 注释与 `break;`）再缩进一层。
 - 生成器不推断按钮语义，也不写业务逻辑。
 
 ## 执行

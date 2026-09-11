@@ -64,6 +64,9 @@ assert.match(generatedViewModel, /public void OKCmd\(\)\s*\{\s*pageDesign\.SaveX
 assert.match(generatedViewModel, /case "新建示教":/);
 assert.match(generatedViewModel, /case "对焦":/);
 assert.ok(!/case "":/.test(generatedViewModel), '空名称菜单项不得生成 case');
+// 缩进：switch 的 { 在 16 空格，case 必须在 20 空格（比 { 再进一层），case 体 24 空格。
+assert.match(generatedViewModel, /\n {16}\{\n {20}case "新建示教":\n {24}\/\/ TODO: 新建示教 按钮处理\n {24}break;/,
+  'case 必须相对 switch 的 { 再缩进一层，case 体再缩进一层');
 
 let csproj = fs.readFileSync(csprojPath, 'utf8');
 assert.match(csproj, /<Compile Include="UI\\F2-Teach\\View\\F2NewOperationView\.xaml\.cs"\s*\/>/);

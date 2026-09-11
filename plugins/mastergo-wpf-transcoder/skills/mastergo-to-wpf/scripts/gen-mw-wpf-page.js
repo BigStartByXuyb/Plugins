@@ -278,9 +278,10 @@ function renderViewModel(config) {
   // 逐个生成 case 骨架供工程师填业务；空名称按钮不生成 case。
   const caseLines = [];
   (config.buttonNames || []).forEach(function (name) {
-    caseLines.push("                case \"" + csString(name) + "\":");
-    caseLines.push("                    // TODO: " + name + " 按钮处理");
-    caseLines.push("                    break;");
+    // case 相对 switch 的 { 再缩进一层（4 空格），case 体再缩进一层。
+    caseLines.push("                    case \"" + csString(name) + "\":");
+    caseLines.push("                        // TODO: " + name + " 按钮处理");
+    caseLines.push("                        break;");
   });
   const head = [
     "using MaxWell.UIDesign;",
